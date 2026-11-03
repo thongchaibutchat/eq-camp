@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eqcamp.local/schema.json",
+  "title": "EQ Camp data contract (snapshot)",
+  "description": "รูปแบบข้อมูลกลางที่ใช้แลกเปลี่ยนระหว่างเครื่องมือ/เอเจนต์ AI ทุกตัว (ไฟล์ที่ปุ่ม 'ส่งออก JSON' สร้าง) ทั้ง Claude และ ChatGPT ต้องอ่าน/เขียนตามนี้",
+  "type": "object",
+  "required": ["_app", "_v", "camp"],
+  "properties": {
+    "_app": { "const": "EQ Camp Generator" },
+    "_v": { "type": "integer", "description": "เวอร์ชันสัญญาข้อมูล; เพิ่มเมื่อโครงสร้างเปลี่ยน" },
+    "savedAt": { "type": "string", "format": "date-time" },
+    "brief": { "type": "string", "description": "ข้อความบรีฟต้นทาง (ถ้ามี)" },
+    "customVenues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "province": { "type": "string" },
+          "visit": { "type": "string", "description": "แหล่งทัศนศึกษาใกล้เคียง" },
+          "note": { "type": "string", "description": "ผู้ติดต่อ/เรต (ภายใน)" }
+        }
+      }
+    },
+    "camp": {
+      "type": "object",
+      "required": ["docCode", "subject", "school", "days", "nights", "specialPrice", "activityIds"],
+      "properties": {
+        "docCode": { "type": "string", "pattern": "^PL\\s*\\d+/\\d+$", "description": "รหัสเอกสาร PL xxxx/2569" },
+        "subject": { "enum": ["math", "steam", "english", "ai"], "description": "วิชา — กำหนดชื่อหลักสูตร วัตถุประสงค์ และชุดกิจกรรม" },
+        "school": { "type": "string" },
+        "level": { "type": "string", "description": "ระดับชั้น เช่น ม.1-2" },
+        "students": { "type": "integer", "minimum": 0 },
+        "teachers": { "type": "integer", "minimum": 0 },
+        "days": { "type": "integer", "minimum": 1, "maximum": 7 },
+        "nights": { "type": "integer", "minimum": 0 },
+        "dates": { "type": "string" },
+        "province": { "type": "string" },
+        "venue": { "type": "string" },
+        "venueVisit": { "type": "string", "description": "แหล่งทัศนศึกษา; ว่าง = ไม่มีช่วงทัศนศึกษาในกำหนดการ" },
+        "startTime": { "type": "string", "description": "เวลาออกเดินทาง เช่น 06.30" },
+        "travelHours": { "type": "number", "minimum": 0 },
+        "normalPrice": { "type": "number", "minimum": 0 },
+        "specialPrice": { "type": "number", "minimum": 0 },
+        "costPerPerson": { "type": "number", "minimum": 0, "description": "ต้นทุน/ท่าน (ภายใน เท่านั้น)" },
+        "contactName": { "type": "string" },
+        "supplierNote": { "type": "string", "description": "บันทึกซัพพลายเออร์ (ภายใน เท่านั้น)" },
+        "validDays": { "type": "integer" },
+        "payTerms": { "type": "string" },
+        "activityIds": { "type": "array", "items": { "type": "string" }, "description": "id ของกิจกรรมที่เลือก (ทั้งจากคลังมาตรฐานและ extraActivities)" },
+        "extraActivities": {
+          "type": "array",
+          "description": "กิจกรรมที่ผู้ใช้เพิ่มเอง",
+          "items": {
+            "type": "object",
+            "required": ["id", "subjects", "kind", "title"],
+            "properties": {
+              "id": { "type": "string", "description": "ขึ้นต้น cust- สำหรับกิจกรรมที่เพิ่มเอง" },
+              "subjects": { "type": "array", "items": { "enum": ["math", "steam", "english", "ai"] } },
+              "kind": { "enum": ["opening", "core", "night", "recreation", "closing"] },
+              "title": { "type": "string" },
+              "desc": { "type": "string" }
+            }
+          }
+        },
+        "actImgs": { "$ref": "#/$defs/imageArray" },
+        "venueImgs": { "$ref": "#/$defs/imageArray" }
+      }
+    }
+  },
+  "$defs": {
+    "imageArray": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["caption"],
+        "properties": {
+          "caption": { "type": "string" },
+          "data": { "type": "string", "description": "รูปภาพแบบ base64 (ไม่มี prefix) — ละไว้ได้ถ้าไม่มีรูป" }
+        }
+      }
+    }
+  }
+}

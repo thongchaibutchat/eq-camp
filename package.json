@@ -1,0 +1,21 @@
+{
+  "name": "eq-camp",
+  "version": "1.0.0",
+  "description": "EQ Camp — ระบบสร้างเอกสารกระบวนการขายค่ายวิชาการเป็นไฟล์ Word (program / quotation / hotel request / internal run-sheet)",
+  "type": "module",
+  "scripts": {
+    "build": "bash build.sh",
+    "validate": "ajv validate -s schema.json -d \"samples/*.export.json\" --spec=draft2020 || true"
+  },
+  "dependencies": {
+    "docx": "8.5.0",
+    "buffer": "^6.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.21.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "lucide-react": "^0.400.0",
+    "typescript": "^5.4.0"
+  }
+}

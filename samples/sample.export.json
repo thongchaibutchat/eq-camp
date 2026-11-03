@@ -1,0 +1,43 @@
+{
+  "_app": "EQ Camp Generator",
+  "_v": 1,
+  "savedAt": "2026-11-03T01:29:19.978Z",
+  "camp": {
+    "docCode": "PL 0109/2569",
+    "subject": "math",
+    "school": "โรงเรียนอำนาจเจริญ",
+    "level": "ม.1-2",
+    "students": 72,
+    "teachers": 6,
+    "days": 3,
+    "nights": 2,
+    "dates": "วันที่ 18 – 20 พฤศจิกายน 2569",
+    "province": "เลย",
+    "venue": "โรงแรมเชียงคานฮิลล์รีสอร์ท",
+    "venueVisit": "ถนนวัฒนธรรมเชียงคาน / ชมวิวทะเลหมอก ณ ภูทอก อำเภอเชียงคาน จังหวัดเลย",
+    "startTime": "06.30",
+    "travelHours": 7,
+    "normalPrice": 4590,
+    "specialPrice": 3290,
+    "costPerPerson": 2150,
+    "contactName": "ฝ่ายขาย EQ Camp",
+    "supplierNote": "เรตที่พักเชียงคานฮิลล์รีสอร์ท + อาหาร 6 มื้อ + เบรค 2 มื้อ + ทีมวิทยากร 6 ท่าน",
+    "validDays": 30,
+    "payTerms": "ชำระตามเงื่อนไขที่ตกลงกับโรงเรียน (ปรับแก้ตามนโยบายบริษัท)",
+    "activityIds": [
+      "m-brain",
+      "m-code",
+      "m-cls",
+      "m-station",
+      "m-creative",
+      "m-mini",
+      "x-boost",
+      "x-next"
+    ],
+    "actImgs": [],
+    "venueImgs": [],
+    "extraActivities": []
+  },
+  "customVenues": [],
+  "brief": ""
+}
