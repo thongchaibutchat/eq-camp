@@ -6,12 +6,14 @@ import {
 /* ===================== TYPES ===================== */
 export type Subject = 'math' | 'steam' | 'english' | 'ai';
 export type DocKind = 'program' | 'quotation' | 'booking' | 'runsheet';
+// รูปแบบระยะเวลา: half = ครึ่งวัน, day = ไป-กลับเต็มวัน, overnight = พักค้าง
+export type DurationMode = 'half' | 'day' | 'overnight';
 export interface Img { data?: Uint8Array; caption: string }
 export interface Row { time: string; title: string; sub?: string[] }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; school: string; level: string;
-  students: number; teachers: number; days: number; nights: number;
+  students: number; teachers: number; days: number; nights: number; durationMode: DurationMode;
   dates: string; province: string; venue: string; venueVisit: string; startTime: string; travelHours: number;
   normalPrice: number; specialPrice: number; costPerPerson: number;
   contactName: string; supplierNote: string; validDays: number; payTerms: string;
@@ -108,25 +110,71 @@ export const DOC_TYPES: { id: DocKind; label: string; stage: string; desc: strin
 export const PRESETS: { id: string; label: string; camp: Partial<Camp> }[] = [
   { id: 'pl0109', label: 'PL 0109/2569 — Math Camp ร.ร.อำนาจเจริญ 3 วัน 2 คืน', camp: {
     docCode: 'PL 0109/2569', subject: 'math', school: 'โรงเรียนอำนาจเจริญ', level: 'ม.1-2', students: 72, teachers: 6, days: 3, nights: 2,
-    dates: 'วันที่ 18 – 20 พฤศจิกายน 2569', province: 'เลย', venue: VENUES[0].name, venueVisit: VENUES[0].visit, startTime: '06.30', travelHours: 7,
+    dates: 'วันที่ 18 – 20 พฤศจิกายน 2569', durationMode: 'overnight', province: 'เลย', venue: VENUES[0].name, venueVisit: VENUES[0].visit, startTime: '06.30', travelHours: 7,
     normalPrice: 4590, specialPrice: 3290, costPerPerson: 2150,
     supplierNote: 'เรตที่พักเชียงคานฮิลล์รีสอร์ท + อาหาร 6 มื้อ + เบรค 2 มื้อ + ทีมวิทยากร 6 ท่าน',
     activityIds: ['m-brain', 'm-code', 'm-cls', 'm-station', 'm-creative', 'm-mini', 'x-boost', 'x-next'] } },
   { id: 'pl0110', label: 'PL 0110/2569 — STEAM Camp ร.ร.สาธิตเทศบาล 2 วัน 1 คืน', camp: {
     docCode: 'PL 0110/2569', subject: 'steam', school: 'โรงเรียนสาธิตเทศบาล', level: 'ม.1-3', students: 120, teachers: 8, days: 2, nights: 1,
-    dates: 'วันที่ 14 – 15 พฤศจิกายน 2569', province: 'ระยอง', venue: VENUES[1].name, venueVisit: VENUES[1].visit, startTime: '07.00', travelHours: 3.5,
+    dates: 'วันที่ 14 – 15 พฤศจิกายน 2569', durationMode: 'overnight', province: 'ระยอง', venue: VENUES[1].name, venueVisit: VENUES[1].visit, startTime: '07.00', travelHours: 3.5,
     normalPrice: 3290, specialPrice: 2450, costPerPerson: 1680,
     supplierNote: 'ติดต่อคุณทราย Golden City โทร 088-6171446 | รถบัสพันแสนแทรเวล โทร 089-6663414',
     activityIds: ['s-station', 's-chem', 's-rocket', 's-night', 'x-next'] } }
 ];
 export const blankCamp = (): Camp => ({
   docCode: 'PL 0000/2569', subject: 'math', school: 'โรงเรียน...', level: 'ม.1-2', students: 50, teachers: 5, days: 2, nights: 1,
-  dates: 'วันที่ ... พฤศจิกายน 2569', province: VENUES[0].province, venue: VENUES[0].name, venueVisit: VENUES[0].visit, startTime: '07.00', travelHours: 3,
+  dates: 'วันที่ ... พฤศจิกายน 2569', durationMode: 'overnight', province: VENUES[0].province, venue: VENUES[0].name, venueVisit: VENUES[0].visit, startTime: '07.00', travelHours: 3,
   normalPrice: 3290, specialPrice: 2490, costPerPerson: 1700, contactName: 'ฝ่ายขาย EQ Camp', supplierNote: '',
   validDays: 30, payTerms: 'ชำระตามเงื่อนไขที่ตกลงกับโรงเรียน (ปรับแก้ตามนโยบายบริษัท)',
   activityIds: [], actImgs: [], venueImgs: [], extraActivities: []
 });
 export const fromPreset = (id: string): Camp => ({ ...blankCamp(), ...PRESETS.find(p => p.id === id)!.camp, actImgs: [], venueImgs: [], extraActivities: [] });
+
+// ---- ระยะเวลา: รองรับเลขอารบิก/เลขไทย/คำไทย/ครึ่งวัน/ไป-กลับ ----
+const TH_DIGITS = '๐๑๒๓๔๕๖๗๘๙';
+const toArabic = (s: string) => s.replace(/[๐-๙]/g, d => String(TH_DIGITS.indexOf(d)));
+const WORDNUM: Record<string, number> = { 'หนึ่ง': 1, 'สอง': 2, 'สาม': 3, 'สี่': 4, 'ห้า': 5, 'หก': 6, 'เจ็ด': 7, 'แปด': 8 };
+const NUMPAT = '\\d+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด';
+const toNum = (s?: string): number | null => { if (!s) return null; if (/^\d+$/.test(s)) return +s; return WORDNUM[s] ?? null; };
+
+export interface DurationParse { mode: DurationMode; days: number; nights: number; resolved: boolean; ambiguous: boolean; note?: string; session?: 'morning' | 'afternoon' }
+export function parseDuration(textRaw: string): DurationParse {
+  const text = toArabic(textRaw);
+  if (/ครึ่ง\s*วัน|half[-\s]?day/i.test(text)) {
+    const session = /บ่าย|afternoon/i.test(text) ? 'afternoon' : 'morning';
+    return { mode: 'half', days: 1, nights: 0, resolved: true, ambiguous: false, session };
+  }
+  const dm = text.match(new RegExp(`(${NUMPAT})\\s*วัน`));
+  const nm = text.match(new RegExp(`(${NUMPAT})\\s*คืน`));
+  const days = toNum(dm?.[1]); const nights = toNum(nm?.[1]);
+  const dayTrip = /ไป\s*-?\s*กลับ|ไปกลับ|เช้า\s*-?\s*เย็น|วันเดย์|day\s*camp|one[-\s]?day/i.test(text);
+  if (nights !== null && nights > 0) {
+    const d = days ?? nights + 1;
+    return { mode: 'overnight', days: Math.max(2, d), nights, resolved: true, ambiguous: false };
+  }
+  if (days !== null) {
+    if (days <= 1 || dayTrip) return { mode: 'day', days: Math.max(1, days), nights: 0, resolved: true, ambiguous: false };
+    return { mode: 'overnight', days, nights: days - 1, resolved: true, ambiguous: true, note: `บรีฟระบุ ${days} วัน แต่ไม่ได้บอกจำนวนคืน — ระบบตั้งเป็น ${days - 1} คืน (พักค้าง) โปรดยืนยัน` };
+  }
+  if (dayTrip) return { mode: 'day', days: 1, nights: 0, resolved: true, ambiguous: false };
+  return { mode: 'overnight', days: 2, nights: 1, resolved: false, ambiguous: false };
+}
+// ทำให้ days/nights สอดคล้องกับ durationMode เสมอ
+export function normalizeDuration(c: Camp): Camp {
+  const out = { ...c };
+  if (out.durationMode === 'half') { out.days = 1; out.nights = 0; }
+  else if (out.durationMode === 'day') { out.days = Math.max(1, out.days || 1); out.nights = 0; }
+  else { out.days = Math.max(2, out.days || 2); out.nights = out.nights > 0 ? out.nights : out.days - 1; }
+  return out;
+}
+// เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
+export function migrateCamp(raw: any): Camp {
+  const out: Camp = { ...blankCamp(), ...raw, extraActivities: raw?.extraActivities || [] };
+  if (out.durationMode !== 'half' && out.durationMode !== 'day' && out.durationMode !== 'overnight') {
+    out.durationMode = Number(out.nights) > 0 ? 'overnight' : (Number(out.days) <= 1 ? 'day' : 'overnight');
+  }
+  return normalizeDuration(out);
+}
 
 /* ===================== BRIEF PARSER ===================== */
 export function parseBrief(t: string, base: Camp): Camp {
@@ -139,8 +187,8 @@ export function parseBrief(t: string, base: Camp): Camp {
   if ((m = t.match(/(?:นักเรียน\S*\s*)?จำนวน\s*([\d,]+)\s*คน/))) c.students = num(m[1]);
   if ((m = t.match(/ครู\S*\s*([\d,]+)\s*(?:คน|ท่าน)/))) c.teachers = num(m[1]);
   if ((m = t.match(/วันที่\s*\d+[^ณ\n]*?(?:25\d\d|26\d\d)/))) c.dates = m[0].trim();
-  if ((m = t.match(/(\d)\s*วัน\s*(\d)\s*คืน/))) { c.days = +m[1]; c.nights = +m[2]; }
-  else if (/1\s*วัน/.test(t)) { c.days = 1; c.nights = 0; }
+  const dur = parseDuration(t);
+  if (dur.resolved) { c.durationMode = dur.mode; c.days = dur.days; c.nights = dur.nights; }
   if ((m = t.match(/ราคาปกติ\s*([\d,]+)/))) c.normalPrice = num(m[1]);
   if ((m = t.match(/(?:ลดเหลือเพียง|ลดเหลือ|ราคาพิเศษ)\s*([\d,]+)/))) c.specialPrice = num(m[1]);
   // ---- สถานที่/โรงแรม: ดึงจากข้อความ "ณ ..." ก่อน รองรับชื่อที่ไม่อยู่ในคลัง ----
@@ -181,7 +229,7 @@ const ANCH: Record<string, number> = { breakfast: 450, lunch: 720, dinner: 1080 
 const FIX: Record<string, number> = { snack: 15, trip: 90, checkin: 45, register: 30, arrive: 30, opening: 60, summary: 30, night: 60, aar: 45, award: 30, checkout: 60, recreation: 30, closing: 30 };
 export const staffText = (n: number) => `${Math.max(2, Math.ceil(n / 18))} – ${Math.max(3, Math.ceil(n / 12))}`;
 
-export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean }
+export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[] }
 export function subjectPool(c: Camp): Activity[] {
   return [...LIB.filter(a => a.subjects.includes(c.subject)), ...c.extraActivities.filter(a => a.subjects.includes(c.subject))];
 }
@@ -195,20 +243,31 @@ export function buildSchedule(c: Camp): Plan {
   const fillCores = (selCores.length ? [...selCores, ...poolCores.filter(a => !selCores.includes(a))] : poolCores);
   const cores = fillCores;
   const meals = { b: 0, l: 0, d: 0, s: 0 }; let mealNo = 0, coreIdx = 0, coreSlots = 0, hasTrip = false;
-  const act = (a?: Activity): Row['sub'] => (a?.desc ? [a.desc] : []);
+  const used: string[] = [];
+  const act = (a?: Activity): Row['sub'] => { if (a?.id) used.push(a.id); return a?.desc ? [a.desc] : []; };
   const days: Day[] = [];
   const startMin = Math.round(parseInt(c.startTime.split(/[.:]/)[0]) * 60 + parseInt(c.startTime.split(/[.:]/)[1] || '0'));
   for (let d = 1; d <= c.days; d++) {
-    const first = d === 1, last = d === c.days, one = c.days === 1;
+    const first = d === 1, last = d === c.days;
     const lateStart = startMin + c.travelHours * 60 + 120 >= 11 * 60;
-    const T: string[] = one
-      ? (lateStart
-        ? ['depart', 'arrive', 'register', 'opening', 'lunch', 'core', 'snack', 'core', 'aar', 'award', 'return']
-        : ['depart', 'arrive', 'register', 'opening', 'core', 'snack', 'core', 'lunch', 'core', 'snack', 'aar', 'award', 'return'])
-      : first ? ['depart', 'arrive', 'lunch?', 'register', 'opening', 'core', 'snack', 'trip', 'checkin', 'dinner', 'night', 'rest']
-      : last ? ['breakfast', 'checkout', 'recreation', 'closing', 'aar', 'award', 'lunch', 'return']
-      : ['breakfast', 'core', 'snack', 'core', 'lunch', 'core', 'snack', 'core', 'summary', 'free', 'dinner', 'night', 'rest'];
-    let cur = (first || one) ? startMin : 0;
+    let T: string[];
+    if (c.durationMode === 'half') {
+      // ครึ่งวัน: ช่วงสั้น ไม่มีมื้อหลัก/ไม่พักค้าง จบด้วย AAR + พิธีปิด
+      T = ['depart', 'arrive', 'register', 'opening', 'core', 'snack', 'core', 'aar', 'award', 'return'];
+    } else if (c.durationMode === 'day') {
+      // ไป-กลับเต็มวัน (รองรับหลายวันแบบไม่พักค้าง: เดินทางไป-กลับทุกวัน)
+      T = ['depart', 'arrive'];
+      if (first) T.push('register', 'opening');
+      T.push('core', 'snack', 'lunch', 'core');
+      T.push(last ? 'aar' : 'summary', ...(last ? ['award'] : []), 'return');
+    } else {
+      // พักค้าง (overnight)
+      T = first ? ['depart', 'arrive', 'lunch?', 'register', 'opening', 'core', 'snack', 'trip', 'checkin', 'dinner', 'night', 'rest']
+        : last ? ['breakfast', 'checkout', 'recreation', 'closing', 'aar', 'award', 'lunch', 'return']
+        : ['breakfast', 'core', 'snack', 'core', 'lunch', 'core', 'snack', 'core', 'summary', 'free', 'dinner', 'night', 'rest'];
+      if (first && lateStart) T = ['depart', 'arrive', 'lunch', 'register', 'opening', 'core', 'snack', 'checkin', 'dinner', 'night', 'rest'];
+    }
+    let cur = (first || c.durationMode !== 'overnight') ? startMin : 0;
     const items: Row[] = [];
     T.forEach((tk, i) => {
       const rest = T.slice(i + 1);
@@ -254,13 +313,17 @@ export function buildSchedule(c: Camp): Plan {
     });
     days.push({ day: d, items });
   }
-  return { days, meals, coreSlots, hasTrip };
+  return { days, meals, coreSlots, hasTrip, usedActivityIds: used };
 }
 
 /* ===================== SENTENCE COMPOSER ===================== */
 export function compose(c: Camp, plan: Plan) {
   const S = SUBJECTS[c.subject];
-  const sel = subjectPool(c).filter(a => c.activityIds.includes(a.id));
+  const pool = subjectPool(c);
+  // ใช้กิจกรรมที่ "จัดจริงในตาราง" (ไม่ซ้ำ) เพื่อให้รายละเอียดตรงกับกำหนดการ; สำรองเป็นที่เลือกไว้
+  const seen = new Set<string>(); const usedSel: Activity[] = [];
+  for (const id of (plan.usedActivityIds || [])) { if (!seen.has(id)) { seen.add(id); const a = pool.find(x => x.id === id); if (a) usedSel.push(a); } }
+  const sel = usedSel.length ? usedSel : pool.filter(a => c.activityIds.includes(a.id));
   const objectives = [
     `เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้าน${S.field}`,
     `เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็น${S.careers}`,
@@ -285,7 +348,9 @@ export function compose(c: Camp, plan: Plan) {
   return {
     titleTh: `หลักสูตร “${S.titleTh}”`, titleEn: `( ${S.en} )`, objectives, acts, integ, budget, staff,
     p1: `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`, p2: `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน`,
-    dur: c.nights > 0 ? `${c.days} วัน ${c.nights} คืน` : `${c.days} วัน (ไป-กลับ)`
+    dur: c.durationMode === 'half' ? 'ครึ่งวัน (ไป-กลับ)'
+      : c.durationMode === 'day' ? `${c.days} วัน (ไป-กลับ)`
+      : `${c.days} วัน ${c.nights} คืน`
   };
 }
 
@@ -294,14 +359,23 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
   const pool = subjectPool(c);
   const coreAvail = pool.filter(a => a.kind === 'core').length;
   const unique = coreAvail >= plan.coreSlots; // มีกิจกรรมหลักพอให้ทุกช่องไม่ซ้ำ
-  const noGap = plan.days.every(d => d.items.every(r => !r.title.includes('ระบุกิจกรรมเพิ่ม') && !/^กิจกรรมฐานการเรียนรู้เชิงบูรณาการ$/.test(r.title)));
+  const allItems = plan.days.flatMap(d => d.items);
+  const noGap = allItems.length > 0 && allItems.every(r => !r.title.includes('ระบุกิจกรรมเพิ่ม') && !/^กิจกรรมฐานการเรียนรู้เชิงบูรณาการ$/.test(r.title));
+  // รายการพักค้าง (เช็คอิน/อาหารเย็น/พักผ่อนฝันดี) ต้องไม่โผล่ในค่ายไป-กลับ/ครึ่งวัน
+  const overnightWords = /เช็คอิน|อาหารเย็น|พักผ่อนฝันดี|อาหารเช้า/;
+  const noStrayOvernight = c.durationMode === 'overnight' || !allItems.some(r => overnightWords.test(r.title));
+  const durOK = c.durationMode === 'overnight' ? c.nights > 0 : c.nights === 0;
+  const hasAAR = allItems.some(r => /AAR/.test(r.title));
   return [
     { ok: /^PL\s*\d+\/\d+$/.test(c.docCode.trim()), msg: 'รหัสเอกสารรูปแบบ PL xxxx/2569' },
     { ok: !!c.school && !c.school.includes('...'), msg: 'ระบุชื่อโรงเรียนแล้ว' },
-    { ok: !c.dates.includes('...'), msg: 'ระบุวันที่จัดค่ายแล้ว' },
+    { ok: !!c.dates.trim() && !c.dates.includes('...'), msg: 'ระบุวันที่จัดค่ายแล้ว' },
     { ok: c.students > 0 && c.specialPrice > 0, msg: 'จำนวนคนและราคาพิเศษถูกต้อง' },
     { ok: c.specialPrice <= c.normalPrice, msg: 'ราคาพิเศษไม่เกินราคาปกติ' },
     { ok: c.specialPrice > c.costPerPerson, msg: 'ราคาขายสูงกว่าต้นทุน/ท่าน' },
+    { ok: durOK, msg: c.durationMode === 'overnight' ? `พักค้าง ${c.nights} คืน (สอดคล้องกับรูปแบบค่าย)` : `ค่าย${c.durationMode === 'half' ? 'ครึ่งวัน' : 'ไป-กลับ'} — ไม่มีการพักค้าง` },
+    { ok: noStrayOvernight, msg: 'กำหนดการสอดคล้องรูปแบบ (ไม่มีรายการพักค้างในค่ายไป-กลับ)' },
+    { ok: hasAAR, msg: 'มีกิจกรรมถอดบทเรียน (AAR)' },
     { ok: noGap, msg: 'ทุกช่วงเวลามีกิจกรรมจริง (ไม่มีช่องว่าง)' },
     { ok: unique, soft: true, msg: unique ? `กิจกรรมหลักพอทุกช่องไม่ซ้ำ (ใช้ ${plan.coreSlots} ช่อง · คลังมี ${coreAvail})` : `ค่ายยาว ใช้ ${plan.coreSlots} ช่อง แต่คลังมี ${coreAvail} — ระบบวนใช้ซ้ำแบบติดป้าย “(ต่อยอด)” หรือเพิ่มกิจกรรมเองในแท็บ 3` }
   ];
@@ -399,7 +473,14 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       P(`เรียน  ฝ่ายขาย/ฝ่ายจัดเลี้ยง ${c.venue}`, { b: true }), P(`ด้วยบริษัท อีคิวแคมป์ มีความประสงค์จัด${k.titleTh.replace(/^หลักสูตร\s*/, '')} ให้แก่${c.school} จึงขอความอนุเคราะห์เสนอราคาและตรวจสอบความพร้อมตามรายละเอียดดังนี้`, { indent: 1 }),
       infoRows([['วันที่เข้าพัก', [c.dates]], ['ระยะเวลา', [k.dur]], ['จำนวนผู้เข้าพัก', [`นักเรียน ${c.students} คน ครู ${c.teachers} คน ทีมวิทยากร ${k.staff} คน (รวมผู้เข้าร่วมประมาณ ${ppl} คน)`]],
         ['เวลาถึงโดยประมาณ', [plan.days[0].items.find(r => r.title.startsWith('เดินทางถึง'))?.time || '-']]]),
-      H('รายการที่ขอเสนอราคา'), ...numbered([c.nights > 0 ? `ห้องพัก ${c.nights} คืน (ระบุประเภทห้องและจำนวนเตียง/ห้อง)` : 'ไม่ต้องการห้องพัก (ไป-กลับ)', `อาหารหลัก ${m.b + m.l + m.d} มื้อ (เช้า ${m.b} กลางวัน ${m.l} เย็น ${m.d})`, `อาหารว่าง ${m.s} มื้อ`, 'ห้องประชุมสัมมนาจุได้ไม่น้อยกว่าจำนวนผู้เข้าร่วม พร้อมเครื่องเสียง โปรเจกเตอร์ และพื้นที่ทำกิจกรรมกลุ่ม', 'ห้องพักวิทยากรและพื้นที่เก็บอุปกรณ์กิจกรรม']),
+      H('รายการที่ขอเสนอราคา'), ...numbered([
+        c.nights > 0 ? `ห้องพัก ${c.nights} คืน (ระบุประเภทห้องและจำนวนเตียง/ห้อง)` : 'ไม่ต้องการห้องพัก (ค่ายไป-กลับ)',
+        `อาหารหลัก ${m.b + m.l + m.d} มื้อ (เช้า ${m.b} กลางวัน ${m.l} เย็น ${m.d})`,
+        `อาหารว่าง ${m.s} มื้อ`,
+        'ห้องประชุมสัมมนาจุได้ไม่น้อยกว่าจำนวนผู้เข้าร่วม พร้อมเครื่องเสียง โปรเจกเตอร์ และพื้นที่ทำกิจกรรมกลุ่ม',
+        ...(c.nights > 0 ? ['ห้องพักวิทยากร'] : []),
+        'พื้นที่เก็บอุปกรณ์กิจกรรม'
+      ]),
       supplier ? P(`ข้อมูลประสานงานเดิมในระบบ: ${supplier}`, { sz: 14, color: '64748B' }) : P('', { after: 0 }),
       H('รายละเอียดกำหนดการสำหรับห้องประชุมและมื้ออาหาร'), ...plan.days.flatMap(d => [P(`วันที่ ${d.day}`, { b: true, after: 0 }), ...d.items.filter(r => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title)).map(r => P(`${r.time}  ${r.title}`, { sz: 14, indent: 1, after: 0 }))]),
       P('จึงเรียนมาเพื่อโปรดพิจารณาและตอบกลับ ขอขอบคุณอย่างสูง', { before: 8, indent: 1 }), P('', { after: 6 }), tbl([new TableRow({ children: [cell([P('')], W / 2), sign('ผู้ประสานงาน EQ Camp', c.contactName)] })], [W / 2, W / 2])];

@@ -5,9 +5,9 @@ import {
   CheckCircle2, AlertTriangle, Lock, BookOpen, Layers, ChevronRight, Wand2, Eye
 } from 'lucide-react';
 import {
-  Camp, DocKind, Img, Subject, Activity, Kind, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs
-} from '../src/eqcamp-core';
+  Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs
+} from './eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
   program: FileText, quotation: Calculator, booking: BookOpen, runsheet: Lock
@@ -29,8 +29,8 @@ const snapshot = (camp: Camp, venues: VenueRec[], brief: string, withImages: boo
 const loadLS = (): any | null => { try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : null; } catch { return null; } };
 const saveLS = (obj: any) => { try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); return true; } catch { return false; } };
 const rehydrate = (snap: any): { camp: Camp; venues: VenueRec[]; brief?: string } => {
-  const base = blankCamp();
-  const camp: Camp = { ...base, ...snap.camp, actImgs: imgsIn(snap.camp?.actImgs), venueImgs: imgsIn(snap.camp?.venueImgs),
+  // migrate ข้อมูลรุ่นเก่า (เติม durationMode) แล้วคืนภาพกลับเป็น Uint8Array
+  const camp: Camp = { ...migrateCamp(snap.camp || {}), actImgs: imgsIn(snap.camp?.actImgs), venueImgs: imgsIn(snap.camp?.venueImgs),
     extraActivities: (snap.camp?.extraActivities || []) as Activity[] };
   return { camp, venues: (snap.customVenues || []) as VenueRec[], brief: snap.brief };
 };
@@ -63,20 +63,25 @@ export default function App() {
   const set = (patch: Partial<Camp>) => setCamp(c => ({ ...c, ...patch }));
   const flash = (t: string, ok = true) => { setBanner({ t, ok }); window.clearTimeout((flash as any)._t); (flash as any)._t = window.setTimeout(() => setBanner(null), 4200); };
 
-  const applyBrief = () => {
+  // mode: 'new' = เริ่มจากค่าว่าง (กันข้อมูลงานเก่าปน), 'update' = แก้งานปัจจุบัน
+  const applyBrief = (mode: 'new' | 'update') => {
+    const dur = parseDuration(brief);
     setCamp(c => {
-      const next = parseBrief(brief, c);
-      // เติมช่องภาพตามบรีฟอัตโนมัติ เฉพาะเมื่อยังไม่มีภาพ (ไม่ทับรูปที่อัปโหลดไว้)
+      const base = mode === 'new' ? blankCamp() : c;
+      const next = parseBrief(brief, base);
       if (!next.actImgs.length && !next.venueImgs.length) { const f = autoImages(next); next.actImgs = f.act; next.venueImgs = f.ven; }
       return next;
     });
-    flash('แปลงบรีฟเข้าสู่แบบฟอร์มเรียบร้อย + เตรียมช่องภาพตามบรีฟให้แล้ว (กด "ค้นรูป" ในแท็บ 6 เพื่อหาภาพจริง)');
+    if (!dur.resolved) flash('แปลงบรีฟแล้ว ⚠ แต่อ่าน "ระยะเวลา" จากบรีฟไม่ออก — โปรดเลือกระยะเวลาเองในแท็บ 2 (ยังไม่ได้เปลี่ยนจากค่าเดิม)', false);
+    else if (dur.ambiguous) flash('แปลงบรีฟแล้ว ⚠ ' + (dur.note || 'ระบุจำนวนวันแต่ไม่บอกจำนวนคืน โปรดยืนยันในแท็บ 2'), false);
+    else flash(`แปลงบรีฟเรียบร้อย (${mode === 'new' ? 'งานใหม่' : 'อัปเดตงานปัจจุบัน'}) · ระยะเวลา: ${dur.mode === 'half' ? 'ครึ่งวัน' : dur.mode === 'day' ? `${dur.days} วัน ไป-กลับ` : `${dur.days} วัน ${dur.nights} คืน`} + เตรียมช่องภาพให้แล้ว`);
   };
   const loadPreset = (id: string) => { setCamp(fromPreset(id)); flash(`โหลดแม่แบบ "${PRESETS.find(p => p.id === id)!.label}" แล้ว`); };
 
-  const changeDuration = (days: number, nights: number) => {
-    set({ days, nights });
-    flash(`ปรับระยะเวลาเป็น ${days} วัน ${nights} คืน — ระบบจัดกำหนดการใหม่อัตโนมัติ`);
+  const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights }));
+    const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
+    flash(`ปรับระยะเวลาเป็น ${label} — ระบบจัดกำหนดการใหม่อัตโนมัติ`);
   };
   const changeSubject = (s: Subject) => set({ subject: s, activityIds: defaultActs(s).concat(camp.extraActivities.filter(a => a.subjects.includes(s)).map(a => a.id)) });
   const toggleAct = (id: string) => set({ activityIds: camp.activityIds.includes(id) ? camp.activityIds.filter(x => x !== id) : [...camp.activityIds, id] });
@@ -131,28 +136,46 @@ export default function App() {
   };
   const resetDB = () => { if (!confirm('ล้างข้อมูลที่บันทึกไว้ทั้งหมด และเริ่มจากแม่แบบ PL 0109 ใหม่?')) return; try { localStorage.removeItem(LS_KEY); } catch {} setCamp(fromPreset('pl0109')); setCustomVenues([]); flash('ล้างและรีเซ็ตเป็นแม่แบบเริ่มต้นแล้ว'); };
 
+  const toBlob = async (doc: ReturnType<typeof buildDoc>): Promise<Blob> => {
+    const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    try { return await Packer.toBlob(doc); }
+    catch {
+      const b64 = await Packer.toBase64String(doc);
+      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new Blob([bytes], { type: MIME });
+    }
+  };
+  const anchorDownload = (blob: Blob, name: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  };
   const download = async (dk: DocKind) => {
     setBusy(true);
     try {
       const sched = buildSchedule(camp);
-      const doc = buildDoc(dk, camp, sched, compose(camp, sched));
-      const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      let blob: Blob;
-      try {
-        blob = await Packer.toBlob(doc); // standard browser path
-      } catch {
-        const b64 = await Packer.toBase64String(doc); // fallback for strict environments
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        blob = new Blob([bytes], { type: MIME });
+      const blob = await toBlob(buildDoc(dk, camp, sched, compose(camp, sched)));
+      const name = fileName(dk, camp);
+      const label = DOC_TYPES.find(d => d.id === dk)!.label;
+      // บน claude.ai artifact: การดาวน์โหลดตรงถูกบล็อก → ใช้ downloads capability
+      const cl = (window as any).claude;
+      if (cl && typeof cl.use === 'function') {
+        const downloads = await cl.use('downloads').catch(() => null);
+        if (downloads) {
+          try { await downloads.save({ filename: name, data: blob }); flash(`บันทึก "${label}" (.docx) เรียบร้อย`); }
+          catch (e: any) {
+            if (e && e.code === 'declined') flash('ยกเลิกการบันทึกไฟล์', false);
+            else { anchorDownload(blob, name); flash(`ดาวน์โหลด "${label}" (.docx) แล้ว`); }
+          }
+          setBusy(false); return;
+        }
       }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName(dk, camp); a.rel = 'noopener';
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-      flash(`ดาวน์โหลด "${DOC_TYPES.find(d => d.id === dk)!.label}" (.docx) สำเร็จ`);
+      // เปิดจากไฟล์ standalone / เบราว์เซอร์ปกติ
+      anchorDownload(blob, name);
+      flash(`ดาวน์โหลด "${label}" (.docx) สำเร็จ`);
     } catch (e) { flash('เกิดข้อผิดพลาดในการสร้างไฟล์: ' + (e as Error).message, false); }
     setBusy(false);
   };
@@ -242,7 +265,11 @@ export default function App() {
                 <div className="space-y-4">
                   <SectionTitle title="1. สร้างจากบรีฟออนไลน์ หรือเลือกแม่แบบไฟล์จริง" sub="วางข้อความบรีฟ ระบบจะดึง รหัส PL / โรงเรียน / จำนวนคน / วิชา / วัน-คืน / วันที่ / สถานที่ / ราคา เข้าแบบฟอร์มให้อัตโนมัติ" />
                   <textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-slate-300 text-xs" />
-                  <button onClick={applyBrief} className="w-full py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5"><Sparkles className="w-4 h-4" />แปลงบรีฟเข้าสู่แบบฟอร์มทันที</button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => applyBrief('new')} className="py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5"><Sparkles className="w-4 h-4" />สร้างงานใหม่จากบรีฟ</button>
+                    <button onClick={() => applyBrief('update')} className="py-2.5 rounded-xl bg-white border border-sky-700 text-sky-700 hover:bg-sky-50 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5">อัปเดตงานปัจจุบัน</button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 -mt-1">“สร้างงานใหม่” ล้างค่างานเก่าทั้งหมดก่อน (กันข้อมูลปน) · “อัปเดต” เก็บค่าที่บรีฟไม่ได้กล่าวถึงไว้</p>
                   <div className="pt-3 border-t border-slate-100 space-y-2">
                     <div className="text-xs font-bold text-slate-700">หรือเลือกแม่แบบไฟล์มาตรฐาน:</div>
                     {PRESETS.map(p => (
@@ -280,10 +307,17 @@ export default function App() {
                     <Field label="ครู (คน)"><input type="number" value={camp.teachers} onChange={e => set({ teachers: +e.target.value || 0 })} className={inp} /></Field>
                   </div>
                   <Field label="ระยะเวลา (จัดกำหนดการใหม่อัตโนมัติ)">
-                    <div className="grid grid-cols-4 gap-1.5">
-                      {[{ d: 1, n: 0, l: '1 วัน' }, { d: 2, n: 1, l: '2ว1ค' }, { d: 3, n: 2, l: '3ว2ค' }, { d: 4, n: 3, l: '4ว3ค' }].map(o => (
-                        <button key={o.l} onClick={() => changeDuration(o.d, o.n)} className={`py-2 rounded-lg text-xs font-bold border ${camp.days === o.d ? 'bg-sky-700 text-white border-sky-700' : 'bg-slate-50 border-slate-300'}`}>{o.l}</button>
-                      ))}
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {([
+                        { m: 'half' as DurationMode, d: 1, n: 0, l: 'ครึ่งวัน' },
+                        { m: 'day' as DurationMode, d: 1, n: 0, l: '1 วัน\nไป-กลับ' },
+                        { m: 'overnight' as DurationMode, d: 2, n: 1, l: '2ว1ค' },
+                        { m: 'overnight' as DurationMode, d: 3, n: 2, l: '3ว2ค' },
+                        { m: 'overnight' as DurationMode, d: 4, n: 3, l: '4ว3ค' }
+                      ]).map(o => {
+                        const on = camp.durationMode === o.m && (o.m !== 'overnight' || camp.days === o.d);
+                        return <button key={o.l} onClick={() => changeDuration(o.m, o.d, o.n)} className={`py-2 rounded-lg text-[11px] font-bold border whitespace-pre-line leading-tight ${on ? 'bg-sky-700 text-white border-sky-700' : 'bg-slate-50 border-slate-300'}`}>{o.l}</button>;
+                      })}
                     </div>
                   </Field>
                   <div className="grid grid-cols-2 gap-2.5">

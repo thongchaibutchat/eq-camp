@@ -7,7 +7,7 @@
   "required": ["_app", "_v", "camp"],
   "properties": {
     "_app": { "const": "EQ Camp Generator" },
-    "_v": { "type": "integer", "description": "เวอร์ชันสัญญาข้อมูล; เพิ่มเมื่อโครงสร้างเปลี่ยน" },
+    "_v": { "type": "integer", "description": "เวอร์ชันสัญญาข้อมูล (ปัจจุบัน 2 — เพิ่ม camp.durationMode); ข้อมูล _v=1 ไม่มี durationMode ให้ migrate โดยอนุมานจาก nights/days" },
     "savedAt": { "type": "string", "format": "date-time" },
     "brief": { "type": "string", "description": "ข้อความบรีฟต้นทาง (ถ้ามี)" },
     "customVenues": {
@@ -35,6 +35,7 @@
         "teachers": { "type": "integer", "minimum": 0 },
         "days": { "type": "integer", "minimum": 1, "maximum": 7 },
         "nights": { "type": "integer", "minimum": 0 },
+        "durationMode": { "enum": ["half", "day", "overnight"], "description": "half=ครึ่งวัน, day=ไป-กลับเต็มวัน, overnight=พักค้าง — เป็นตัวกำหนดโครงกำหนดการ (overnight → nights>0; half/day → nights=0)" },
         "dates": { "type": "string" },
         "province": { "type": "string" },
         "venue": { "type": "string" },
