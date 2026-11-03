@@ -10,12 +10,15 @@ export type { Region } from './letterheads-data';
 import { COURSES, REF_ACTIVITIES, Course } from './eqcamp-data';
 export { COURSES } from './eqcamp-data';
 export type { Course } from './eqcamp-data';
+import { COURSE_PHOTOS } from './course-photos-data';
+export { COURSE_PHOTOS } from './course-photos-data';
 export type Subject = 'math' | 'steam' | 'english' | 'ai' | 'chinese' | 'leadership';
 export type DocKind = 'program' | 'quotation' | 'booking' | 'runsheet';
 // รูปแบบระยะเวลา: half = ครึ่งวัน, day = ไป-กลับเต็มวัน, overnight = พักค้าง
 export type DurationMode = 'half' | 'day' | 'overnight';
 export interface Img { data?: Uint8Array; caption: string }
-export interface Row { time: string; title: string; sub?: string[] }
+// slot = ดัชนีช่อง "กิจกรรมหลัก" (core) ทั่วทั้งกำหนดการ (0..N-1) ใช้ผูกกับ coreSlotIds เพื่อเลือกกิจกรรมรายช่วง
+export interface Row { time: string; title: string; sub?: string[]; slot?: number }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
@@ -23,7 +26,7 @@ export interface Camp {
   dates: string; province: string; region?: Region; venue: string; venueVisit: string; startTime: string; travelHours: number;
   normalPrice: number; specialPrice: number; costPerPerson: number;
   contactName: string; supplierNote: string; validDays: number; payTerms: string;
-  activityIds: string[]; actImgs: Img[]; venueImgs: Img[];
+  activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
 }
 
@@ -108,6 +111,14 @@ export const LIB: Activity[] = [
 ];
 // หลักสูตร (ธีม) จริง 14 รายการ — ใช้เลือกคลังกิจกรรมเฉพาะธีม
 export const courseById = (code?: string): Course | undefined => COURSES.find(c => c.code === code);
+// ภาพกิจกรรมจริงของทีม (ฝังในคลัง course-photos-data) — มีเฉพาะหลักสูตรที่ทีมอัปโหลดแล้ว
+// สถานะลิขสิทธิ์เผยแพร่: รอทีมรับรอง — UI ติดธงเตือนก่อนส่งลูกค้า
+export const hasCoursePhotos = (code?: string): boolean => !!(code && COURSE_PHOTOS[code] && COURSE_PHOTOS[code].length);
+export function coursePhotos(code?: string, max = 4): Img[] {
+  if (!code || !COURSE_PHOTOS[code]) return [];
+  const name = (courseById(code)?.name || '').replace(/^ค่าย/, '');
+  return COURSE_PHOTOS[code].slice(0, max).map((p, i) => ({ data: b64bytes(p.b64), caption: `บรรยากาศกิจกรรมค่าย${name} (${i + 1})`.slice(0, 90) }));
+}
 export const VENUES = [
   { province: 'เลย', name: 'โรงแรมเชียงคานฮิลล์รีสอร์ท', visit: 'ถนนวัฒนธรรมเชียงคาน / ชมวิวทะเลหมอก ณ ภูทอก อำเภอเชียงคาน จังหวัดเลย', note: 'พร้อมห้องประชุมและสระว่ายน้ำ' },
   { province: 'ระยอง', name: 'โรงแรมโกลเด้น ซิตี้ ระยอง', visit: 'ศูนย์การเรียนรู้ด้านพลังงาน / สถานแสดงพันธุ์สัตว์น้ำระยอง', note: 'คุณทราย 088-6171446 (ห้องประชุมจุได้สูงสุด 1,800 คน)' },
@@ -144,7 +155,7 @@ export const blankCamp = (): Camp => ({
   dates: 'วันที่ ...', durationMode: 'overnight', province: '', venue: '', venueVisit: '', startTime: '07.00', travelHours: 3,
   normalPrice: 0, specialPrice: 0, costPerPerson: 0, contactName: 'ฝ่ายขาย EQ Camp', supplierNote: '',
   validDays: 30, payTerms: 'ชำระตามเงื่อนไขที่ตกลงกับโรงเรียน (ปรับแก้ตามนโยบายบริษัท)',
-  activityIds: [], actImgs: [], venueImgs: [], extraActivities: []
+  activityIds: [], coreSlotIds: [], actImgs: [], venueImgs: [], extraActivities: []
 });
 export const fromPreset = (id: string): Camp => ({ ...blankCamp(), ...PRESETS.find(p => p.id === id)!.camp, actImgs: [], venueImgs: [], extraActivities: [] });
 
@@ -229,15 +240,16 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
     applied.push('duration');
   } else { missing.push('duration'); warnings.push('อ่านระยะเวลาจากบรีฟไม่ได้ — คงค่าเดิมไว้ โปรดเลือกเองในแท็บ 2'); }
   const norm = normalizeDuration(c);
-  if (norm.courseCode && (applied.includes('course') || !norm.activityIds.length))
-    norm.activityIds = defaultCourseActs(norm.courseCode);
-  else if (!norm.courseCode && (!norm.activityIds.length || applied.includes('subject')))
-    norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter(a => a.subjects.includes(norm.subject)).map(a => a.id));
+  if (norm.courseCode && (applied.includes('course') || !norm.activityIds.length)) {
+    norm.activityIds = defaultCourseActs(norm.courseCode); norm.coreSlotIds = [];
+  } else if (!norm.courseCode && (!norm.activityIds.length || applied.includes('subject'))) {
+    norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter(a => a.subjects.includes(norm.subject)).map(a => a.id)); norm.coreSlotIds = [];
+  }
   return { camp: norm, applied, missing, warnings };
 }
 // เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
 export function migrateCamp(raw: any): Camp {
-  const out: Camp = { ...blankCamp(), ...raw, extraActivities: raw?.extraActivities || [] };
+  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], extraActivities: raw?.extraActivities || [] };
   if (out.durationMode !== 'half' && out.durationMode !== 'day' && out.durationMode !== 'overnight') {
     out.durationMode = Number(out.nights) > 0 ? 'overnight' : (Number(out.days) <= 1 ? 'day' : 'overnight');
   }
@@ -291,8 +303,8 @@ export function parseBrief(t: string, base: Camp): Camp {
     else if (/\bai\b|coding|โค้ด|โดรน|หุ่นยนต์/i.test(t)) c.subject = 'ai';
     else if (/คณิต|math/i.test(t)) c.subject = 'math';
   }
-  if (c.courseCode && c.courseCode !== prevCourse) c.activityIds = defaultCourseActs(c.courseCode);
-  else if (!c.courseCode && (!base.activityIds.length || c.subject !== prev)) c.activityIds = defaultActs(c.subject);
+  if (c.courseCode && c.courseCode !== prevCourse) { c.activityIds = defaultCourseActs(c.courseCode); c.coreSlotIds = []; }
+  else if (!c.courseCode && (!base.activityIds.length || c.subject !== prev)) { c.activityIds = defaultActs(c.subject); c.coreSlotIds = []; }
   return c;
 }
 // ตรวจจับหลักสูตร (ธีม) จากข้อความบรีฟ ด้วยคีย์เวิร์ดเฉพาะธีม
@@ -359,6 +371,9 @@ export function buildSchedule(c: Camp): Plan {
   const pool = subjectPool(c);
   const sel = pool.filter(a => c.activityIds.includes(a.id));
   const of = (k: Kind) => { const r = sel.filter(a => a.kind === k); return r.length ? r : pool.filter(a => a.kind === k).slice(0, 1); };
+  // หัวข้อสำรองเมื่อคลัง/หลักสูตรไม่มีกิจกรรมชนิดนั้น (กันพัง และไม่ให้ช่องว่าง)
+  const FALLBACK: Record<string, string> = { opening: 'กิจกรรมเปิดค่าย / สันทนาการสร้างสัมพันธ์', night: 'กิจกรรมภาคค่ำ (Night Activity)', recreation: 'กิจกรรมสันทนาการ', closing: 'กิจกรรมสรุปและปิดค่าย' };
+  const pick1 = (k: Kind): Activity => of(k)[0] || ({ id: `fb-${k}`, subjects: [c.subject], kind: k, title: FALLBACK[k] || 'กิจกรรมค่าย' } as Activity);
   // รายการเติมช่องกิจกรรมหลัก: ที่เลือกก่อน แล้วตามด้วยที่เหลือในคลัง เพื่อไม่ให้เหลือช่องว่าง
   const selCores = sel.filter(a => a.kind === 'core');
   const poolCores = pool.filter(a => a.kind === 'core');
@@ -406,12 +421,18 @@ export function buildSchedule(c: Camp): Plan {
         case 'dinner': meals.d++; put(`รับประทานอาหารเย็น (${++mealNo})`, 60, undefined, ANCH.dinner); break;
         case 'snack': meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15); break;
         case 'register': put('ลงทะเบียน / พิธีเปิด', 30); break;
-        case 'opening': { const a = of('opening')[0]; put(a.title, c.durationMode === 'half' ? 45 : 60, act(a)); break; }
+        case 'opening': { const a = pick1('opening'); put(a.title, c.durationMode === 'half' ? 45 : 60, act(a)); break; }
         case 'core': {
-          if (cur > coreCap) break; coreSlots++;
+          if (cur > coreCap) break;
+          const slotIdx = coreSlots; coreSlots++;
           const defDur = c.durationMode === 'half' ? 60 : 90;
           const sp = span(); const dur = sp.a !== null ? Math.min(120, Math.max(45, Math.round((sp.a - cur - sp.fixed) / (sp.k + 1) / 15) * 15)) : defDur;
-          if (cores.length) {
+          // เลือกกิจกรรมรายช่วง: ถ้าผู้ใช้กำหนด coreSlotIds[slotIdx] และมีในคลัง → ใช้ตัวนั้น; ไม่งั้นเติมอัตโนมัติ
+          const pick = c.coreSlotIds && c.coreSlotIds[slotIdx]
+            ? pool.find(a => a.id === c.coreSlotIds![slotIdx]) : undefined;
+          if (pick) {
+            put(pick.title, dur, act(pick));
+          } else if (cores.length) {
             const a = cores[coreIdx % cores.length];
             const repeat = Math.floor(coreIdx / cores.length) > 0;
             coreIdx++;
@@ -420,16 +441,17 @@ export function buildSchedule(c: Camp): Plan {
             // ไม่มีกิจกรรมในคลังเลย (วิชาที่ยังไม่ได้ตั้งค่า) — ใส่ฐานกลางเพื่อไม่ให้ค้าง
             put('กิจกรรมฐานการเรียนรู้เชิงบูรณาการ', dur);
           }
+          items[items.length - 1].slot = slotIdx; // ติดดัชนีช่องให้ UI เลือกกิจกรรมรายช่วงได้
           break;
         }
         case 'trip': if (cur > 16.5 * 60 || !c.venueVisit.trim()) break; hasTrip = true; put(`กิจกรรมทัศนศึกษา ${c.venueVisit}`, 90); break;
         case 'checkin': put('เช็คอินเข้าที่พัก / พักผ่อนตามอัธยาศัย', 45); break;
-        case 'night': { const a = of('night')[0]; put(a.title, 60, act(a), 19 * 60 + 30); break; }
+        case 'night': { const a = pick1('night'); put(a.title, 60, act(a), 19 * 60 + 30); break; }
         case 'summary': put('สรุปการเรียนรู้ประจำวัน / ถอดบทเรียนกลุ่ม', 30); break;
         case 'free': { const sp = span(); put('พักผ่อนตามอัธยาศัย / เตรียมกิจกรรมนำเสนอ', sp.a !== null ? Math.min(150, Math.max(30, sp.a - cur)) : 60); break; }
         case 'checkout': put('เก็บสัมภาระ / เช็คเอาท์', 60); break;
-        case 'recreation': { const a = of('recreation')[0]; put(a.title, 30, act(a)); break; }
-        case 'closing': { const a = of('closing')[0]; put(a.title, 30, act(a)); break; }
+        case 'recreation': { const a = pick1('recreation'); put(a.title, 30, act(a)); break; }
+        case 'closing': { const a = pick1('closing'); put(a.title, 30, act(a)); break; }
         case 'aar': put('ถอดบทเรียน AAR (After Action Review) และสรุปสิ่งที่ได้เรียนรู้', 45); break;
         case 'award': put('มอบของรางวัล และพิธีปิด', 30); break;
         case 'return': open(`เดินทางกลับ${c.school} โดยสวัสดิภาพ`); break;
@@ -508,7 +530,8 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     { ok: hasAAR, msg: 'มีกิจกรรมถอดบทเรียน (AAR)' },
     { ok: noGap, msg: 'ทุกช่วงเวลามีกิจกรรมจริง (ไม่มีช่องว่าง)' },
     { ok: unique, soft: true, msg: unique ? `กิจกรรมหลักพอทุกช่องไม่ซ้ำ (ใช้ ${plan.coreSlots} ช่อง · คลังมี ${coreAvail})` : `ค่ายยาว ใช้ ${plan.coreSlots} ช่อง แต่คลังมี ${coreAvail} — ระบบวนใช้ซ้ำแบบติดป้าย “(ต่อยอด)” หรือเพิ่มกิจกรรมเองในแท็บ 3` },
-    { ok: pendingCount === 0, soft: true, msg: pendingCount === 0 ? 'ไม่มีกิจกรรมสถานะรอตรวจ' : `⚠ มีกิจกรรม "รอตรวจ" ${pendingCount} รายการ (จากคลัง 14 หลักสูตร) — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง` }
+    { ok: pendingCount === 0, soft: true, msg: pendingCount === 0 ? 'ไม่มีกิจกรรมสถานะรอตรวจ' : `⚠ มีกิจกรรม "รอตรวจ" ${pendingCount} รายการ (จากคลัง 14 หลักสูตร) — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง` },
+    ...(hasCoursePhotos(c.courseCode) && c.actImgs.some(im => im.data) ? [{ ok: false, soft: true, msg: '⚠ ใช้ภาพกิจกรรมจริงจากคลังทีม — สถานะลิขสิทธิ์เผยแพร่ "รอทีมรับรอง" ก่อนส่งให้ลูกค้า' }] : [])
   ];
 }
 // พร้อมส่งเมื่อผ่านทุกข้อ "แข็ง" (soft ไม่บังคับ)

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -133,12 +133,13 @@ export default function App() {
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — ระบบจัดกำหนดการใหม่อัตโนมัติ`);
   };
-  const changeSubject = (s: Subject) => set({ subject: s, courseCode: undefined, activityIds: defaultActs(s).concat(camp.extraActivities.filter(a => a.subjects.includes(s)).map(a => a.id)) });
+  const changeSubject = (s: Subject) => set({ subject: s, courseCode: undefined, activityIds: defaultActs(s).concat(camp.extraActivities.filter(a => a.subjects.includes(s)).map(a => a.id)), coreSlotIds: [] });
   const changeCourse = (code: string) => {
-    if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject) }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
+    if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    set({ courseCode: code, subject: co.family as Subject, activityIds: defaultCourseActs(code) });
-    flash(`เลือกหลักสูตร "${co.name}" — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
+    const photos = coursePhotos(code, 4);
+    set({ courseCode: code, subject: co.family as Subject, activityIds: defaultCourseActs(code), coreSlotIds: [], ...(photos.length ? { actImgs: photos } : {}) });
+    flash(`เลือกหลักสูตร "${co.name}" — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ${photos.length ? ` + ภาพจริง ${photos.length} รูป` : ''} (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
   };
   const toggleAct = (id: string) => set({ activityIds: camp.activityIds.includes(id) ? camp.activityIds.filter(x => x !== id) : [...camp.activityIds, id] });
   const selectedCore = camp.activityIds.filter(id => subjectPool(camp).some(a => a.id === id && a.kind === 'core')).length;
@@ -164,6 +165,22 @@ export default function App() {
   const removeImage = (group: 'actImgs' | 'venueImgs', idx: number) => setCamp(c => ({ ...c, [group]: c[group].filter((_, i) => i !== idx) }));
   const captionImage = (group: 'actImgs' | 'venueImgs', idx: number, v: string) => setCamp(c => { const arr = [...c[group]]; arr[idx] = { ...arr[idx], caption: v }; return { ...c, [group]: arr }; });
   const autoFillImages = () => { const f = autoImages(camp); set({ actImgs: f.act, venueImgs: f.ven }); flash('เติมช่องภาพ + คำบรรยายตามบรีฟแล้ว — กด "ค้นรูป" แต่ละช่องเพื่อหาภาพจริงมาอัปโหลด'); };
+  // ดึงภาพกิจกรรมจริงของหลักสูตรจากคลังทีม (ฝังลงไฟล์ทันที) — เฉพาะหลักสูตรที่มีภาพแล้ว
+  const pullCoursePhotos = () => {
+    const photos = coursePhotos(camp.courseCode, 4);
+    if (!photos.length) { flash('หลักสูตรนี้ยังไม่มีภาพจริงในคลังทีม (มีเฉพาะ STEAM/อังกฤษในชุดนี้) — อัปโหลดเองหรือให้ทีมเพิ่มใน Drive', false); return; }
+    set({ actImgs: photos });
+    flash(`ดึงภาพจริง ${photos.length} รูปจากคลังทีมมาฝังแล้ว ⚠ สถานะลิขสิทธิ์เผยแพร่ยังรอทีมรับรองก่อนส่งลูกค้า`);
+  };
+  // เลือกกิจกรรมรายช่วง (per-slot): '' = อัตโนมัติ, อื่น ๆ = id กิจกรรมในคลัง
+  const setSlot = (idx: number, id: string) => setCamp(c => {
+    const arr = [...(c.coreSlotIds || [])];
+    while (arr.length <= idx) arr.push('');
+    arr[idx] = id;
+    return { ...c, coreSlotIds: arr };
+  });
+  const clearSlots = () => { set({ coreSlotIds: [] }); flash('ล้างการเลือกกิจกรรมรายช่วง — กลับไปจัดอัตโนมัติ'); };
+  const coreOptions = subjectPool(camp).filter(a => a.kind === 'core');
   // เปิดค้นหารูปจริงตามคำบรรยาย/บรีฟ (ผู้ใช้เลือกรูปที่มีสิทธิ์ใช้ → อัปโหลด → ฝังลงไฟล์)
   const searchImage = (query: string) => { const q = encodeURIComponent(query.replace(/[“”"]/g, '').trim()); window.open(`https://www.google.com/search?tbm=isch&q=${q}`, '_blank', 'noopener'); };
 
@@ -461,7 +478,11 @@ export default function App() {
 
               {tab === 'schedule' && (
                 <div className="space-y-3">
-                  <SectionTitle title="4. กำหนดการ (สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา)" sub="ปรับเวลา/หัวข้อได้รายบรรทัด — หรือกลับไปแก้กิจกรรม/ระยะเวลาเพื่อให้ระบบจัดใหม่" />
+                  <SectionTitle title="4. กำหนดการ (สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา)" sub="ช่อง 'กิจกรรมหลัก' เลือกกิจกรรมจากฐานได้รายช่วง (เมนูด้านล่างหัวข้อ) — เลือก 'อัตโนมัติ' ให้ระบบจัดเอง" />
+                  <div className="flex items-center justify-between text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                    <span className="text-slate-600">ช่องกิจกรรมหลักทั้งหมด <b className="text-sky-700">{plan.days.reduce((n, d) => n + d.items.filter(r => r.slot !== undefined).length, 0)}</b> ช่อง · เลือกเอง <b className="text-sky-700">{(camp.coreSlotIds || []).filter(Boolean).length}</b></span>
+                    <button onClick={clearSlots} className="font-bold text-slate-400 hover:text-slate-600">ล้างเป็นอัตโนมัติทั้งหมด</button>
+                  </div>
                   {plan.days.map(d => (
                     <div key={d.day} className="border border-slate-200 rounded-xl overflow-hidden">
                       <div className="bg-sky-700 text-white text-xs font-bold px-3 py-1.5">วันที่ {d.day}</div>
@@ -469,13 +490,26 @@ export default function App() {
                         {d.items.map((r, i) => (
                           <div key={i} className="flex gap-2 px-2.5 py-1.5 text-[11px]">
                             <span className="font-bold text-slate-500 w-28 shrink-0">{r.time}</span>
-                            <span className="text-slate-800">{r.title}{r.sub?.map((s, j) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
+                            <span className="text-slate-800 flex-1 min-w-0">
+                              {r.slot !== undefined && <span className="inline-block mb-0.5 px-1 rounded bg-sky-100 text-sky-700 text-[9px] font-bold">กิจกรรมหลัก #{r.slot + 1}</span>}
+                              <span className="block">{r.title}{r.sub?.map((s, j) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
+                              {r.slot !== undefined && (
+                                <select value={(camp.coreSlotIds || [])[r.slot] || ''} onChange={e => setSlot(r.slot!, e.target.value)}
+                                  className="mt-1 w-full px-1.5 py-1 rounded border border-slate-300 text-[10px] bg-white">
+                                  <option value="">— อัตโนมัติ (ระบบเลือกให้) —</option>
+                                  {coreOptions.map(a => (
+                                    <option key={a.id} value={a.id}>{a.draft ? '⚠ ' : ''}{a.title.replace(/^กิจกรรม\s*/, '').slice(0, 60)}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ))}
                   <div className="text-[11px] text-slate-500">มื้ออาหาร: เช้า {plan.meals.b} · กลางวัน {plan.meals.l} · เย็น {plan.meals.d} · ว่าง {plan.meals.s}</div>
+                  <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">⚠ กิจกรรมที่มีเครื่องหมาย ⚠ มาจากคลัง 14 หลักสูตร สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>
                 </div>
               )}
 
@@ -505,10 +539,14 @@ export default function App() {
                 <div className="space-y-4">
                   <SectionTitle title="6. ภาพกิจกรรม & ภาพที่พัก (ดึงภาพจริงตามบรีฟ)" sub="กด 'เติมช่องภาพตามบรีฟ' เพื่อสร้างช่อง+คำบรรยายจากกิจกรรม/สถานที่ → กด 'ค้นรูป' แต่ละช่องเพื่อเปิดค้นหาภาพจริง → เลือกรูปที่มีสิทธิ์ใช้แล้วอัปโหลด รูปจะฝังลงไฟล์ Word ทันที" />
                   <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={pullCoursePhotos} disabled={!hasCoursePhotos(camp.courseCode)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-[11px] font-bold flex items-center gap-1">
+                      <ImageIcon className="w-3.5 h-3.5" />ดึงภาพจริงของหลักสูตร{hasCoursePhotos(camp.courseCode) ? ` (${(COURSES.find(c=>c.code===camp.courseCode)?.name)||camp.courseCode})` : ''}
+                    </button>
                     <button onClick={autoFillImages} className="px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-800 text-white text-[11px] font-bold flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" />เติมช่องภาพตามบรีฟ</button>
-                    <span className="text-[10px] text-slate-500">ระบบตั้งคำบรรยายให้ตรงกิจกรรม/สถานที่ แล้วใช้คำนั้นเป็นคำค้นรูป</span>
                   </div>
-                  <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">⚠ ใช้ภาพที่มีสิทธิ์เผยแพร่ (ภาพถ่ายค่ายจริงของทีม หรือสื่อทางการของโรงแรม) เพื่อความถูกต้องของลิขสิทธิ์ในเอกสารขาย</div>
+                  <div className="text-[10px] text-slate-500">{hasCoursePhotos(camp.courseCode) ? 'หลักสูตรนี้มีภาพกิจกรรมจริงของทีมในคลัง — กดปุ่มเขียวเพื่อฝังลงไฟล์ทันที' : 'หลักสูตรที่เลือกยังไม่มีภาพจริงในคลังทีม (ชุดนี้มีเฉพาะ STEAM/อังกฤษ) — ใช้ "เติมช่องภาพตามบรีฟ" แล้วอัปโหลดภาพที่มีสิทธิ์เอง'}</div>
+                  <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">⚠ ภาพจากคลังทีมยังรอทีมรับรองสิทธิ์เผยแพร่ก่อนส่งลูกค้า · ภาพที่พักให้ใช้สื่อทางการของโรงแรม เพื่อความถูกต้องของลิขสิทธิ์ในเอกสารขาย</div>
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
                       <div className="flex items-center justify-between mb-1.5">
@@ -603,6 +641,15 @@ function VenueAdd({ onAdd }: { onAdd: (v: VenueRec) => void }) {
 
 // สร้างช่องภาพ + คำบรรยายจากบรีฟ (วิชา/กิจกรรมที่เลือก/สถานที่) เพื่อจัดวางตามบรีฟ
 function autoImages(c: Camp): { act: Img[]; ven: Img[] } {
+  // ถ้าหลักสูตรมีภาพจริงของทีมในคลัง → ฝังภาพจริงให้เลย (ไม่งั้นสร้างช่อง+คำบรรยายตามกิจกรรม)
+  const photos = coursePhotos(c.courseCode, 4);
+  if (photos.length) {
+    const ven: Img[] = [
+      { caption: `บรรยากาศที่พัก ${c.venue}${c.province ? ' จังหวัด' + c.province : ''}` } as Img,
+      { caption: c.venueVisit ? `แหล่งทัศนศึกษา ${c.venueVisit}` : `ห้องประชุมสัมมนา ${c.venue}` } as Img
+    ];
+    return { act: photos, ven };
+  }
   const acts = subjectPool(c).filter(a => c.activityIds.includes(a.id) && a.kind === 'core').slice(0, 4);
   const act: Img[] = (acts.length ? acts : [{ title: `กิจกรรมค่าย${SUBJECTS[c.subject].label}` } as any]).map(a =>
     ({ caption: `บรรยากาศ${(a.title || '').replace(/^กิจกรรม\s*/, '')}`.slice(0, 80) } as Img));

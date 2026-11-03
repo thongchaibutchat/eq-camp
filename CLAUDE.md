@@ -32,6 +32,11 @@ branch → commit → PR เข้า main; ก่อนเริ่ม `git pul
 
 ## สถานะปัจจุบัน (อัปเดตเมื่อเปลี่ยน)
 - ลิงก์เว็บทดสอบ (artifact): มี AI extraction (capability sample) + ดาวน์โหลด .docx (capability downloads)
+- **หัวกระดาษ/ท้ายกระดาษ**: ฝังทุกหน้าทุกเอกสาร เลือกตามภาคจาก province (regionOf) — แก้บั๊ครูปไม่ขึ้นด้วย `type:'png'` ใน ImageRun แล้ว (src/letterheads-data.ts)
+- **สูตรทีมงาน (ตายตัว)**: staffText() — 25-50→4-5 · 50-120→6-8 · 120-180→8-12 · 180-300→10-16
+- **เลือกกิจกรรมรายช่วง (per-slot)**: `camp.coreSlotIds[]` (ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม, ''=อัตโนมัติ) — UI แท็บ 4 มี dropdown ต่อช่อง; buildSchedule ใช้ pick ก่อน ไม่งั้นเติมอัตโนมัติ; Row.slot ติดดัชนีให้ UI
+- **ภาพกิจกรรมจริง**: `src/course-photos-data.ts` (COURSE_PHOTOS) ย่อ/บีบอัดจาก Drive โฟลเดอร์รวม 04b — ปัจจุบันมีเฉพาะ CUR-013 (STEAM 2 รูป), CUR-014 (อังกฤษ 4 รูป). coursePhotos(code)/hasCoursePhotos(code) ใน core; เลือกหลักสูตร→ฝัง actImgs อัตโนมัติ; ปุ่ม "ดึงภาพจริงของหลักสูตร" ในแท็บ 6. **สิทธิ์เผยแพร่: รอทีมรับรอง** → check() มี soft warning
+- buildSchedule กัน of(k)[0] undefined ด้วย pick1()+FALLBACK (opening/night/recreation/closing) — หลักสูตรที่ไม่มี night ไม่พังอีก
 - คลังกิจกรรม: **seed จาก Google Drive MASTER จริงแล้ว** — `src/eqcamp-data.ts` = 14 หลักสูตร (CUR-001..014) + 267 กิจกรรม (รหัส ref-) ทุกรายการสถานะ "รอตรวจ" (draft) ติดธงเตือนในเว็บ
 - เลือกได้ 2 ทาง: (ก) หลักสูตรจริง (courseCode = CUR-xxx) ดึงกิจกรรมเฉพาะธีม + วัตถุประสงค์จริง 2 ข้อ (ข) วิชา (subject) ใช้ชุดมาตรฐานเดิม (คณิต/STEAM จาก PL0109/0110; อังกฤษ/AI มาตรฐาน)
 - subject families: math/steam/english/ai/chinese/leadership
@@ -41,7 +46,8 @@ branch → commit → PR เข้า main; ก่อนเริ่ม `git pul
 ## ช่องว่างที่ยังรู้อยู่ (known gaps)
 - กิจกรรม 267 รายการ "รอตรวจ" ทั้งหมด — หลายรายการมีแค่ชื่อ ยังไม่มีขั้นตอน/อุปกรณ์/เวลา/ระดับชั้น (ห้ามเดา ต้องให้ทีมเติมใน MASTER tab 02 แล้ว re-seed)
 - ยังไม่ดึงราคา/ต้นทุน/โรงแรมจริงจาก Drive (ยังไม่พบตารางราคาในชุดนี้) — VENUES ยัง hard-code 6 แห่ง
-- ภาพ 32 ไฟล์ใน Drive ยังไม่รับรองสิทธิ์เผยแพร่ ยังไม่ได้ฝัง
+- ภาพ 32 ไฟล์รวมในโฟลเดอร์ 04b (id 1kG8FbCQJzgMOk6VNuBWNI2DEak2lSGfd) — บีบอัด 6 รูปเข้า bundle แล้ว (CUR-013/014) **แต่ยังรอทีมรับรองสิทธิ์เผยแพร่**; หลักสูตรอื่นยังไม่มีภาพในชุดนี้
+- re-gen ภาพ: ดึง copy/src จาก images.json → บีบอัด (PIL, maxW 760, q70) → เขียน src/course-photos-data.ts (ดู scratchpad/gen_photos.py)
 - เวลาเริ่ม/เดินทางจากบรีฟยังไม่ parse ครบ (ครึ่งวัน session window เป็นค่าประมาณ)
 - ยังไม่มีหน้า review "ยืนยันก่อนออกไฟล์" เต็มรูปแบบ (เป็นแถบสรุป applied/missing + soft warning)
 - 03_งานค่ายจริง_EXPORT_JSON ใน Drive ใช้ schema "รุ่น4" (ของทีม) ยังไม่ reconcile กับ schema.json (_v2 ของ repo)

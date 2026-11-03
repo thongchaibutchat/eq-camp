@@ -1,7 +1,7 @@
 {
   "_app": "EQ Camp Generator",
   "_v": 2,
-  "savedAt": "2026-11-03T06:34:11.611Z",
+  "savedAt": "2026-11-03T07:05:37.573Z",
   "camp": {
     "docCode": "PL 0109/2569",
     "subject": "math",
@@ -35,6 +35,7 @@
       "x-boost",
       "x-next"
     ],
+    "coreSlotIds": [],
     "actImgs": [],
     "venueImgs": [],
     "extraActivities": []

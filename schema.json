@@ -28,7 +28,9 @@
       "required": ["docCode", "subject", "school", "days", "nights", "specialPrice", "activityIds"],
       "properties": {
         "docCode": { "type": "string", "pattern": "^PL\\s*\\d+/\\d+$", "description": "รหัสเอกสาร PL xxxx/2569" },
-        "subject": { "enum": ["math", "steam", "english", "ai"], "description": "วิชา — กำหนดชื่อหลักสูตร วัตถุประสงค์ และชุดกิจกรรม" },
+        "subject": { "enum": ["math", "steam", "english", "ai", "chinese", "leadership"], "description": "วิชา — กำหนดชื่อหลักสูตร วัตถุประสงค์ และชุดกิจกรรม" },
+        "courseCode": { "type": "string", "pattern": "^CUR-\\d{3}$", "description": "รหัสหลักสูตรจริง (CUR-001..014) ถ้าผูกกับหลักสูตรในคลัง; ไม่ผูก = เว้นว่าง" },
+        "region": { "enum": ["central", "isan", "north", "south"], "description": "ภาคสำหรับเลือกหัวกระดาษ; เว้นว่าง = อนุมานจาก province อัตโนมัติ" },
         "school": { "type": "string" },
         "level": { "type": "string", "description": "ระดับชั้น เช่น ม.1-2" },
         "students": { "type": "integer", "minimum": 0 },
@@ -50,6 +52,7 @@
         "validDays": { "type": "integer" },
         "payTerms": { "type": "string" },
         "activityIds": { "type": "array", "items": { "type": "string" }, "description": "id ของกิจกรรมที่เลือก (ทั้งจากคลังมาตรฐานและ extraActivities)" },
+        "coreSlotIds": { "type": "array", "items": { "type": "string" }, "description": "เลือกกิจกรรมรายช่วง (per-slot): ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม ('' = อัตโนมัติ); ว่าง/ขาด = ให้ระบบจัดอัตโนมัติทั้งหมด (backward-compatible, migrate เป็น [])" },
         "extraActivities": {
           "type": "array",
           "description": "กิจกรรมที่ผู้ใช้เพิ่มเอง",
@@ -58,7 +61,7 @@
             "required": ["id", "subjects", "kind", "title"],
             "properties": {
               "id": { "type": "string", "description": "ขึ้นต้น cust- สำหรับกิจกรรมที่เพิ่มเอง" },
-              "subjects": { "type": "array", "items": { "enum": ["math", "steam", "english", "ai"] } },
+              "subjects": { "type": "array", "items": { "enum": ["math", "steam", "english", "ai", "chinese", "leadership"] } },
               "kind": { "enum": ["opening", "core", "night", "recreation", "closing"] },
               "title": { "type": "string" },
               "desc": { "type": "string" }
