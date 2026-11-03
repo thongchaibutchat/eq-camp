@@ -76,6 +76,54 @@ export default function App() {
     else if (dur.ambiguous) flash('แปลงบรีฟแล้ว ⚠ ' + (dur.note || 'ระบุจำนวนวันแต่ไม่บอกจำนวนคืน โปรดยืนยันในแท็บ 2'), false);
     else flash(`แปลงบรีฟเรียบร้อย (${mode === 'new' ? 'งานใหม่' : 'อัปเดตงานปัจจุบัน'}) · ระยะเวลา: ${dur.mode === 'half' ? 'ครึ่งวัน' : dur.mode === 'day' ? `${dur.days} วัน ไป-กลับ` : `${dur.days} วัน ${dur.nights} คืน`} + เตรียมช่องภาพให้แล้ว`);
   };
+  // ให้ AI (Claude) ดึงข้อมูลจากบรีฟภาษาคน — ใช้ capability sample บน artifact; fallback เป็น regex
+  const aiExtract = async (mode: 'new' | 'update') => {
+    const cl = (window as any).claude;
+    const sample = cl && typeof cl.use === 'function' ? await cl.use('sample').catch(() => null) : null;
+    if (!sample) { applyBrief(mode); flash('หน้านี้ยังเรียก AI ไม่ได้ — ใช้การแปลงบรีฟแบบปกติแทน (เปิดบนลิงก์ claude.ai เพื่อใช้ AI ช่วยดึง)', false); return; }
+    setBusy(true); flash('🤖 AI กำลังอ่านบรีฟและดึงข้อมูล...');
+    const prompt = `คุณเป็นผู้ช่วยฝ่ายขายค่ายวิชาการ อ่าน "บรีฟ" ภาษาไทยแบบอิสระด้านล่าง แล้วดึงข้อมูลเป็น JSON ออบเจ็กต์เดียวตามคีย์นี้ (เดาจากบริบทได้ ถ้าไม่พบให้ใส่ null — ห้ามแต่งข้อมูลที่ไม่มีในบรีฟ):
+{"docCode":string|null,"subject":"math"|"steam"|"english"|"ai"|null,"school":string|null,"level":string|null,"students":number|null,"teachers":number|null,"durationMode":"half"|"day"|"overnight"|null,"days":number|null,"nights":number|null,"dates":string|null,"province":string|null,"venue":string|null,"venueVisit":string|null,"startTime":string|null,"travelHours":number|null,"normalPrice":number|null,"specialPrice":number|null}
+กติกา:
+- subject: คณิต→"math"; วิทยาศาสตร์/ทะเล/ธรรมชาติ/STEAM/สะเต็ม→"steam"; อังกฤษ/English→"english"; AI/โค้ดดิ้ง/หุ่นยนต์/โดรน→"ai"
+- durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง)
+- รองรับเลขไทยและคำไทย (เช่น "สองวันหนึ่งคืน"=2วัน1คืน)
+- ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท)
+- students/teachers: ดึงเฉพาะตัวเลขจำนวนคน
+- venue: ชื่อสถานที่/โรงแรม; venueVisit: แหล่งทัศนศึกษาถ้ามี
+ตอบเป็น JSON อย่างเดียว ไม่มีข้อความอื่น
+
+บรีฟ:
+"""${brief}"""`;
+    try {
+      const r = await sample.json<any>(prompt, { modelTier: 'default' });
+      setCamp(c => {
+        let next: Camp = mode === 'new' ? blankCamp() : { ...c };
+        const S = ['docCode', 'school', 'level', 'dates', 'province', 'venue', 'venueVisit', 'startTime'] as const;
+        for (const k of S) if (typeof r[k] === 'string' && r[k].trim()) (next as any)[k] = r[k].trim();
+        const N = ['students', 'teachers', 'normalPrice', 'specialPrice', 'travelHours'] as const;
+        for (const k of N) { const v = Number(r[k]); if (Number.isFinite(v) && v > 0) (next as any)[k] = v; }
+        if (['math', 'steam', 'english', 'ai'].includes(r.subject)) { next.subject = r.subject; next.activityIds = defaultActs(r.subject).concat(next.extraActivities.filter(a => a.subjects.includes(r.subject)).map(a => a.id)); }
+        if (['half', 'day', 'overnight'].includes(r.durationMode)) next.durationMode = r.durationMode;
+        if (Number.isFinite(Number(r.days))) next.days = Number(r.days);
+        if (Number.isFinite(Number(r.nights))) next.nights = Number(r.nights);
+        if (!['half', 'day', 'overnight'].includes(r.durationMode)) next.durationMode = next.nights > 0 ? 'overnight' : (next.days <= 1 ? 'day' : 'overnight');
+        next = normalizeDuration(next);
+        if (!next.activityIds.length) next.activityIds = defaultActs(next.subject);
+        const f = autoImages(next); next.actImgs = f.act; next.venueImgs = f.ven;
+        return next;
+      });
+      const got = Object.entries(r).filter(([, v]) => v !== null && v !== '' && v !== undefined).map(([k]) => k);
+      flash(`🤖 AI ดึงข้อมูลสำเร็จ (${got.length} ช่อง) — ตรวจความถูกต้องในแท็บ 2-5 แล้วสร้างไฟล์ได้เลย`);
+    } catch (e: any) {
+      const code = e?.code || '';
+      if (code === 'not_granted' || code === 'sampling_disabled') { applyBrief(mode); flash('ยังไม่ได้อนุญาตให้หน้านี้ใช้ AI — ใช้การแปลงแบบปกติแทน', false); }
+      else if (code === 'rate_limited') flash('AI ถูกเรียกถี่เกินไป ลองใหม่อีกครั้งในอีกสักครู่', false);
+      else if (code === 'invalid_json') { applyBrief(mode); flash('AI ตอบไม่เป็นรูปแบบที่อ่านได้ — ใช้การแปลงแบบปกติแทน', false); }
+      else { applyBrief(mode); flash('เรียก AI ไม่สำเร็จ (' + (code || 'error') + ') — ใช้การแปลงแบบปกติแทน', false); }
+    }
+    setBusy(false);
+  };
   const loadPreset = (id: string) => { setCamp(fromPreset(id)); flash(`โหลดแม่แบบ "${PRESETS.find(p => p.id === id)!.label}" แล้ว`); };
 
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
@@ -265,11 +313,13 @@ export default function App() {
                 <div className="space-y-4">
                   <SectionTitle title="1. สร้างจากบรีฟออนไลน์ หรือเลือกแม่แบบไฟล์จริง" sub="วางข้อความบรีฟ ระบบจะดึง รหัส PL / โรงเรียน / จำนวนคน / วิชา / วัน-คืน / วันที่ / สถานที่ / ราคา เข้าแบบฟอร์มให้อัตโนมัติ" />
                   <textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-slate-300 text-xs" />
+                  <button onClick={() => aiExtract('new')} disabled={busy} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-sky-600 hover:from-violet-500 hover:to-sky-500 disabled:opacity-50 text-white font-extrabold text-xs shadow flex items-center justify-center gap-1.5">🤖 {busy ? 'AI กำลังดึงข้อมูล...' : 'ให้ AI ดึงข้อมูลจากบรีฟ (แม่นกับภาษาคน)'}</button>
+                  <p className="text-[10px] text-violet-700 -mt-1">AI อ่านบรีฟอิสระได้ดีกว่า เช่น “วิทยาศาสตร์ทางทะเล...เด็ก 100 คน...โรงแรมกาสะรอง พัทยา...ขายหัวละ 3290” — ใช้ได้เมื่อเปิดบนลิงก์ claude.ai (ครั้งแรกจะขออนุญาต)</p>
                   <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => applyBrief('new')} className="py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5"><Sparkles className="w-4 h-4" />สร้างงานใหม่จากบรีฟ</button>
+                    <button onClick={() => applyBrief('new')} className="py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5"><Sparkles className="w-4 h-4" />สร้างใหม่ (แบบปกติ)</button>
                     <button onClick={() => applyBrief('update')} className="py-2.5 rounded-xl bg-white border border-sky-700 text-sky-700 hover:bg-sky-50 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5">อัปเดตงานปัจจุบัน</button>
                   </div>
-                  <p className="text-[10px] text-slate-500 -mt-1">“สร้างงานใหม่” ล้างค่างานเก่าทั้งหมดก่อน (กันข้อมูลปน) · “อัปเดต” เก็บค่าที่บรีฟไม่ได้กล่าวถึงไว้</p>
+                  <p className="text-[10px] text-slate-500 -mt-1">ปุ่มแบบปกติใช้ตัวจับคำ (ไม่ต้องต่อ AI): “สร้างใหม่” ล้างค่าเก่าก่อน · “อัปเดต” เก็บค่าที่บรีฟไม่ได้กล่าวถึง</p>
                   <div className="pt-3 border-t border-slate-100 space-y-2">
                     <div className="text-xs font-bold text-slate-700">หรือเลือกแม่แบบไฟล์มาตรฐาน:</div>
                     {PRESETS.map(p => (
