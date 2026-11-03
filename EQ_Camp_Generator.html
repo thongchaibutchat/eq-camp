@@ -1894,13 +1894,13 @@
           c.children = f;
         }
         if (a && a.defaultProps) for (d in g = a.defaultProps, g) void 0 === c[d] && (c[d] = g[d]);
-        return { $typeof: l, type: a, key: k, ref: h, props: c, _owner: K.current };
+        return { $$typeof: l, type: a, key: k, ref: h, props: c, _owner: K.current };
       }
       function N(a, b) {
-        return { $typeof: l, type: a.type, key: b, ref: a.ref, props: a.props, _owner: a._owner };
+        return { $$typeof: l, type: a.type, key: b, ref: a.ref, props: a.props, _owner: a._owner };
       }
       function O(a) {
-        return "object" === typeof a && null !== a && a.$typeof === l;
+        return "object" === typeof a && null !== a && a.$$typeof === l;
       }
       function escape(a) {
         var b = { "=": "=0", ":": "=2" };
@@ -1923,15 +1923,15 @@
             h = true;
             break;
           case "object":
-            switch (a.$typeof) {
+            switch (a.$$typeof) {
               case l:
               case n:
                 h = true;
             }
         }
-        if (h) return h = a, c = c(h), a = "" === d ? "." + Q(h, 0) : d, I(c) ? (e = "", null != a && (e = a.replace(P2, "<script src="./bundle.js"></script>/") + "/"), R3(c, b, e, "", function(a2) {
+        if (h) return h = a, c = c(h), a = "" === d ? "." + Q(h, 0) : d, I(c) ? (e = "", null != a && (e = a.replace(P2, "$&/") + "/"), R3(c, b, e, "", function(a2) {
           return a2;
-        })) : null != c && (O(c) && (c = N(c, e + (!c.key || h && h.key === c.key ? "" : ("" + c.key).replace(P2, "<script src="./bundle.js"></script>/") + "/") + a)), b.push(c)), 1;
+        })) : null != c && (O(c) && (c = N(c, e + (!c.key || h && h.key === c.key ? "" : ("" + c.key).replace(P2, "$&/") + "/") + a)), b.push(c)), 1;
         h = 0;
         d = "" === d ? "." : d + ":";
         if (I(a)) for (var g = 0; g < a.length; g++) {
@@ -2013,11 +2013,11 @@
           for (var m = 0; m < f; m++) g[m] = arguments[m + 2];
           d.children = g;
         }
-        return { $typeof: l, type: a.type, key: c, ref: k, props: d, _owner: h };
+        return { $$typeof: l, type: a.type, key: c, ref: k, props: d, _owner: h };
       };
       exports.createContext = function(a) {
-        a = { $typeof: u, _currentValue: a, _currentValue2: a, _threadCount: 0, Provider: null, Consumer: null, _defaultValue: null, _globalName: null };
-        a.Provider = { $typeof: t, _context: a };
+        a = { $$typeof: u, _currentValue: a, _currentValue2: a, _threadCount: 0, Provider: null, Consumer: null, _defaultValue: null, _globalName: null };
+        a.Provider = { $$typeof: t, _context: a };
         return a.Consumer = a;
       };
       exports.createElement = M;
@@ -2030,14 +2030,14 @@
         return { current: null };
       };
       exports.forwardRef = function(a) {
-        return { $typeof: v, render: a };
+        return { $$typeof: v, render: a };
       };
       exports.isValidElement = O;
       exports.lazy = function(a) {
-        return { $typeof: y, _payload: { _status: -1, _result: a }, _init: T };
+        return { $$typeof: y, _payload: { _status: -1, _result: a }, _init: T };
       };
       exports.memo = function(a, b) {
-        return { $typeof: x, type: a, compare: void 0 === b ? null : b };
+        return { $$typeof: x, type: a, compare: void 0 === b ? null : b };
       };
       exports.startTransition = function(a) {
         var b = V.transition;
@@ -2640,7 +2640,7 @@
           case Fa:
             return "SuspenseList";
         }
-        if ("object" === typeof a) switch (a.$typeof) {
+        if ("object" === typeof a) switch (a.$$typeof) {
           case Ca:
             return (a.displayName || "Context") + ".Consumer";
           case Ba:
@@ -4859,7 +4859,7 @@
         function k(a2, b2, c2, d2) {
           var f2 = c2.type;
           if (f2 === ya) return m(a2, b2, c2.props.children, d2, c2.key);
-          if (null !== b2 && (b2.elementType === f2 || "object" === typeof f2 && null !== f2 && f2.$typeof === Ha && Ng(f2) === b2.type)) return d2 = e(b2, c2.props), d2.ref = Lg(a2, b2, c2), d2.return = a2, d2;
+          if (null !== b2 && (b2.elementType === f2 || "object" === typeof f2 && null !== f2 && f2.$$typeof === Ha && Ng(f2) === b2.type)) return d2 = e(b2, c2.props), d2.ref = Lg(a2, b2, c2), d2.return = a2, d2;
           d2 = Rg(c2.type, c2.key, c2.props, null, a2.mode, d2);
           d2.ref = Lg(a2, b2, c2);
           d2.return = a2;
@@ -4880,7 +4880,7 @@
         function q(a2, b2, c2) {
           if ("string" === typeof b2 && "" !== b2 || "number" === typeof b2) return b2 = Qg("" + b2, a2.mode, c2), b2.return = a2, b2;
           if ("object" === typeof b2 && null !== b2) {
-            switch (b2.$typeof) {
+            switch (b2.$$typeof) {
               case va:
                 return c2 = Rg(b2.type, b2.key, b2.props, null, a2.mode, c2), c2.ref = Lg(a2, null, b2), c2.return = a2, c2;
               case wa:
@@ -4898,7 +4898,7 @@
           var e2 = null !== b2 ? b2.key : null;
           if ("string" === typeof c2 && "" !== c2 || "number" === typeof c2) return null !== e2 ? null : h(a2, b2, "" + c2, d2);
           if ("object" === typeof c2 && null !== c2) {
-            switch (c2.$typeof) {
+            switch (c2.$$typeof) {
               case va:
                 return c2.key === e2 ? k(a2, b2, c2, d2) : null;
               case wa:
@@ -4919,7 +4919,7 @@
         function y(a2, b2, c2, d2, e2) {
           if ("string" === typeof d2 && "" !== d2 || "number" === typeof d2) return a2 = a2.get(c2) || null, h(b2, a2, "" + d2, e2);
           if ("object" === typeof d2 && null !== d2) {
-            switch (d2.$typeof) {
+            switch (d2.$$typeof) {
               case va:
                 return a2 = a2.get(null === d2.key ? c2 : d2.key) || null, k(b2, a2, d2, e2);
               case wa:
@@ -4997,7 +4997,7 @@
         function J(a2, d2, f2, h2) {
           "object" === typeof f2 && null !== f2 && f2.type === ya && null === f2.key && (f2 = f2.props.children);
           if ("object" === typeof f2 && null !== f2) {
-            switch (f2.$typeof) {
+            switch (f2.$$typeof) {
               case va:
                 a: {
                   for (var k2 = f2.key, l2 = d2; null !== l2; ) {
@@ -5011,7 +5011,7 @@
                           a2 = d2;
                           break a;
                         }
-                      } else if (l2.elementType === k2 || "object" === typeof k2 && null !== k2 && k2.$typeof === Ha && Ng(k2) === l2.type) {
+                      } else if (l2.elementType === k2 || "object" === typeof k2 && null !== k2 && k2.$$typeof === Ha && Ng(k2) === l2.type) {
                         c(a2, l2.sibling);
                         d2 = e(l2, f2.props);
                         d2.ref = Lg(a2, l2, f2);
@@ -8337,7 +8337,7 @@
             e = Nh(null, b, d, a, e, c);
             var f = Sh();
             b.flags |= 1;
-            "object" === typeof e && null !== e && "function" === typeof e.render && void 0 === e.$typeof ? (b.tag = 1, b.memoizedState = null, b.updateQueue = null, Zf(d) ? (f = true, cg(b)) : f = false, b.memoizedState = null !== e.state && void 0 !== e.state ? e.state : null, kh(b), e.updater = Ei, b.stateNode = e, e._reactInternals = b, Ii(b, d, a, c), b = jj(null, b, d, true, f, c)) : (b.tag = 0, I && f && vg(b), Xi(null, b, e, c), b = b.child);
+            "object" === typeof e && null !== e && "function" === typeof e.render && void 0 === e.$$typeof ? (b.tag = 1, b.memoizedState = null, b.updateQueue = null, Zf(d) ? (f = true, cg(b)) : f = false, b.memoizedState = null !== e.state && void 0 !== e.state ? e.state : null, kh(b), e.updater = Ei, b.stateNode = e, e._reactInternals = b, Ii(b, d, a, c), b = jj(null, b, d, true, f, c)) : (b.tag = 0, I && f && vg(b), Xi(null, b, e, c), b = b.child);
             return b;
           case 16:
             d = b.elementType;
@@ -8536,7 +8536,7 @@
       function Zk(a) {
         if ("function" === typeof a) return aj(a) ? 1 : 0;
         if (void 0 !== a && null !== a) {
-          a = a.$typeof;
+          a = a.$$typeof;
           if (a === Da) return 11;
           if (a === Ga) return 14;
         }
@@ -8580,7 +8580,7 @@
           case Ia:
             return pj(c, e, f, b);
           default:
-            if ("object" === typeof a && null !== a) switch (a.$typeof) {
+            if ("object" === typeof a && null !== a) switch (a.$$typeof) {
               case Ba:
                 g = 10;
                 break a;
@@ -8656,7 +8656,7 @@
       }
       function cl(a, b, c) {
         var d = 3 < arguments.length && void 0 !== arguments[3] ? arguments[3] : null;
-        return { $typeof: wa, key: null == d ? null : "" + d, children: a, containerInfo: b, implementation: c };
+        return { $$typeof: wa, key: null == d ? null : "" + d, children: a, containerInfo: b, implementation: c };
       }
       function dl(a) {
         if (!a) return Vf;
@@ -9065,7 +9065,7 @@
         void 0 !== a.ref && (h = a.ref);
         for (b in a) m.call(a, b) && !p.hasOwnProperty(b) && (d[b] = a[b]);
         if (c && c.defaultProps) for (b in a = c.defaultProps, a) void 0 === d[b] && (d[b] = a[b]);
-        return { $typeof: k, type: c, key: e, ref: h, props: d, _owner: n.current };
+        return { $$typeof: k, type: c, key: e, ref: h, props: d, _owner: n.current };
       }
       exports.Fragment = l;
       exports.jsx = q;
@@ -12914,7 +12914,7 @@
       var debugEnvRegex = /^$/;
       if (process$1.env.NODE_DEBUG) {
         var debugEnv = process$1.env.NODE_DEBUG;
-        debugEnv = debugEnv.replace(/[|\\{}()[\]^$+?.]/g, "\\<script src="./bundle.js"></script>").replace(/\*/g, ".*").replace(/,/g, "$|^").toUpperCase();
+        debugEnv = debugEnv.replace(/[|\\{}()[\]^$+?.]/g, "\\$&").replace(/\*/g, ".*").replace(/,/g, "$|^").toUpperCase();
         debugEnvRegex = new RegExp("^" + debugEnv + "$", "i");
       }
       exports.debuglog = function(set) {
