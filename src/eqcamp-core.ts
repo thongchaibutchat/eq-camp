@@ -4,7 +4,10 @@ import {
 } from 'docx';
 
 /* ===================== TYPES ===================== */
-export type Subject = 'math' | 'steam' | 'english' | 'ai';
+import { COURSES, REF_ACTIVITIES, Course } from './eqcamp-data';
+export { COURSES } from './eqcamp-data';
+export type { Course } from './eqcamp-data';
+export type Subject = 'math' | 'steam' | 'english' | 'ai' | 'chinese' | 'leadership';
 export type DocKind = 'program' | 'quotation' | 'booking' | 'runsheet';
 // รูปแบบระยะเวลา: half = ครึ่งวัน, day = ไป-กลับเต็มวัน, overnight = พักค้าง
 export type DurationMode = 'half' | 'day' | 'overnight';
@@ -12,7 +15,7 @@ export interface Img { data?: Uint8Array; caption: string }
 export interface Row { time: string; title: string; sub?: string[] }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
-  docCode: string; subject: Subject; school: string; level: string;
+  docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
   students: number; teachers: number; days: number; nights: number; durationMode: DurationMode;
   dates: string; province: string; venue: string; venueVisit: string; startTime: string; travelHours: number;
   normalPrice: number; specialPrice: number; costPerPerson: number;
@@ -35,12 +38,18 @@ export const SUBJECTS: Record<Subject, { label: string; titleTh: string; en: str
     extra: ['บูรณาการทักษะการฟัง พูด อ่าน เขียน ภาษาอังกฤษ', 'บูรณาการการสื่อสารข้ามวัฒนธรรม (Intercultural Communication)'] },
   ai: { label: 'AI & Coding', titleTh: 'ค่ายนวัตกรรมปัญญาประดิษฐ์และโค้ดดิ้ง', en: 'AI & Coding Camp 2026', field: 'เทคโนโลยีดิจิทัล ปัญญาประดิษฐ์ และการเขียนโปรแกรม',
     careers: 'นักพัฒนาโปรแกรม นักนวัตกรรม และนักเทคโนโลยีในอนาคต',
-    extra: ['บูรณาการทักษะการคิดเชิงคำนวณ (Computational Thinking)', 'บูรณาการโครงงานฐานนวัตกรรมดิจิทัล'] }
+    extra: ['บูรณาการทักษะการคิดเชิงคำนวณ (Computational Thinking)', 'บูรณาการโครงงานฐานนวัตกรรมดิจิทัล'] },
+  chinese: { label: 'ภาษาจีน', titleTh: 'ค่ายภาษาและวัฒนธรรมจีน', en: 'Chinese Language & Culture Camp 2026', field: 'ภาษาและวัฒนธรรมจีน',
+    careers: 'ผู้ใช้ภาษาจีนเพื่อการสื่อสารและการประกอบอาชีพในอนาคต',
+    extra: ['บูรณาการทักษะการฟัง พูด อ่าน เขียน ภาษาจีน', 'บูรณาการการเรียนรู้วัฒนธรรมข้ามชาติ'] },
+  leadership: { label: 'ภาวะผู้นำ / EQ', titleTh: 'ค่ายพัฒนาสมรรถนะและภาวะผู้นำ', en: 'Leadership & Competency Camp 2026', field: 'สมรรถนะ ภาวะผู้นำ และความฉลาดทางอารมณ์ (EQ)',
+    careers: 'ผู้นำ นักจัดการ และผู้ที่ทำงานร่วมกับผู้อื่นได้อย่างมีประสิทธิภาพ',
+    extra: ['บูรณาการทักษะการทำงานเป็นทีมและการสื่อสาร', 'บูรณาการการพัฒนา EQ ควบคู่ IQ'] }
 };
 
 export type Kind = 'opening' | 'core' | 'night' | 'recreation' | 'closing';
-export interface Activity { id: string; subjects: Subject[]; kind: Kind; title: string; desc?: string; draft?: boolean }
-const ALL: Subject[] = ['math', 'steam', 'english', 'ai'];
+export interface Activity { id: string; subjects: Subject[]; kind: Kind; title: string; desc?: string; draft?: boolean; courseCode?: string }
+const ALL: Subject[] = ['math', 'steam', 'english', 'ai', 'chinese', 'leadership'];
 // คลังกิจกรรมมาตรฐาน EQ Camp — ครบทุกวิชา กิจกรรมหลักมากพอเติมค่าย 4 วันโดยไม่ซ้ำ
 // (ชุดคณิต/STEAM ดึงจากไฟล์จริง PL 0109 / PL 0110 ; อังกฤษ/AI เป็นชุดมาตรฐานพร้อมใช้ แก้ชื่อได้)
 export const LIB: Activity[] = [
@@ -90,8 +99,12 @@ export const LIB: Activity[] = [
 
   /* ---------- สันทนาการ / ปิดค่าย (ใช้ได้ทุกวิชา) ---------- */
   { id: 'x-boost', subjects: ALL, kind: 'recreation', title: 'กิจกรรม “Boost Up Learning” สันทนาการ' },
-  { id: 'x-next', subjects: ALL, kind: 'closing', title: 'กิจกรรม “The Next Step”' }
+  { id: 'x-next', subjects: ALL, kind: 'closing', title: 'กิจกรรม “The Next Step”' },
+  /* ---------- กิจกรรมจริงจากคลัง 14 หลักสูตร (รหัส ref-, สถานะ "รอตรวจ") ---------- */
+  ...REF_ACTIVITIES.map(a => ({ id: a.id, subjects: [a.family as Subject], kind: a.kind as Kind, title: a.title, courseCode: a.course, draft: true }))
 ];
+// หลักสูตร (ธีม) จริง 14 รายการ — ใช้เลือกคลังกิจกรรมเฉพาะธีม
+export const courseById = (code?: string): Course | undefined => COURSES.find(c => c.code === code);
 export const VENUES = [
   { province: 'เลย', name: 'โรงแรมเชียงคานฮิลล์รีสอร์ท', visit: 'ถนนวัฒนธรรมเชียงคาน / ชมวิวทะเลหมอก ณ ภูทอก อำเภอเชียงคาน จังหวัดเลย', note: 'พร้อมห้องประชุมและสระว่ายน้ำ' },
   { province: 'ระยอง', name: 'โรงแรมโกลเด้น ซิตี้ ระยอง', visit: 'ศูนย์การเรียนรู้ด้านพลังงาน / สถานแสดงพันธุ์สัตว์น้ำระยอง', note: 'คุณทราย 088-6171446 (ห้องประชุมจุได้สูงสุด 1,800 คน)' },
@@ -197,7 +210,10 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
   str('docCode'); str('school'); str('level'); str('dates'); str('province'); str('venue'); str('venueVisit'); str('startTime');
   numf('students', { min: 1, int: true }); numf('teachers', { min: 0, allowZero: true, int: true });
   numf('normalPrice', { min: 1 }); numf('specialPrice', { min: 1 }); numf('travelHours', { min: 0, allowZero: true });
-  if (['math', 'steam', 'english', 'ai'].includes(r?.subject)) { c.subject = r.subject; applied.push('subject'); } else missing.push('subject');
+  if (['math', 'steam', 'english', 'ai', 'chinese', 'leadership'].includes(r?.subject)) { c.subject = r.subject; applied.push('subject'); } else missing.push('subject');
+  // หลักสูตร (ธีม) จาก AI หรือเดาจากข้อความชื่อหลักสูตร
+  if (typeof r?.courseCode === 'string' && COURSES.some(x => x.code === r.courseCode)) { c.courseCode = r.courseCode; c.subject = courseById(r.courseCode)!.family as Subject; applied.push('course'); }
+  else if (typeof r?.courseName === 'string') { const cc = detectCourse(r.courseName); if (cc) { c.courseCode = cc.code; c.subject = cc.family as Subject; applied.push('course'); } }
   // ระยะเวลา: ใช้ก็ต่อเมื่อมีสัญญาณจริง (durationMode/days/nights) — ไม่เช่นนั้นคงค่าเดิมและเตือน
   const dmOK = ['half', 'day', 'overnight'].includes(r?.durationMode);
   const dOK = has(r?.days) && Number.isFinite(Number(r.days));
@@ -210,7 +226,9 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
     applied.push('duration');
   } else { missing.push('duration'); warnings.push('อ่านระยะเวลาจากบรีฟไม่ได้ — คงค่าเดิมไว้ โปรดเลือกเองในแท็บ 2'); }
   const norm = normalizeDuration(c);
-  if (!norm.activityIds.length || applied.includes('subject'))
+  if (norm.courseCode && (applied.includes('course') || !norm.activityIds.length))
+    norm.activityIds = defaultCourseActs(norm.courseCode);
+  else if (!norm.courseCode && (!norm.activityIds.length || applied.includes('subject')))
     norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter(a => a.subjects.includes(norm.subject)).map(a => a.id));
   return { camp: norm, applied, missing, warnings };
 }
@@ -258,16 +276,55 @@ export function parseBrief(t: string, base: Camp): Camp {
   // จังหวัด: ระบุชัดในบรีฟ > จังหวัดที่พบในข้อความ (เฉพาะเมื่อยังไม่ได้จากคลัง)
   if ((m = t.match(/จังหวัด\s*([^\s,\n]+)/)) || (m = t.match(/จ\.\s*([^\s,\n]+)/))) c.province = m[1];
   else if (!known && !c.province) { const kp = VENUES.find(x => t.includes(x.province)); if (kp) c.province = kp.province; }
-  const prev = c.subject;
-  if (/steam|สะตีม|สะเต็ม|วิทย์/i.test(t)) c.subject = 'steam';
-  else if (/อังกฤษ|english/i.test(t)) c.subject = 'english';
-  else if (/\bai\b|coding|โค้ด|โดรน|หุ่นยนต์/i.test(t)) c.subject = 'ai';
-  else if (/คณิต|math/i.test(t)) c.subject = 'math';
-  if (!base.activityIds.length || c.subject !== prev) c.activityIds = defaultActs(c.subject);
+  // ตรวจจับหลักสูตร (ธีม) จริงจากบรีฟก่อน — ได้คลังกิจกรรมตรงธีม
+  const course = detectCourse(t);
+  const prev = c.subject, prevCourse = c.courseCode;
+  if (course) { c.courseCode = course.code; c.subject = course.family as Subject; }
+  else {
+    if (/steam|สะตีม|สะเต็ม|วิทย์/i.test(t)) c.subject = 'steam';
+    else if (/จีน|chinese|แมนดาริน/i.test(t)) c.subject = 'chinese';
+    else if (/ผู้นำ|leadership|\beq\b/i.test(t)) c.subject = 'leadership';
+    else if (/อังกฤษ|english/i.test(t)) c.subject = 'english';
+    else if (/\bai\b|coding|โค้ด|โดรน|หุ่นยนต์/i.test(t)) c.subject = 'ai';
+    else if (/คณิต|math/i.test(t)) c.subject = 'math';
+  }
+  if (c.courseCode && c.courseCode !== prevCourse) c.activityIds = defaultCourseActs(c.courseCode);
+  else if (!c.courseCode && (!base.activityIds.length || c.subject !== prev)) c.activityIds = defaultActs(c.subject);
   return c;
 }
-// เลือกกิจกรรมเริ่มต้นให้ครบชุดสำหรับวิชานั้น (เปิด + หลักทั้งหมด + ค่ำ + สันทนาการ + ปิด)
-export const defaultActs = (s: Subject) => LIB.filter(a => a.subjects.includes(s)).map(a => a.id);
+// ตรวจจับหลักสูตร (ธีม) จากข้อความบรีฟ ด้วยคีย์เวิร์ดเฉพาะธีม
+const COURSE_KEYS: [string, RegExp][] = [
+  ['CUR-003', /ทะเล|marine|ชายหาด|ปะการัง|ใต้ท้องทะเล/i],
+  ['CUR-002', /ธรณี|หิน|แร่|geolog/i],
+  ['CUR-011', /ดารา\s*ศาสตร์|astro|ดวงดาว|จักรวาล|ท้องฟ้าจำลอง/i],
+  ['CUR-012', /นิติ\s*วิทย|forensic|สืบสวน|ชีววิทยา/i],
+  ['CUR-001', /โดรน|drone/i],
+  ['CUR-009', /หุ่นยนต์|robot|โค้ดดิ้ง|coding/i],
+  ['CUR-010', /สตาร์ท\s*อัพ|startup|ดิจิทัล|ธุรกิจ/i],
+  ['CUR-004', /จีน|chinese|แมนดาริน|mandarin/i],
+  ['CUR-006', /ผู้นำ|leadership|สมรรถนะ|\beq\b/i],
+  ['CUR-007', /pre[-\s]?genius|อัจฉริยะ|คณิต.*วิทย|วิทย.*คณิต/i],
+  ['CUR-005', /สิ่งแวดล้อม|environment/i],
+  ['CUR-014', /อังกฤษ|english/i],
+  ['CUR-008', /คณิต|math/i],
+  ['CUR-013', /steam|stem|สะตีม|สะเต็ม/i]
+];
+export function detectCourse(text: string): Course | undefined {
+  for (const [code, re] of COURSE_KEYS) if (re.test(text)) return COURSES.find(c => c.code === code);
+  return undefined;
+}
+// เลือกกิจกรรมเริ่มต้นให้ครบชุดสำหรับวิชานั้น (ชุดเดิม ไม่รวมกิจกรรมหลักสูตรจริง)
+export const defaultActs = (s: Subject) => LIB.filter(a => !a.courseCode && a.subjects.includes(s)).map(a => a.id);
+// เลือกกิจกรรมเริ่มต้นของหลักสูตรจริง (CUR) + เติมสันทนาการ/ปิด/เปิดกลางถ้าหลักสูตรไม่มี
+export const defaultCourseActs = (code: string): string[] => {
+  const own = LIB.filter(a => a.courseCode === code);
+  const ids = own.map(a => a.id);
+  const kinds = new Set(own.map(a => a.kind));
+  if (!kinds.has('recreation')) ids.push('x-boost');
+  if (!kinds.has('closing')) ids.push('x-next');
+  if (!kinds.has('opening')) ids.push('o-ice');
+  return ids;
+};
 
 /* ===================== SCHEDULE ENGINE ===================== */
 const fmt = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}.${String(Math.round(m % 60)).padStart(2, '0')}`;
@@ -277,8 +334,16 @@ const FIX: Record<string, number> = { snack: 15, trip: 90, checkin: 45, register
 export const staffText = (n: number) => `${Math.max(2, Math.ceil(n / 18))} – ${Math.max(3, Math.ceil(n / 12))}`;
 
 export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[] }
+// คลังกิจกรรมที่ใช้ได้: ถ้าเลือกหลักสูตร (courseCode) → กิจกรรมจริงของหลักสูตรนั้น + สันทนาการ/ปิด/เปิดกลาง; ไม่งั้น → ตาม subject (ชุดเดิม)
 export function subjectPool(c: Camp): Activity[] {
-  return [...LIB.filter(a => a.subjects.includes(c.subject)), ...c.extraActivities.filter(a => a.subjects.includes(c.subject))];
+  const extras = c.extraActivities.filter(a => a.subjects.includes(c.subject));
+  if (c.courseCode) {
+    const courseActs = LIB.filter(a => a.courseCode === c.courseCode);
+    const kinds = new Set(courseActs.map(a => a.kind));
+    const generics = LIB.filter(a => !a.courseCode && a.subjects.length >= 6 && !kinds.has(a.kind)); // เติม recreation/closing/opening กลางที่หลักสูตรไม่มี
+    return [...courseActs, ...generics, ...extras];
+  }
+  return [...LIB.filter(a => !a.courseCode && a.subjects.includes(c.subject)), ...extras];
 }
 export function buildSchedule(c: Camp): Plan {
   const pool = subjectPool(c);
@@ -369,14 +434,16 @@ export function buildSchedule(c: Camp): Plan {
 /* ===================== SENTENCE COMPOSER ===================== */
 export function compose(c: Camp, plan: Plan) {
   const S = SUBJECTS[c.subject];
+  const course = courseById(c.courseCode);
   const pool = subjectPool(c);
   // ใช้กิจกรรมที่ "จัดจริงในตาราง" (ไม่ซ้ำ) เพื่อให้รายละเอียดตรงกับกำหนดการ; สำรองเป็นที่เลือกไว้
   const seen = new Set<string>(); const usedSel: Activity[] = [];
   for (const id of (plan.usedActivityIds || [])) { if (!seen.has(id)) { seen.add(id); const a = pool.find(x => x.id === id); if (a) usedSel.push(a); } }
   const sel = usedSel.length ? usedSel : pool.filter(a => c.activityIds.includes(a.id));
+  // วัตถุประสงค์ข้อ 1-2 จากหลักสูตรจริง (ถ้าเลือก) หรือจาก subject family; ข้อ 3-4 คงที่ตามมาตรฐาน
   const objectives = [
-    `เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้าน${S.field}`,
-    `เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็น${S.careers}`,
+    course && course.obj1 ? course.obj1 : `เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้าน${S.field}`,
+    course && course.obj2 ? course.obj2 : `เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็น${S.careers}`,
     'เพื่อจัดกระบวนการเรียนรู้ให้ผู้เรียนได้เกิดเจตคติที่ดีต่อการเรียน และเอาใจใส่ในการเรียน เกิดพฤติกรรมในการรักการเรียนรู้ ใฝ่ฝึกฝนตนเองอยู่เสมออย่างเต็มที่',
     'เพื่อจัดกระบวนการเรียนรู้ให้ผู้เรียนเกิดกระบวนการเรียนรู้ที่สร้างสรรค์อย่างมีความสุข ทั้งสุขภาพกายและสุขภาพจิตที่ดี ได้เรียนรู้ร่วมกันจากการปฏิบัติจริง ด้วยความหลากหลายและสร้างองค์ความรู้ใหม่ได้ในศตวรรษที่ 21'
   ];
@@ -396,7 +463,7 @@ export function compose(c: Camp, plan: Plan) {
   ].filter(Boolean) as string[];
   const total = c.students + c.teachers;
   return {
-    titleTh: `หลักสูตร “${S.titleTh}”`, titleEn: `( ${S.en} )`, objectives, acts, integ, budget, staff,
+    titleTh: `หลักสูตร “${course ? course.name : S.titleTh}”`, titleEn: `( ${S.en} )`, objectives, acts, integ, budget, staff,
     p1: `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`, p2: `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน`,
     dur: c.durationMode === 'half' ? 'ครึ่งวัน (ไป-กลับ)'
       : c.durationMode === 'day' ? `${c.days} วัน (ไป-กลับ)`
@@ -416,6 +483,8 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
   const noStrayOvernight = c.durationMode === 'overnight' || !allItems.some(r => overnightWords.test(r.title));
   const durOK = c.durationMode === 'overnight' ? c.nights > 0 : c.nights === 0;
   const hasAAR = allItems.some(r => /AAR/.test(r.title));
+  // กิจกรรมจากคลัง 14 หลักสูตรยัง "รอตรวจ" — เตือน (soft) ให้ทีมยืนยันรายละเอียดก่อนจัดจริง
+  const pendingCount = c.activityIds.filter(id => pool.find(a => a.id === id)?.draft).length;
   return [
     { ok: /^PL\s*\d+\/\d+$/.test(c.docCode.trim()), msg: 'รหัสเอกสารรูปแบบ PL xxxx/2569' },
     { ok: !!c.school && !c.school.includes('...'), msg: 'ระบุชื่อโรงเรียนแล้ว' },
@@ -428,7 +497,8 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     { ok: noStrayOvernight, msg: 'กำหนดการสอดคล้องรูปแบบ (ไม่มีรายการพักค้างในค่ายไป-กลับ)' },
     { ok: hasAAR, msg: 'มีกิจกรรมถอดบทเรียน (AAR)' },
     { ok: noGap, msg: 'ทุกช่วงเวลามีกิจกรรมจริง (ไม่มีช่องว่าง)' },
-    { ok: unique, soft: true, msg: unique ? `กิจกรรมหลักพอทุกช่องไม่ซ้ำ (ใช้ ${plan.coreSlots} ช่อง · คลังมี ${coreAvail})` : `ค่ายยาว ใช้ ${plan.coreSlots} ช่อง แต่คลังมี ${coreAvail} — ระบบวนใช้ซ้ำแบบติดป้าย “(ต่อยอด)” หรือเพิ่มกิจกรรมเองในแท็บ 3` }
+    { ok: unique, soft: true, msg: unique ? `กิจกรรมหลักพอทุกช่องไม่ซ้ำ (ใช้ ${plan.coreSlots} ช่อง · คลังมี ${coreAvail})` : `ค่ายยาว ใช้ ${plan.coreSlots} ช่อง แต่คลังมี ${coreAvail} — ระบบวนใช้ซ้ำแบบติดป้าย “(ต่อยอด)” หรือเพิ่มกิจกรรมเองในแท็บ 3` },
+    { ok: pendingCount === 0, soft: true, msg: pendingCount === 0 ? 'ไม่มีกิจกรรมสถานะรอตรวจ' : `⚠ มีกิจกรรม "รอตรวจ" ${pendingCount} รายการ (จากคลัง 14 หลักสูตร) — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง` }
   ];
 }
 // พร้อมส่งเมื่อผ่านทุกข้อ "แข็ง" (soft ไม่บังคับ)

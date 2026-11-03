@@ -48,6 +48,10 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   await write('7_program_brief-new-venue.docx', 'program', b);
   await write('8_hotel-request_brief-new-venue.docx', 'booking', b);
 
+  // 9: หลักสูตรจริงจากคลัง — ค่ายวิทยาศาสตร์ทางทะเล (CUR-003) กิจกรรมจริงเฉพาะธีม
+  const sea = parseBrief('PL 0140/2569 โรงเรียนสาธิตชลบุรี ม.1-3 จำนวน 90 คน ครู 7 คน ค่ายวิทยาศาสตร์และสิ่งแวดล้อมทางทะเล 2 วัน 1 คืน วันที่ 15 – 16 มกราคม 2570 ณ โรงแรมพัทยาบีช จังหวัดชลบุรี ราคาปกติ 3,900 ลดเหลือเพียง 2,990', blankCamp());
+  await write('9_program_CUR003_marine.docx', 'program', sea);
+
   // sample.export.json (ตาม schema.json)
   const snap = { _app: 'EQ Camp Generator', _v: 2, savedAt: new Date().toISOString(),
     camp: { ...pl, actImgs: [], venueImgs: [] }, customVenues: [], brief: '' };

@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -91,10 +91,12 @@ export default function App() {
       if (stale()) return;
       if (!sample) { applyBrief(mode); flash('หน้านี้ยังเรียก AI ไม่ได้ — ใช้การแปลงบรีฟแบบปกติแทน (เปิดบนลิงก์ claude.ai เพื่อใช้ AI ช่วยดึง)', false); return; }
       flash('🤖 AI กำลังอ่านบรีฟและดึงข้อมูล...');
+      const courseList = COURSES.map(c => `${c.code}=${c.name}`).join('; ');
       const prompt = `คุณเป็นผู้ช่วยฝ่ายขายค่ายวิชาการ อ่าน "บรีฟ" ภาษาไทยแบบอิสระด้านล่าง แล้วดึงข้อมูลเป็น JSON ออบเจ็กต์เดียวตามคีย์นี้ (เดาจากบริบทได้ ถ้าไม่พบให้ใส่ null — ห้ามแต่งข้อมูลที่ไม่มีในบรีฟ):
-{"docCode":string|null,"subject":"math"|"steam"|"english"|"ai"|null,"school":string|null,"level":string|null,"students":number|null,"teachers":number|null,"durationMode":"half"|"day"|"overnight"|null,"days":number|null,"nights":number|null,"dates":string|null,"province":string|null,"venue":string|null,"venueVisit":string|null,"startTime":string|null,"travelHours":number|null,"normalPrice":number|null,"specialPrice":number|null}
+{"docCode":string|null,"courseCode":string|null,"subject":"math"|"steam"|"english"|"ai"|"chinese"|"leadership"|null,"school":string|null,"level":string|null,"students":number|null,"teachers":number|null,"durationMode":"half"|"day"|"overnight"|null,"days":number|null,"nights":number|null,"dates":string|null,"province":string|null,"venue":string|null,"venueVisit":string|null,"startTime":string|null,"travelHours":number|null,"normalPrice":number|null,"specialPrice":number|null}
 กติกา:
-- subject: คณิต→"math"; วิทยาศาสตร์/ทะเล/ธรรมชาติ/STEAM/สะเต็ม→"steam"; อังกฤษ/English→"english"; AI/โค้ดดิ้ง/หุ่นยนต์/โดรน→"ai"
+- courseCode: จับคู่ธีมบรีฟกับหลักสูตรจริงนี้ให้ตรงที่สุด (ถ้าตรง) — ${courseList} — ไม่ตรงให้ null
+- subject (ใช้เมื่อ courseCode เป็น null): คณิต→"math"; วิทย์/ทะเล/ธรรมชาติ/STEAM→"steam"; อังกฤษ→"english"; AI/โค้ด/หุ่นยนต์/โดรน→"ai"; จีน→"chinese"; ผู้นำ/EQ→"leadership"
 - durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง); ถ้าบรีฟไม่บอกระยะเวลาเลย ใส่ durationMode/days/nights เป็น null
 - รองรับเลขไทยและคำไทย (เช่น "สองวันหนึ่งคืน"=2วัน1คืน)
 - ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท); ไม่พบให้ null
@@ -131,7 +133,13 @@ export default function App() {
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — ระบบจัดกำหนดการใหม่อัตโนมัติ`);
   };
-  const changeSubject = (s: Subject) => set({ subject: s, activityIds: defaultActs(s).concat(camp.extraActivities.filter(a => a.subjects.includes(s)).map(a => a.id)) });
+  const changeSubject = (s: Subject) => set({ subject: s, courseCode: undefined, activityIds: defaultActs(s).concat(camp.extraActivities.filter(a => a.subjects.includes(s)).map(a => a.id)) });
+  const changeCourse = (code: string) => {
+    if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject) }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
+    const co = COURSES.find(c => c.code === code)!;
+    set({ courseCode: code, subject: co.family as Subject, activityIds: defaultCourseActs(code) });
+    flash(`เลือกหลักสูตร "${co.name}" — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
+  };
   const toggleAct = (id: string) => set({ activityIds: camp.activityIds.includes(id) ? camp.activityIds.filter(x => x !== id) : [...camp.activityIds, id] });
   const selectedCore = camp.activityIds.filter(id => subjectPool(camp).some(a => a.id === id && a.kind === 'core')).length;
   const addCustom = (title: string, kind: Kind, desc: string) => {
@@ -348,6 +356,13 @@ export default function App() {
                         <button key={s} onClick={() => changeSubject(s)} className={`py-2 rounded-lg text-xs font-bold border ${camp.subject === s ? 'bg-sky-700 text-white border-sky-700' : 'bg-slate-50 border-slate-300'}`}>{SUBJECTS[s].label}</button>
                       ))}
                     </div>
+                  </Field>
+                  <Field label="หลักสูตรจริงจากคลัง 14 ธีม (ดึงกิจกรรมจริงของธีมนั้น — แม่นกว่าเลือกแค่วิชา)">
+                    <select value={camp.courseCode || ''} onChange={e => changeCourse(e.target.value)} className={inp}>
+                      <option value="">— ไม่ผูกหลักสูตร (ใช้คลังมาตรฐานตามวิชา) —</option>
+                      {COURSES.map(co => <option key={co.code} value={co.code}>{co.code} · {co.name}</option>)}
+                    </select>
+                    {camp.courseCode && <div className="text-[10px] text-amber-700 mt-1">กิจกรรมจากคลังนี้สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
                   </Field>
                   <div className="text-[11px] text-slate-500 -mt-1">หลักสูตร: <b>{k.titleTh}</b> {k.titleEn}</div>
                   <Field label="ชื่อโรงเรียน"><input value={camp.school} onChange={e => set({ school: e.target.value })} className={inp} /></Field>
