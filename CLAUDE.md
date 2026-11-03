@@ -14,9 +14,10 @@
 
 ## คำสั่ง (ต้องผ่านก่อน commit)
 ```bash
-npm install && npm run build && npm run samples && npm run validate
+npm install && npm run build && npm run samples && npm run validate && npm run stress
 ```
 ตรวจ Word จริง: `soffice --headless --convert-to pdf samples/xxx.docx` แล้วดูหน้า
+`npm run stress` = สร้าง .docx 4 ชนิด × 66 คอนฟิก (half/day/overnight × วิชา/14 หลักสูตร + เคสแย่สุด) → ต้องไม่ throw / เป็น zip / ทุกวันมีแถว; ไฟล์ออกที่ /tmp/stress (ตรวจ XML เพิ่ม: `xmllint --noout`)
 
 ## กฎเหล็ก (invariants — ห้ามพลาด)
 1. โครงเอกสารคงที่ (objectives ข้อ 3-4, integration ข้อ 1-2 + 3 ท้าย, AAR ปิดท้าย, ลำดับหัวข้อ, โครงกำหนดการ/ราคา/งบ, ฟอนต์ TH SarabunPSK) — ห้ามแก้ตามใจ
@@ -39,6 +40,8 @@ branch → commit → PR เข้า main; ก่อนเริ่ม `git pul
 - **เลือกกิจกรรมรายช่วง (per-slot)**: `camp.coreSlotIds[]` (ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม, ''=อัตโนมัติ) — UI แท็บ 4 มี dropdown ต่อช่อง; buildSchedule ใช้ pick ก่อน ไม่งั้นเติมอัตโนมัติ; Row.slot ติดดัชนีให้ UI
 - **ภาพกิจกรรมจริง**: `src/course-photos-data.ts` (COURSE_PHOTOS) ย่อ/บีบอัดจาก Drive โฟลเดอร์รวม 04b — ปัจจุบันมีเฉพาะ CUR-013 (STEAM 2 รูป), CUR-014 (อังกฤษ 4 รูป). coursePhotos(code)/hasCoursePhotos(code) ใน core; เลือกหลักสูตร→ฝัง actImgs อัตโนมัติ; ปุ่ม "ดึงภาพจริงของหลักสูตร" ในแท็บ 6. **สิทธิ์เผยแพร่: รอทีมรับรอง** → check() มี soft warning
 - buildSchedule กัน of(k)[0] undefined ด้วย pick1()+FALLBACK (opening/night/recreation/closing) — หลักสูตรที่ไม่มี night ไม่พังอีก
+- **กันไฟล์ .docx เสีย (XML valid เสมอ)**: `xmlSafe()` ล้างอักขระควบคุม (NUL/0x00–0x1F) ออกจากทุกข้อความใน R() — กัน Word เปิดไม่ได้/ต้อง repair; `money()` กัน NaN; buildSchedule กัน startTime/travelHours NaN (ไม่ให้เวลาเป็น "NaN.NaN"). ยืนยันด้วย stress 264 ไฟล์ + xmllint 792 ไฟล์ ผ่านหมด
+- **ปุ่ม "ครบชุด 4 ไฟล์"** (downloadAll): สร้างทั้ง 4 เอกสารด้วยข้อมูลชุดเดียวในคลิกเดียว
 - คลังกิจกรรม: **seed จาก Google Drive MASTER จริงแล้ว** — `src/eqcamp-data.ts` = 14 หลักสูตร (CUR-001..014) + 267 กิจกรรม (รหัส ref-) ทุกรายการสถานะ "รอตรวจ" (draft) ติดธงเตือนในเว็บ
 - เลือกได้ 2 ทาง: (ก) หลักสูตรจริง (courseCode = CUR-xxx) ดึงกิจกรรมเฉพาะธีม + วัตถุประสงค์จริง 2 ข้อ (ข) วิชา (subject) ใช้ชุดมาตรฐานเดิม (คณิต/STEAM จาก PL0109/0110; อังกฤษ/AI มาตรฐาน)
 - subject families: math/steam/english/ai/chinese/leadership

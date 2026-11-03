@@ -398,10 +398,13 @@ export function buildSchedule(c: Camp): Plan {
   const used: string[] = [];
   const act = (a?: Activity): Row['sub'] => { if (a?.id) used.push(a.id); return a?.desc ? [a.desc] : []; };
   const days: Day[] = [];
-  const startMin = Math.round(parseInt(c.startTime.split(/[.:]/)[0]) * 60 + parseInt(c.startTime.split(/[.:]/)[1] || '0'));
+  // กันค่าเวลา/ชั่วโมงเดินทางที่อ่านไม่ได้ (NaN) ไม่ให้เวลาในตารางกลายเป็น "NaN.NaN"
+  const hh = parseInt(c.startTime?.split(/[.:]/)[0]); const mm = parseInt(c.startTime?.split(/[.:]/)[1] || '0');
+  const startMin = Math.round((Number.isFinite(hh) ? hh : 7) * 60 + (Number.isFinite(mm) ? mm : 0));
+  const travelH = Number.isFinite(c.travelHours) && c.travelHours >= 0 ? c.travelHours : 0;
   for (let d = 1; d <= c.days; d++) {
     const first = d === 1, last = d === c.days;
-    const lateStart = startMin + c.travelHours * 60 + 120 >= 11 * 60;
+    const lateStart = startMin + travelH * 60 + 120 >= 11 * 60;
     let T: string[];
     if (c.durationMode === 'half') {
       // ครึ่งวัน: ช่วงสั้น ไม่มีมื้อหลัก/ไม่พักค้าง จบด้วย AAR + พิธีปิด
@@ -421,7 +424,7 @@ export function buildSchedule(c: Camp): Plan {
     }
     let cur = (first || c.durationMode !== 'overnight') ? startMin : 0;
     // ครึ่งวัน: จำกัดให้กิจกรรมจบในหน้าต่างราว 3.5 ชม. หลังถึงสถานที่ (กันลากยาวเป็นเต็มวัน)
-    const coreCap = c.durationMode === 'half' ? startMin + Math.round(c.travelHours * 60) + 30 + 210 : 16.5 * 60;
+    const coreCap = c.durationMode === 'half' ? startMin + Math.round(travelH * 60) + 30 + 210 : 16.5 * 60;
     const items: Row[] = [];
     T.forEach((tk, i) => {
       const rest = T.slice(i + 1);
@@ -429,7 +432,7 @@ export function buildSchedule(c: Camp): Plan {
       const put = (title: string, dur: number, sub?: string[], anchor?: number) => { const s = anchor ? Math.max(cur, anchor) : cur; items.push({ time: rng(s, s + dur), title, sub }); cur = s + dur; };
       const open = (title: string, sub?: string[]) => { items.push({ time: `${fmt(cur)} น. เป็นต้นไป`, title, sub }); };
       switch (tk) {
-        case 'depart': { const dur = Math.round(c.travelHours * 60); put(`ออกเดินทางจาก${c.school}`, dur); break; }
+        case 'depart': { const dur = Math.round(travelH * 60); put(`ออกเดินทางจาก${c.school}`, dur); break; }
         case 'arrive': put(`เดินทางถึง ณ ${c.venue}`, 30); break;
         case 'lunch?': case 'lunch': if (tk === 'lunch?' && cur > 13 * 60) break; meals.l++; put(`รับประทานอาหารกลางวัน (${++mealNo})`, 60, undefined, ANCH.lunch); break;
         case 'breakfast': meals.b++; put(`รับประทานอาหารเช้า (${++mealNo})`, 60, undefined, ANCH.breakfast); break;
@@ -551,13 +554,17 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
 }
 // พร้อมส่งเมื่อผ่านทุกข้อ "แข็ง" (soft ไม่บังคับ)
 export const isReady = (checks: { ok: boolean; soft?: boolean }[]) => checks.every(c => c.ok || c.soft);
-export const money = (n: number) => Math.round(n).toLocaleString('en-US');
+export const money = (n: number) => Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-US');
 
 /* ===================== DOCX HELPERS ===================== */
 const FONT = { ascii: 'TH SarabunPSK', hAnsi: 'TH SarabunPSK', cs: 'TH SarabunPSK', eastAsia: 'TH SarabunPSK' };
 const BLUE = '155D90', SKY = '087FC2', W = 9400;
 type RO = { b?: boolean; sz?: number; color?: string; strike?: boolean; i?: boolean };
-const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; return new TextRun({ text, font: FONT, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i }); };
+// ล้างอักขระที่ XML 1.0 ไม่รองรับ (NUL/control chars ที่มักติดมาจากการ copy) — กันไฟล์ .docx เสีย/เปิดไม่ได้
+// อักขระที่อนุญาต: \t \n \r และ 0x20 ขึ้นไป (ยกเว้น noncharacters)
+const XML_BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
+export const xmlSafe = (t: any): string => (t === null || t === undefined ? '' : String(t)).replace(XML_BAD, '');
+const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; return new TextRun({ text: xmlSafe(text), font: FONT, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i }); };
 const P = (t: string | TextRun[], o: RO & { al?: (typeof AlignmentType)[keyof typeof AlignmentType]; before?: number; after?: number; indent?: number; hang?: number; keep?: boolean } = {}) =>
   new Paragraph({ alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 312 }, indent: o.indent !== undefined ? { left: o.indent * 567, hanging: (o.hang || 0) * 567 } : undefined, keepNext: o.keep,
     children: typeof t === 'string' ? [R(t, o)] : t });

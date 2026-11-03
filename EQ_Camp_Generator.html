@@ -28396,10 +28396,13 @@
       return a?.desc ? [a.desc] : [];
     };
     const days = [];
-    const startMin = Math.round(parseInt(c.startTime.split(/[.:]/)[0]) * 60 + parseInt(c.startTime.split(/[.:]/)[1] || "0"));
+    const hh = parseInt(c.startTime?.split(/[.:]/)[0]);
+    const mm = parseInt(c.startTime?.split(/[.:]/)[1] || "0");
+    const startMin = Math.round((Number.isFinite(hh) ? hh : 7) * 60 + (Number.isFinite(mm) ? mm : 0));
+    const travelH = Number.isFinite(c.travelHours) && c.travelHours >= 0 ? c.travelHours : 0;
     for (let d = 1; d <= c.days; d++) {
       const first = d === 1, last = d === c.days;
-      const lateStart = startMin + c.travelHours * 60 + 120 >= 11 * 60;
+      const lateStart = startMin + travelH * 60 + 120 >= 11 * 60;
       let T;
       if (c.durationMode === "half") {
         T = ["depart", "arrive", "register", "opening", "core", "snack", "core", "aar", "award", "return"];
@@ -28413,7 +28416,7 @@
         if (first && lateStart) T = ["depart", "arrive", "lunch", "register", "opening", "core", "snack", "checkin", "dinner", "night", "rest"];
       }
       let cur = first || c.durationMode !== "overnight" ? startMin : 0;
-      const coreCap = c.durationMode === "half" ? startMin + Math.round(c.travelHours * 60) + 30 + 210 : 16.5 * 60;
+      const coreCap = c.durationMode === "half" ? startMin + Math.round(travelH * 60) + 30 + 210 : 16.5 * 60;
       const items = [];
       T.forEach((tk, i) => {
         const rest = T.slice(i + 1);
@@ -28436,7 +28439,7 @@
         };
         switch (tk) {
           case "depart": {
-            const dur = Math.round(c.travelHours * 60);
+            const dur = Math.round(travelH * 60);
             put(`\u0E2D\u0E2D\u0E01\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07\u0E08\u0E32\u0E01${c.school}`, dur);
             break;
           }
@@ -28630,14 +28633,16 @@
     ];
   }
   var isReady = (checks) => checks.every((c) => c.ok || c.soft);
-  var money = (n) => Math.round(n).toLocaleString("en-US");
+  var money = (n) => Math.round(Number.isFinite(n) ? n : 0).toLocaleString("en-US");
   var FONT = { ascii: "TH SarabunPSK", hAnsi: "TH SarabunPSK", cs: "TH SarabunPSK", eastAsia: "TH SarabunPSK" };
   var BLUE = "155D90";
   var SKY = "087FC2";
   var W = 9400;
+  var XML_BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
+  var xmlSafe = (t) => (t === null || t === void 0 ? "" : String(t)).replace(XML_BAD, "");
   var R2 = (text, o = {}) => {
     const sz = (o.sz || 16) * 2;
-    return new TextRun({ text, font: FONT, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i });
+    return new TextRun({ text: xmlSafe(text), font: FONT, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i });
   };
   var P = (t, o = {}) => new Paragraph({
     alignment: o.al,
@@ -29201,6 +29206,38 @@
       }
       setBusy(false);
     };
+    const downloadAll = async () => {
+      setBusy(true);
+      const sched = buildSchedule(camp);
+      const k2 = compose(camp, sched);
+      const cl = window.claude;
+      const downloads = cl && typeof cl.use === "function" ? await cl.use("downloads").catch(() => null) : null;
+      let done = 0;
+      try {
+        for (const dk of ["program", "quotation", "booking", "runsheet"]) {
+          const blob = await toBlob(buildDoc(dk, camp, sched, k2));
+          const name = fileName(dk, camp);
+          if (downloads) {
+            try {
+              await downloads.save({ filename: name, data: blob });
+              done++;
+            } catch (e) {
+              if (e?.code === "declined") continue;
+              anchorDownload(blob, name);
+              done++;
+            }
+          } else {
+            anchorDownload(blob, name);
+            done++;
+            await new Promise((r) => setTimeout(r, 400));
+          }
+        }
+        flash(`\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E23\u0E1A\u0E0A\u0E38\u0E14 ${done}/4 \u0E44\u0E1F\u0E25\u0E4C\u0E41\u0E25\u0E49\u0E27 (\u0E42\u0E1B\u0E23\u0E41\u0E01\u0E23\u0E21 \xB7 \u0E43\u0E1A\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32 \xB7 \u0E02\u0E2D\u0E23\u0E32\u0E04\u0E32\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21 \xB7 Run-down \u0E20\u0E32\u0E22\u0E43\u0E19)`);
+      } catch (e) {
+        flash("\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E0A\u0E38\u0E14\u0E44\u0E1F\u0E25\u0E4C\u0E1C\u0E34\u0E14\u0E1E\u0E25\u0E32\u0E14: " + e.message, false);
+      }
+      setBusy(false);
+    };
     const TABS = [
       { id: "brief", label: "1. \u0E1A\u0E23\u0E35\u0E1F / \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A", icon: Sparkles },
       { id: "db", label: "\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E22", icon: BookOpen },
@@ -29219,18 +29256,33 @@
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[11px] text-slate-400", children: "\u0E1A\u0E23\u0E35\u0E1F \u2192 \u0E40\u0E25\u0E37\u0E2D\u0E01/\u0E23\u0E30\u0E1A\u0E38\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14 \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C Word \u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19 (PL xxxx/2569) \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E19\u0E2D\u0E43\u0E19 30 \u0E19\u0E32\u0E17\u0E35" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
-          "button",
-          {
-            onClick: () => download(kind),
-            disabled: busy || !ready && kind !== "runsheet",
-            className: "px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-4 h-4" }),
-              busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07..." : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label} (.docx)`
-            ]
-          }
-        )
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "button",
+            {
+              onClick: () => download(kind),
+              disabled: busy || !ready && kind !== "runsheet",
+              className: "px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-4 h-4" }),
+                busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07..." : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label}`
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+            "button",
+            {
+              onClick: downloadAll,
+              disabled: busy || !ready,
+              title: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E31\u0E49\u0E07 4 \u0E44\u0E1F\u0E25\u0E4C\u0E14\u0E49\u0E27\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19",
+              className: "px-3 py-2 rounded-xl bg-sky-600 enabled:hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Layers, { className: "w-4 h-4" }),
+                "\u0E04\u0E23\u0E1A\u0E0A\u0E38\u0E14 4 \u0E44\u0E1F\u0E25\u0E4C"
+              ]
+            }
+          )
+        ] })
       ] }) }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "max-w-7xl mx-auto px-3 sm:px-6 pt-4", children: [
         banner && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `mb-4 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between border ${banner.ok ? "bg-emerald-50 border-emerald-300 text-emerald-950" : "bg-rose-50 border-rose-300 text-rose-950"}`, children: [

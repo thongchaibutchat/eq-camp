@@ -3,3 +3,6 @@ web/bundle.js
 *.pdf
 *.log
 dist/
+.samples.bundle.mjs
+.stress.bundle.mjs
+.stress.mjs

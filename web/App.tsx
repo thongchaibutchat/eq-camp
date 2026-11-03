@@ -254,6 +254,26 @@ export default function App() {
     } catch (e) { flash('เกิดข้อผิดพลาดในการสร้างไฟล์: ' + (e as Error).message, false); }
     setBusy(false);
   };
+  // สร้างครบชุด 4 ไฟล์ในคลิกเดียว (ใช้ข้อมูลชุดเดียวกัน จึงตรงกันทั้งกระบวนการขาย)
+  const downloadAll = async () => {
+    setBusy(true);
+    const sched = buildSchedule(camp); const k2 = compose(camp, sched);
+    const cl = (window as any).claude;
+    const downloads = cl && typeof cl.use === 'function' ? await cl.use('downloads').catch(() => null) : null;
+    let done = 0;
+    try {
+      for (const dk of ['program', 'quotation', 'booking', 'runsheet'] as DocKind[]) {
+        const blob = await toBlob(buildDoc(dk, camp, sched, k2));
+        const name = fileName(dk, camp);
+        if (downloads) {
+          try { await downloads.save({ filename: name, data: blob }); done++; }
+          catch (e: any) { if (e?.code === 'declined') continue; anchorDownload(blob, name); done++; }
+        } else { anchorDownload(blob, name); done++; await new Promise(r => setTimeout(r, 400)); }
+      }
+      flash(`สร้างครบชุด ${done}/4 ไฟล์แล้ว (โปรแกรม · ใบเสนอราคา · ขอราคาโรงแรม · Run-down ภายใน)`);
+    } catch (e) { flash('สร้างชุดไฟล์ผิดพลาด: ' + (e as Error).message, false); }
+    setBusy(false);
+  };
 
   const TABS = [
     { id: 'brief', label: '1. บรีฟ / แม่แบบ', icon: Sparkles },
@@ -277,10 +297,16 @@ export default function App() {
               <p className="text-[11px] text-slate-400">บรีฟ → เลือก/ระบุรายละเอียด → สร้างไฟล์ Word มาตรฐาน (PL xxxx/2569) พร้อมเสนอใน 30 นาที</p>
             </div>
           </div>
-          <button onClick={() => download(kind)} disabled={busy || (!ready && kind !== 'runsheet')}
-            className="px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
-            <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} (.docx)`}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => download(kind)} disabled={busy || (!ready && kind !== 'runsheet')}
+              className="px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
+              <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label}`}
+            </button>
+            <button onClick={downloadAll} disabled={busy || !ready} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
+              className="px-3 py-2 rounded-xl bg-sky-600 enabled:hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
+              <Layers className="w-4 h-4" />ครบชุด 4 ไฟล์
+            </button>
+          </div>
         </div>
       </header>
 
