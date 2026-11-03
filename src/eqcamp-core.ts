@@ -1,7 +1,10 @@
 import {
   Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType,
-  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign
+  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign, Header, Footer
 } from 'docx';
+import { LETTERHEADS, regionOf, Region } from './letterheads-data';
+export { LETTERHEADS, regionOf } from './letterheads-data';
+export type { Region } from './letterheads-data';
 
 /* ===================== TYPES ===================== */
 import { COURSES, REF_ACTIVITIES, Course } from './eqcamp-data';
@@ -17,7 +20,7 @@ export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
   students: number; teachers: number; days: number; nights: number; durationMode: DurationMode;
-  dates: string; province: string; venue: string; venueVisit: string; startTime: string; travelHours: number;
+  dates: string; province: string; region?: Region; venue: string; venueVisit: string; startTime: string; travelHours: number;
   normalPrice: number; specialPrice: number; costPerPerson: number;
   contactName: string; supplierNote: string; validDays: number; payTerms: string;
   activityIds: string[]; actImgs: Img[]; venueImgs: Img[];
@@ -331,7 +334,14 @@ const fmt = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}.
 const rng = (a: number, b: number) => `${fmt(a)} – ${fmt(b)} น.`;
 const ANCH: Record<string, number> = { breakfast: 450, lunch: 720, dinner: 1080 };
 const FIX: Record<string, number> = { snack: 15, trip: 90, checkin: 45, register: 30, arrive: 30, opening: 60, summary: 30, night: 60, aar: 45, award: 30, checkout: 60, recreation: 30, closing: 30 };
-export const staffText = (n: number) => `${Math.max(2, Math.ceil(n / 18))} – ${Math.max(3, Math.ceil(n / 12))}`;
+// สูตรจำนวนทีมงาน (ตายตัว ตามนโยบาย EQ Camp) — ห้ามเปลี่ยน:
+//   25–50 คน → 4–5 ท่าน · 50–80 → 6–8 · 80–120 → 6–8 · 120–180 → 8–12 · 180–300 → 10–16
+export const staffText = (n: number): string => {
+  if (n <= 50) return '4 – 5';
+  if (n <= 120) return '6 – 8';
+  if (n <= 180) return '8 – 12';
+  return '10 – 16';
+};
 
 export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[] }
 // คลังกิจกรรมที่ใช้ได้: ถ้าเลือกหลักสูตร (courseCode) → กิจกรรมจริงของหลักสูตรนั้น + สันทนาการ/ปิด/เปิดกลาง; ไม่งั้น → ตาม subject (ชุดเดิม)
@@ -554,6 +564,23 @@ const photoGrid = (imgs: Img[], fallbackN: number) => {
 };
 const sign = (l: string, who: string) => cell([P('', { after: 18 }), P('ลงชื่อ ....................................................', { al: CTR, after: 0 }), P(`( ${who} )`, { al: CTR, after: 0 }), P(l, { al: CTR, after: 0 })], W / 2);
 const thDate = () => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`; };
+// base64 → Uint8Array (ทำงานทั้งเบราว์เซอร์และ node)
+const b64bytes = (b64: string): Uint8Array => {
+  const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
+  const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
+};
+const CONTENT_W_PX = 626; // ความกว้างพื้นที่เนื้อหา A4 (9400 twips ≈ 6.53in × 96dpi)
+// หัวกระดาษ/ท้ายกระดาษตามภาค — แสดงทุกหน้า ทุกเอกสาร
+const letterheadHeader = (r: Region): Header => {
+  const lh = LETTERHEADS[r];
+  return new Header({ children: [new Paragraph({ alignment: CTR, spacing: { after: 40 },
+    children: [new ImageRun({ data: b64bytes(lh.headerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.headerH / lh.headerW) } })] })] });
+};
+const letterheadFooter = (r: Region): Footer => {
+  const lh = LETTERHEADS[r];
+  return new Footer({ children: [new Paragraph({ alignment: CTR, spacing: { before: 40 },
+    children: [new ImageRun({ data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
+};
 
 /* ===================== 4 DOCUMENT BUILDERS ===================== */
 export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<typeof compose>): Document {
@@ -614,8 +641,14 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
         P(`ซัพพลายเออร์/ผู้ติดต่อ: ${c.supplierNote || (VENUES.find(v => v.name === c.venue)?.note ?? '-')}`, { sz: 14, after: 0 })], W, { fill: 'FFFBEB', border: 'box' })] })], [W]),
       P('', { after: 4 }), ...scheduleBlock(c, plan, k, true)];
   }
+  const region: Region = c.region || regionOf(c.province);
   return new Document({ creator: 'EQ Camp', title: `${c.docCode} ${k.titleTh}`,
     styles: { default: { document: { run: { font: FONT, size: 32, sizeComplexScript: 32 } } } },
-    sections: [{ properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1134, bottom: 1134, left: 1253, right: 1253 } } }, children: body }] });
+    sections: [{
+      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1600, bottom: 1000, left: 1253, right: 1253, header: 340, footer: 260 } } },
+      headers: { default: letterheadHeader(region) },
+      footers: { default: letterheadFooter(region) },
+      children: body
+    }] });
 }
 export const fileName = (kind: DocKind, c: Camp) => `${c.docCode.replace(/[^\w-]+/g, '_')}_${{ program: 'โปรแกรม', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Rundown_INTERNAL' }[kind]}_${c.school.replace(/\s+/g, '')}.docx`;

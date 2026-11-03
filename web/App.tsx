@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -405,6 +405,13 @@ export default function App() {
                   <Field label="แหล่งทัศนศึกษา (ใส่แล้วกำหนดการจะมีช่วงทัศนศึกษา / เว้นว่าง = ไม่มี)">
                     <input value={camp.venueVisit} onChange={e => set({ venueVisit: e.target.value })} className={inp} placeholder="เช่น ถนนวัฒนธรรมเชียงคาน / ภูทอก" />
                   </Field>
+                  <Field label="หัวกระดาษ (ภาค) — เลือกอัตโนมัติจากจังหวัด แก้ได้">
+                    <select value={camp.region || ''} onChange={e => set({ region: (e.target.value || undefined) as Region | undefined })} className={inp}>
+                      <option value="">อัตโนมัติจากจังหวัด → {LETTERHEADS[regionOf(camp.province)].label}</option>
+                      {(Object.keys(LETTERHEADS) as Region[]).map(r => <option key={r} value={r}>{LETTERHEADS[r].label}</option>)}
+                    </select>
+                    <div className="text-[10px] text-slate-500 mt-1">หัวกระดาษ EQ Camp จะขึ้นทุกหน้า ทุกเอกสาร (แบรนด์/ติดต่อยังรอทีมยืนยันขั้นสุดท้าย)</div>
+                  </Field>
                   <VenueAdd onAdd={addVenue} />
                 </div>
               )}
@@ -435,8 +442,9 @@ export default function App() {
                                 <button onClick={() => toggleAct(a.id)} className="flex items-start gap-2 flex-1 text-left">
                                   <div className={`w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? 'bg-sky-600' : 'border border-slate-300'}`}>{on && <CheckCircle2 className="w-4 h-4 text-white" />}</div>
                                   <div>
-                                    <div className="text-xs font-bold leading-snug">{a.title}{custom && <span className="ml-1 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded">เพิ่มเอง</span>}</div>
+                                    <div className="text-xs font-bold leading-snug">{a.title}{custom && <span className="ml-1 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded">เพิ่มเอง</span>}{a.draft && !custom && <span className="ml-1 text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">รอตรวจ</span>}</div>
                                     {a.desc && <div className="text-[10px] text-slate-500">{a.desc}</div>}
+                                    {a.draft && !custom && <div className="text-[9px] text-amber-600">ต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
                                   </div>
                                 </button>
                                 {custom && <button onClick={() => removeCustom(a.id)} className="text-rose-400 shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>}
