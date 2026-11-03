@@ -35218,20 +35218,20 @@
     subject: "math",
     school: "\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19...",
     level: "\u0E21.1-2",
-    students: 50,
-    teachers: 5,
+    students: 0,
+    teachers: 0,
     days: 2,
     nights: 1,
-    dates: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ... \u0E1E\u0E24\u0E28\u0E08\u0E34\u0E01\u0E32\u0E22\u0E19 2569",
+    dates: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ...",
     durationMode: "overnight",
-    province: VENUES[0].province,
-    venue: VENUES[0].name,
-    venueVisit: VENUES[0].visit,
+    province: "",
+    venue: "",
+    venueVisit: "",
     startTime: "07.00",
     travelHours: 3,
-    normalPrice: 3290,
-    specialPrice: 2490,
-    costPerPerson: 1700,
+    normalPrice: 0,
+    specialPrice: 0,
+    costPerPerson: 0,
     contactName: "\u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22 EQ Camp",
     supplierNote: "",
     validDays: 30,
@@ -35261,10 +35261,15 @@
     const nm = text.match(new RegExp(`(${NUMPAT})\\s*\u0E04\u0E37\u0E19`));
     const days = toNum(dm?.[1]);
     const nights = toNum(nm?.[1]);
-    const dayTrip = /ไป\s*-?\s*กลับ|ไปกลับ|เช้า\s*-?\s*เย็น|วันเดย์|day\s*camp|one[-\s]?day/i.test(text);
-    if (nights !== null && nights > 0) {
-      const d = days ?? nights + 1;
-      return { mode: "overnight", days: Math.max(2, d), nights, resolved: true, ambiguous: false };
+    const dayTrip = /ไป\s*-?\s*กลับ|ไปกลับ|เช้า\s*-?\s*เย็น|วันเดย์|day\s*camp|one[-\s]?day|ไม่พักค้าง|ไม่ค้างคืน/i.test(text);
+    if (days !== null && nights !== null) {
+      if (nights === 0) return { mode: "day", days: Math.max(1, days), nights: 0, resolved: true, ambiguous: false };
+      if (nights === days - 1) return { mode: "overnight", days, nights, resolved: true, ambiguous: false };
+      return { mode: "overnight", days: Math.max(days, nights + 1), nights, resolved: true, ambiguous: true, note: `\u0E1A\u0E23\u0E35\u0E1F\u0E23\u0E30\u0E1A\u0E38 ${days} \u0E27\u0E31\u0E19 ${nights} \u0E04\u0E37\u0E19 \u0E0B\u0E36\u0E48\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E2D\u0E14\u0E04\u0E25\u0E49\u0E2D\u0E07\u0E01\u0E31\u0E19 (\u0E1B\u0E01\u0E15\u0E34 \u0E27\u0E31\u0E19 = \u0E04\u0E37\u0E19 + 1) \u0E42\u0E1B\u0E23\u0E14\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19` };
+    }
+    if (nights !== null) {
+      if (nights === 0) return { mode: "day", days: 1, nights: 0, resolved: true, ambiguous: false };
+      return { mode: "overnight", days: nights + 1, nights, resolved: true, ambiguous: false };
     }
     if (days !== null) {
       if (days <= 1 || dayTrip) return { mode: "day", days: Math.max(1, days), nights: 0, resolved: true, ambiguous: false };
@@ -35286,6 +35291,74 @@
       out.nights = out.nights > 0 ? out.nights : out.days - 1;
     }
     return out;
+  }
+  function applyExtraction(base, r) {
+    const c = { ...base };
+    const applied = [], missing = [], warnings = [];
+    const has = (v) => v !== null && v !== void 0 && v !== "";
+    const str = (k) => {
+      const v = r?.[k];
+      if (typeof v === "string" && v.trim()) {
+        c[k] = v.trim();
+        applied.push(k);
+      } else missing.push(k);
+    };
+    const numf = (k, o = {}) => {
+      const raw = r?.[k];
+      const { min = 0, allowZero = false, int = false } = o;
+      if (!has(raw)) {
+        missing.push(k);
+        return;
+      }
+      let v = Number(raw);
+      if (!Number.isFinite(v)) {
+        warnings.push(`${k}: \u0E44\u0E21\u0E48\u0E43\u0E0A\u0E48\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02 (${raw})`);
+        missing.push(k);
+        return;
+      }
+      if (int) v = Math.round(v);
+      if (v < min || !allowZero && v === 0) {
+        warnings.push(`${k}: \u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07 (${raw})`);
+        missing.push(k);
+        return;
+      }
+      c[k] = v;
+      applied.push(k);
+    };
+    str("docCode");
+    str("school");
+    str("level");
+    str("dates");
+    str("province");
+    str("venue");
+    str("venueVisit");
+    str("startTime");
+    numf("students", { min: 1, int: true });
+    numf("teachers", { min: 0, allowZero: true, int: true });
+    numf("normalPrice", { min: 1 });
+    numf("specialPrice", { min: 1 });
+    numf("travelHours", { min: 0, allowZero: true });
+    if (["math", "steam", "english", "ai"].includes(r?.subject)) {
+      c.subject = r.subject;
+      applied.push("subject");
+    } else missing.push("subject");
+    const dmOK = ["half", "day", "overnight"].includes(r?.durationMode);
+    const dOK = has(r?.days) && Number.isFinite(Number(r.days));
+    const nOK = has(r?.nights) && Number.isFinite(Number(r.nights));
+    if (dmOK || dOK || nOK) {
+      if (dmOK) c.durationMode = r.durationMode;
+      if (dOK) c.days = Math.min(7, Math.max(1, Math.round(Number(r.days))));
+      if (nOK) c.nights = Math.max(0, Math.round(Number(r.nights)));
+      if (!dmOK) c.durationMode = c.nights > 0 ? "overnight" : c.days <= 1 ? "day" : "overnight";
+      applied.push("duration");
+    } else {
+      missing.push("duration");
+      warnings.push("\u0E2D\u0E48\u0E32\u0E19\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E35\u0E1F\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E04\u0E07\u0E04\u0E48\u0E32\u0E40\u0E14\u0E34\u0E21\u0E44\u0E27\u0E49 \u0E42\u0E1B\u0E23\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2D\u0E07\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A 2");
+    }
+    const norm = normalizeDuration(c);
+    if (!norm.activityIds.length || applied.includes("subject"))
+      norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter((a) => a.subjects.includes(norm.subject)).map((a) => a.id));
+    return { camp: norm, applied, missing, warnings };
   }
   function migrateCamp(raw) {
     const out = { ...blankCamp(), ...raw, extraActivities: raw?.extraActivities || [] };
@@ -35389,6 +35462,7 @@
         if (first && lateStart) T = ["depart", "arrive", "lunch", "register", "opening", "core", "snack", "checkin", "dinner", "night", "rest"];
       }
       let cur = first || c.durationMode !== "overnight" ? startMin : 0;
+      const coreCap = c.durationMode === "half" ? startMin + Math.round(c.travelHours * 60) + 30 + 210 : 16.5 * 60;
       const items = [];
       T.forEach((tk, i) => {
         const rest = T.slice(i + 1);
@@ -35441,14 +35515,15 @@
             break;
           case "opening": {
             const a = of("opening")[0];
-            put(a.title, 60, act(a));
+            put(a.title, c.durationMode === "half" ? 45 : 60, act(a));
             break;
           }
           case "core": {
-            if (cur > 16.5 * 60) break;
+            if (cur > coreCap) break;
             coreSlots++;
+            const defDur = c.durationMode === "half" ? 60 : 90;
             const sp = span();
-            const dur = sp.a !== null ? Math.min(120, Math.max(45, Math.round((sp.a - cur - sp.fixed) / (sp.k + 1) / 15) * 15)) : 90;
+            const dur = sp.a !== null ? Math.min(120, Math.max(45, Math.round((sp.a - cur - sp.fixed) / (sp.k + 1) / 15) * 15)) : defDur;
             if (cores.length) {
               const a = cores[coreIdx % cores.length];
               const repeat = Math.floor(coreIdx / cores.length) > 0;
@@ -35583,6 +35658,7 @@
       { ok: /^PL\s*\d+\/\d+$/.test(c.docCode.trim()), msg: "\u0E23\u0E2B\u0E31\u0E2A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A PL xxxx/2569" },
       { ok: !!c.school && !c.school.includes("..."), msg: "\u0E23\u0E30\u0E1A\u0E38\u0E0A\u0E37\u0E48\u0E2D\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E41\u0E25\u0E49\u0E27" },
       { ok: !!c.dates.trim() && !c.dates.includes("..."), msg: "\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E31\u0E14\u0E04\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27" },
+      { ok: !!c.venue.trim(), msg: "\u0E23\u0E30\u0E1A\u0E38\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48/\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E41\u0E25\u0E49\u0E27" },
       { ok: c.students > 0 && c.specialPrice > 0, msg: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E19\u0E41\u0E25\u0E30\u0E23\u0E32\u0E04\u0E32\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07" },
       { ok: c.specialPrice <= c.normalPrice, msg: "\u0E23\u0E32\u0E04\u0E32\u0E1E\u0E34\u0E40\u0E28\u0E29\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34" },
       { ok: c.specialPrice > c.costPerPerson, msg: "\u0E23\u0E32\u0E04\u0E32\u0E02\u0E32\u0E22\u0E2A\u0E39\u0E07\u0E01\u0E27\u0E48\u0E32\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19/\u0E17\u0E48\u0E32\u0E19" },
@@ -35807,7 +35883,7 @@
   var imgsIn = (arr) => (arr || []).map((i) => ({ caption: i.caption || "", data: i.data ? b64ToU8(i.data) : void 0 }));
   var snapshot = (camp, venues, brief, withImages) => ({
     _app: "EQ Camp Generator",
-    _v: 1,
+    _v: 2,
     savedAt: (/* @__PURE__ */ new Date()).toISOString(),
     camp: { ...camp, actImgs: withImages ? imgsOut(camp.actImgs) : [], venueImgs: withImages ? imgsOut(camp.venueImgs) : [] },
     customVenues: venues,
@@ -35852,6 +35928,7 @@
       saveLS(snapshot(camp, customVenues, brief, false));
     }, [camp, customVenues, brief]);
     const fileInput = (0, import_react4.useRef)(null);
+    const aiReq = (0, import_react4.useRef)(0);
     const [busy, setBusy] = (0, import_react4.useState)(false);
     const plan = (0, import_react4.useMemo)(() => buildSchedule(camp), [camp]);
     const k = (0, import_react4.useMemo)(() => compose(camp, plan), [camp, plan]);
@@ -35884,59 +35961,49 @@
       else flash(`\u0E41\u0E1B\u0E25\u0E07\u0E1A\u0E23\u0E35\u0E1F\u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22 (${mode === "new" ? "\u0E07\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48" : "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E07\u0E32\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19"}) \xB7 \u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32: ${dur.mode === "half" ? "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19" : dur.mode === "day" ? `${dur.days} \u0E27\u0E31\u0E19 \u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A` : `${dur.days} \u0E27\u0E31\u0E19 ${dur.nights} \u0E04\u0E37\u0E19`} + \u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E43\u0E2B\u0E49\u0E41\u0E25\u0E49\u0E27`);
     };
     const aiExtract = async (mode) => {
-      const cl = window.claude;
-      const sample = cl && typeof cl.use === "function" ? await cl.use("sample").catch(() => null) : null;
-      if (!sample) {
-        applyBrief(mode);
-        flash("\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E40\u0E23\u0E35\u0E22\u0E01 AI \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E41\u0E1B\u0E25\u0E07\u0E1A\u0E23\u0E35\u0E1F\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E41\u0E17\u0E19 (\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E19\u0E25\u0E34\u0E07\u0E01\u0E4C claude.ai \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E0A\u0E49 AI \u0E0A\u0E48\u0E27\u0E22\u0E14\u0E36\u0E07)", false);
-        return;
-      }
+      if (busy) return;
       setBusy(true);
-      flash("\u{1F916} AI \u0E01\u0E33\u0E25\u0E31\u0E07\u0E2D\u0E48\u0E32\u0E19\u0E1A\u0E23\u0E35\u0E1F\u0E41\u0E25\u0E30\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25...");
-      const prompt = `\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22\u0E04\u0E48\u0E32\u0E22\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23 \u0E2D\u0E48\u0E32\u0E19 "\u0E1A\u0E23\u0E35\u0E1F" \u0E20\u0E32\u0E29\u0E32\u0E44\u0E17\u0E22\u0E41\u0E1A\u0E1A\u0E2D\u0E34\u0E2A\u0E23\u0E30\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E49\u0E27\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E1B\u0E47\u0E19 JSON \u0E2D\u0E2D\u0E1A\u0E40\u0E08\u0E47\u0E01\u0E15\u0E4C\u0E40\u0E14\u0E35\u0E22\u0E27\u0E15\u0E32\u0E21\u0E04\u0E35\u0E22\u0E4C\u0E19\u0E35\u0E49 (\u0E40\u0E14\u0E32\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E34\u0E1A\u0E17\u0E44\u0E14\u0E49 \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E2B\u0E49\u0E43\u0E2A\u0E48 null \u2014 \u0E2B\u0E49\u0E32\u0E21\u0E41\u0E15\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E19\u0E1A\u0E23\u0E35\u0E1F):
+      const reqId = ++aiReq.current;
+      const stale = () => reqId !== aiReq.current;
+      const ctl = new AbortController();
+      const timer = window.setTimeout(() => ctl.abort(), 9e4);
+      try {
+        const cl = window.claude;
+        const sample = cl && typeof cl.use === "function" ? await cl.use("sample").catch(() => null) : null;
+        if (stale()) return;
+        if (!sample) {
+          applyBrief(mode);
+          flash("\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E40\u0E23\u0E35\u0E22\u0E01 AI \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E41\u0E1B\u0E25\u0E07\u0E1A\u0E23\u0E35\u0E1F\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E41\u0E17\u0E19 (\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E19\u0E25\u0E34\u0E07\u0E01\u0E4C claude.ai \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E0A\u0E49 AI \u0E0A\u0E48\u0E27\u0E22\u0E14\u0E36\u0E07)", false);
+          return;
+        }
+        flash("\u{1F916} AI \u0E01\u0E33\u0E25\u0E31\u0E07\u0E2D\u0E48\u0E32\u0E19\u0E1A\u0E23\u0E35\u0E1F\u0E41\u0E25\u0E30\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25...");
+        const prompt = `\u0E04\u0E38\u0E13\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22\u0E04\u0E48\u0E32\u0E22\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23 \u0E2D\u0E48\u0E32\u0E19 "\u0E1A\u0E23\u0E35\u0E1F" \u0E20\u0E32\u0E29\u0E32\u0E44\u0E17\u0E22\u0E41\u0E1A\u0E1A\u0E2D\u0E34\u0E2A\u0E23\u0E30\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E49\u0E27\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E1B\u0E47\u0E19 JSON \u0E2D\u0E2D\u0E1A\u0E40\u0E08\u0E47\u0E01\u0E15\u0E4C\u0E40\u0E14\u0E35\u0E22\u0E27\u0E15\u0E32\u0E21\u0E04\u0E35\u0E22\u0E4C\u0E19\u0E35\u0E49 (\u0E40\u0E14\u0E32\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E34\u0E1A\u0E17\u0E44\u0E14\u0E49 \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E2B\u0E49\u0E43\u0E2A\u0E48 null \u2014 \u0E2B\u0E49\u0E32\u0E21\u0E41\u0E15\u0E48\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E19\u0E1A\u0E23\u0E35\u0E1F):
 {"docCode":string|null,"subject":"math"|"steam"|"english"|"ai"|null,"school":string|null,"level":string|null,"students":number|null,"teachers":number|null,"durationMode":"half"|"day"|"overnight"|null,"days":number|null,"nights":number|null,"dates":string|null,"province":string|null,"venue":string|null,"venueVisit":string|null,"startTime":string|null,"travelHours":number|null,"normalPrice":number|null,"specialPrice":number|null}
 \u0E01\u0E15\u0E34\u0E01\u0E32:
 - subject: \u0E04\u0E13\u0E34\u0E15\u2192"math"; \u0E27\u0E34\u0E17\u0E22\u0E32\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C/\u0E17\u0E30\u0E40\u0E25/\u0E18\u0E23\u0E23\u0E21\u0E0A\u0E32\u0E15\u0E34/STEAM/\u0E2A\u0E30\u0E40\u0E15\u0E47\u0E21\u2192"steam"; \u0E2D\u0E31\u0E07\u0E01\u0E24\u0E29/English\u2192"english"; AI/\u0E42\u0E04\u0E49\u0E14\u0E14\u0E34\u0E49\u0E07/\u0E2B\u0E38\u0E48\u0E19\u0E22\u0E19\u0E15\u0E4C/\u0E42\u0E14\u0E23\u0E19\u2192"ai"
-- durationMode: "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19"\u2192"half"; "\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A"/"\u0E27\u0E31\u0E19\u0E40\u0E14\u0E22\u0E4C"/1 \u0E27\u0E31\u0E19\u0E44\u0E21\u0E48\u0E04\u0E49\u0E32\u0E07\u0E04\u0E37\u0E19\u2192"day"; \u0E21\u0E35\u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E37\u0E19\u22651\u2192"overnight" (\u0E15\u0E31\u0E49\u0E07 days/nights \u0E43\u0E2B\u0E49\u0E2A\u0E2D\u0E14\u0E04\u0E25\u0E49\u0E2D\u0E07)
+- durationMode: "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19"\u2192"half"; "\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A"/"\u0E27\u0E31\u0E19\u0E40\u0E14\u0E22\u0E4C"/1 \u0E27\u0E31\u0E19\u0E44\u0E21\u0E48\u0E04\u0E49\u0E32\u0E07\u0E04\u0E37\u0E19\u2192"day"; \u0E21\u0E35\u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E37\u0E19\u22651\u2192"overnight" (\u0E15\u0E31\u0E49\u0E07 days/nights \u0E43\u0E2B\u0E49\u0E2A\u0E2D\u0E14\u0E04\u0E25\u0E49\u0E2D\u0E07); \u0E16\u0E49\u0E32\u0E1A\u0E23\u0E35\u0E1F\u0E44\u0E21\u0E48\u0E1A\u0E2D\u0E01\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E40\u0E25\u0E22 \u0E43\u0E2A\u0E48 durationMode/days/nights \u0E40\u0E1B\u0E47\u0E19 null
 - \u0E23\u0E2D\u0E07\u0E23\u0E31\u0E1A\u0E40\u0E25\u0E02\u0E44\u0E17\u0E22\u0E41\u0E25\u0E30\u0E04\u0E33\u0E44\u0E17\u0E22 (\u0E40\u0E0A\u0E48\u0E19 "\u0E2A\u0E2D\u0E07\u0E27\u0E31\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E04\u0E37\u0E19"=2\u0E27\u0E31\u0E191\u0E04\u0E37\u0E19)
-- \u0E23\u0E32\u0E04\u0E32: "\u0E02\u0E32\u0E22\u0E2B\u0E31\u0E27\u0E25\u0E30/\u0E23\u0E32\u0E04\u0E32\u0E02\u0E32\u0E22/\u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D X"\u2192specialPrice; "\u0E1B\u0E01\u0E15\u0E34 X"\u2192normalPrice (\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E25\u0E49\u0E27\u0E19 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E2D\u0E21\u0E21\u0E32/\u0E1A\u0E32\u0E17)
-- students/teachers: \u0E14\u0E36\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E19
-- venue: \u0E0A\u0E37\u0E48\u0E2D\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48/\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21; venueVisit: \u0E41\u0E2B\u0E25\u0E48\u0E07\u0E17\u0E31\u0E28\u0E19\u0E28\u0E36\u0E01\u0E29\u0E32\u0E16\u0E49\u0E32\u0E21\u0E35
+- \u0E23\u0E32\u0E04\u0E32: "\u0E02\u0E32\u0E22\u0E2B\u0E31\u0E27\u0E25\u0E30/\u0E23\u0E32\u0E04\u0E32\u0E02\u0E32\u0E22/\u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D X"\u2192specialPrice; "\u0E1B\u0E01\u0E15\u0E34 X"\u2192normalPrice (\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E25\u0E49\u0E27\u0E19 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E2D\u0E21\u0E21\u0E32/\u0E1A\u0E32\u0E17); \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E2B\u0E49 null
+- students/teachers: \u0E14\u0E36\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E19; \u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E2B\u0E49 null (\u0E2B\u0E49\u0E32\u0E21\u0E40\u0E14\u0E32\u0E40\u0E1B\u0E47\u0E19 0)
 \u0E15\u0E2D\u0E1A\u0E40\u0E1B\u0E47\u0E19 JSON \u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E2D\u0E37\u0E48\u0E19
 
 \u0E1A\u0E23\u0E35\u0E1F:
 """${brief}"""`;
-      try {
-        const r = await sample.json(prompt, { modelTier: "default" });
-        setCamp((c) => {
-          let next = mode === "new" ? blankCamp() : { ...c };
-          const S = ["docCode", "school", "level", "dates", "province", "venue", "venueVisit", "startTime"];
-          for (const k2 of S) if (typeof r[k2] === "string" && r[k2].trim()) next[k2] = r[k2].trim();
-          const N = ["students", "teachers", "normalPrice", "specialPrice", "travelHours"];
-          for (const k2 of N) {
-            const v = Number(r[k2]);
-            if (Number.isFinite(v) && v > 0) next[k2] = v;
-          }
-          if (["math", "steam", "english", "ai"].includes(r.subject)) {
-            next.subject = r.subject;
-            next.activityIds = defaultActs(r.subject).concat(next.extraActivities.filter((a) => a.subjects.includes(r.subject)).map((a) => a.id));
-          }
-          if (["half", "day", "overnight"].includes(r.durationMode)) next.durationMode = r.durationMode;
-          if (Number.isFinite(Number(r.days))) next.days = Number(r.days);
-          if (Number.isFinite(Number(r.nights))) next.nights = Number(r.nights);
-          if (!["half", "day", "overnight"].includes(r.durationMode)) next.durationMode = next.nights > 0 ? "overnight" : next.days <= 1 ? "day" : "overnight";
-          next = normalizeDuration(next);
-          if (!next.activityIds.length) next.activityIds = defaultActs(next.subject);
-          const f = autoImages(next);
-          next.actImgs = f.act;
-          next.venueImgs = f.ven;
-          return next;
-        });
-        const got = Object.entries(r).filter(([, v]) => v !== null && v !== "" && v !== void 0).map(([k2]) => k2);
-        flash(`\u{1F916} AI \u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 (${got.length} \u0E0A\u0E48\u0E2D\u0E07) \u2014 \u0E15\u0E23\u0E27\u0E08\u0E04\u0E27\u0E32\u0E21\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A 2-5 \u0E41\u0E25\u0E49\u0E27\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E14\u0E49\u0E40\u0E25\u0E22`);
+        const r = await sample.json(prompt, { modelTier: "default", signal: ctl.signal });
+        if (stale()) return;
+        const res = applyExtraction(mode === "new" ? blankCamp() : camp, r);
+        const f = autoImages(res.camp);
+        res.camp.actImgs = f.act;
+        res.camp.venueImgs = f.ven;
+        setCamp(res.camp);
+        const miss = res.missing.length ? ` \xB7 \u0E22\u0E31\u0E07\u0E02\u0E32\u0E14: ${res.missing.join(", ")}` : "";
+        const warn = res.warnings.length ? " \u26A0 " + res.warnings[0] : "";
+        flash(`\u{1F916} AI \u0E14\u0E36\u0E07\u0E44\u0E14\u0E49 ${res.applied.length} \u0E0A\u0E48\u0E2D\u0E07 (${res.applied.join(", ")})${miss}${warn} \u2014 \u0E15\u0E23\u0E27\u0E08\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A 2-5 \u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C`, res.warnings.length === 0);
       } catch (e) {
+        if (stale()) return;
         const code2 = e?.code || "";
-        if (code2 === "not_granted" || code2 === "sampling_disabled") {
+        if (code2 === "cancelled") flash("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01/\u0E2B\u0E21\u0E14\u0E40\u0E27\u0E25\u0E32\u0E40\u0E23\u0E35\u0E22\u0E01 AI \u2014 \u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48 \u0E2B\u0E23\u0E37\u0E2D\u0E43\u0E0A\u0E49\u0E1B\u0E38\u0E48\u0E21\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34", false);
+        else if (code2 === "not_granted" || code2 === "sampling_disabled") {
           applyBrief(mode);
           flash("\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E2B\u0E49\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E49 AI \u2014 \u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E41\u0E1B\u0E25\u0E07\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E41\u0E17\u0E19", false);
         } else if (code2 === "rate_limited") flash("AI \u0E16\u0E39\u0E01\u0E40\u0E23\u0E35\u0E22\u0E01\u0E16\u0E35\u0E48\u0E40\u0E01\u0E34\u0E19\u0E44\u0E1B \u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07\u0E43\u0E19\u0E2D\u0E35\u0E01\u0E2A\u0E31\u0E01\u0E04\u0E23\u0E39\u0E48", false);
@@ -35947,8 +36014,10 @@
           applyBrief(mode);
           flash("\u0E40\u0E23\u0E35\u0E22\u0E01 AI \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08 (" + (code2 || "error") + ") \u2014 \u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E41\u0E1B\u0E25\u0E07\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E41\u0E17\u0E19", false);
         }
+      } finally {
+        window.clearTimeout(timer);
+        if (!stale()) setBusy(false);
       }
-      setBusy(false);
     };
     const loadPreset = (id) => {
       setCamp(fromPreset(id));

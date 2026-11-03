@@ -121,10 +121,12 @@ export const PRESETS: { id: string; label: string; camp: Partial<Camp> }[] = [
     supplierNote: 'ติดต่อคุณทราย Golden City โทร 088-6171446 | รถบัสพันแสนแทรเวล โทร 089-6663414',
     activityIds: ['s-station', 's-chem', 's-rocket', 's-night', 'x-next'] } }
 ];
+// งานใหม่เริ่มจาก "ค่าว่างจริง" — ไม่มีสถานที่/ทัศนศึกษา/ราคาตัวอย่าง เพื่อไม่ให้ค่างานเก่ารั่วเข้าเอกสาร
+// (โครงสร้างเริ่มต้นเป็น overnight 2 วัน 1 คืน แต่ validation จะจับฟิลด์ที่ยังว่าง)
 export const blankCamp = (): Camp => ({
-  docCode: 'PL 0000/2569', subject: 'math', school: 'โรงเรียน...', level: 'ม.1-2', students: 50, teachers: 5, days: 2, nights: 1,
-  dates: 'วันที่ ... พฤศจิกายน 2569', durationMode: 'overnight', province: VENUES[0].province, venue: VENUES[0].name, venueVisit: VENUES[0].visit, startTime: '07.00', travelHours: 3,
-  normalPrice: 3290, specialPrice: 2490, costPerPerson: 1700, contactName: 'ฝ่ายขาย EQ Camp', supplierNote: '',
+  docCode: 'PL 0000/2569', subject: 'math', school: 'โรงเรียน...', level: 'ม.1-2', students: 0, teachers: 0, days: 2, nights: 1,
+  dates: 'วันที่ ...', durationMode: 'overnight', province: '', venue: '', venueVisit: '', startTime: '07.00', travelHours: 3,
+  normalPrice: 0, specialPrice: 0, costPerPerson: 0, contactName: 'ฝ่ายขาย EQ Camp', supplierNote: '',
   validDays: 30, payTerms: 'ชำระตามเงื่อนไขที่ตกลงกับโรงเรียน (ปรับแก้ตามนโยบายบริษัท)',
   activityIds: [], actImgs: [], venueImgs: [], extraActivities: []
 });
@@ -147,11 +149,20 @@ export function parseDuration(textRaw: string): DurationParse {
   const dm = text.match(new RegExp(`(${NUMPAT})\\s*วัน`));
   const nm = text.match(new RegExp(`(${NUMPAT})\\s*คืน`));
   const days = toNum(dm?.[1]); const nights = toNum(nm?.[1]);
-  const dayTrip = /ไป\s*-?\s*กลับ|ไปกลับ|เช้า\s*-?\s*เย็น|วันเดย์|day\s*camp|one[-\s]?day/i.test(text);
-  if (nights !== null && nights > 0) {
-    const d = days ?? nights + 1;
-    return { mode: 'overnight', days: Math.max(2, d), nights, resolved: true, ambiguous: false };
+  const dayTrip = /ไป\s*-?\s*กลับ|ไปกลับ|เช้า\s*-?\s*เย็น|วันเดย์|day\s*camp|one[-\s]?day|ไม่พักค้าง|ไม่ค้างคืน/i.test(text);
+  // ระบุทั้งวันและคืน
+  if (days !== null && nights !== null) {
+    if (nights === 0) return { mode: 'day', days: Math.max(1, days), nights: 0, resolved: true, ambiguous: false };
+    if (nights === days - 1) return { mode: 'overnight', days, nights, resolved: true, ambiguous: false };
+    // ขัดแย้งกัน เช่น "1 วัน 2 คืน"
+    return { mode: 'overnight', days: Math.max(days, nights + 1), nights, resolved: true, ambiguous: true, note: `บรีฟระบุ ${days} วัน ${nights} คืน ซึ่งไม่สอดคล้องกัน (ปกติ วัน = คืน + 1) โปรดยืนยัน` };
   }
+  // ระบุเฉพาะคืน
+  if (nights !== null) {
+    if (nights === 0) return { mode: 'day', days: 1, nights: 0, resolved: true, ambiguous: false };
+    return { mode: 'overnight', days: nights + 1, nights, resolved: true, ambiguous: false };
+  }
+  // ระบุเฉพาะวัน
   if (days !== null) {
     if (days <= 1 || dayTrip) return { mode: 'day', days: Math.max(1, days), nights: 0, resolved: true, ambiguous: false };
     return { mode: 'overnight', days, nights: days - 1, resolved: true, ambiguous: true, note: `บรีฟระบุ ${days} วัน แต่ไม่ได้บอกจำนวนคืน — ระบบตั้งเป็น ${days - 1} คืน (พักค้าง) โปรดยืนยัน` };
@@ -166,6 +177,42 @@ export function normalizeDuration(c: Camp): Camp {
   else if (out.durationMode === 'day') { out.days = Math.max(1, out.days || 1); out.nights = 0; }
   else { out.days = Math.max(2, out.days || 2); out.nights = out.nights > 0 ? out.nights : out.days - 1; }
   return out;
+}
+// นำผล extraction จาก AI (JSON) มาลงฟอร์มอย่างปลอดภัย — ตรวจชนิด/ช่วงค่า ไม่ coerce null เป็น 0
+export interface ExtractResult { camp: Camp; applied: string[]; missing: string[]; warnings: string[] }
+export function applyExtraction(base: Camp, r: any): ExtractResult {
+  const c: Camp = { ...base };
+  const applied: string[] = [], missing: string[] = [], warnings: string[] = [];
+  const has = (v: any) => v !== null && v !== undefined && v !== '';
+  const str = (k: keyof Camp) => { const v = r?.[k]; if (typeof v === 'string' && v.trim()) { (c as any)[k] = v.trim(); applied.push(k as string); } else missing.push(k as string); };
+  const numf = (k: keyof Camp, o: { min?: number; allowZero?: boolean; int?: boolean } = {}) => {
+    const raw = r?.[k]; const { min = 0, allowZero = false, int = false } = o;
+    if (!has(raw)) { missing.push(k as string); return; }
+    let v = Number(raw);
+    if (!Number.isFinite(v)) { warnings.push(`${k as string}: ไม่ใช่ตัวเลข (${raw})`); missing.push(k as string); return; }
+    if (int) v = Math.round(v);
+    if (v < min || (!allowZero && v === 0)) { warnings.push(`${k as string}: ค่าไม่ถูกต้อง (${raw})`); missing.push(k as string); return; }
+    (c as any)[k] = v; applied.push(k as string);
+  };
+  str('docCode'); str('school'); str('level'); str('dates'); str('province'); str('venue'); str('venueVisit'); str('startTime');
+  numf('students', { min: 1, int: true }); numf('teachers', { min: 0, allowZero: true, int: true });
+  numf('normalPrice', { min: 1 }); numf('specialPrice', { min: 1 }); numf('travelHours', { min: 0, allowZero: true });
+  if (['math', 'steam', 'english', 'ai'].includes(r?.subject)) { c.subject = r.subject; applied.push('subject'); } else missing.push('subject');
+  // ระยะเวลา: ใช้ก็ต่อเมื่อมีสัญญาณจริง (durationMode/days/nights) — ไม่เช่นนั้นคงค่าเดิมและเตือน
+  const dmOK = ['half', 'day', 'overnight'].includes(r?.durationMode);
+  const dOK = has(r?.days) && Number.isFinite(Number(r.days));
+  const nOK = has(r?.nights) && Number.isFinite(Number(r.nights));
+  if (dmOK || dOK || nOK) {
+    if (dmOK) c.durationMode = r.durationMode;
+    if (dOK) c.days = Math.min(7, Math.max(1, Math.round(Number(r.days))));
+    if (nOK) c.nights = Math.max(0, Math.round(Number(r.nights)));
+    if (!dmOK) c.durationMode = c.nights > 0 ? 'overnight' : (c.days <= 1 ? 'day' : 'overnight');
+    applied.push('duration');
+  } else { missing.push('duration'); warnings.push('อ่านระยะเวลาจากบรีฟไม่ได้ — คงค่าเดิมไว้ โปรดเลือกเองในแท็บ 2'); }
+  const norm = normalizeDuration(c);
+  if (!norm.activityIds.length || applied.includes('subject'))
+    norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter(a => a.subjects.includes(norm.subject)).map(a => a.id));
+  return { camp: norm, applied, missing, warnings };
 }
 // เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
 export function migrateCamp(raw: any): Camp {
@@ -268,6 +315,8 @@ export function buildSchedule(c: Camp): Plan {
       if (first && lateStart) T = ['depart', 'arrive', 'lunch', 'register', 'opening', 'core', 'snack', 'checkin', 'dinner', 'night', 'rest'];
     }
     let cur = (first || c.durationMode !== 'overnight') ? startMin : 0;
+    // ครึ่งวัน: จำกัดให้กิจกรรมจบในหน้าต่างราว 3.5 ชม. หลังถึงสถานที่ (กันลากยาวเป็นเต็มวัน)
+    const coreCap = c.durationMode === 'half' ? startMin + Math.round(c.travelHours * 60) + 30 + 210 : 16.5 * 60;
     const items: Row[] = [];
     T.forEach((tk, i) => {
       const rest = T.slice(i + 1);
@@ -282,10 +331,11 @@ export function buildSchedule(c: Camp): Plan {
         case 'dinner': meals.d++; put(`รับประทานอาหารเย็น (${++mealNo})`, 60, undefined, ANCH.dinner); break;
         case 'snack': meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15); break;
         case 'register': put('ลงทะเบียน / พิธีเปิด', 30); break;
-        case 'opening': { const a = of('opening')[0]; put(a.title, 60, act(a)); break; }
+        case 'opening': { const a = of('opening')[0]; put(a.title, c.durationMode === 'half' ? 45 : 60, act(a)); break; }
         case 'core': {
-          if (cur > 16.5 * 60) break; coreSlots++;
-          const sp = span(); const dur = sp.a !== null ? Math.min(120, Math.max(45, Math.round((sp.a - cur - sp.fixed) / (sp.k + 1) / 15) * 15)) : 90;
+          if (cur > coreCap) break; coreSlots++;
+          const defDur = c.durationMode === 'half' ? 60 : 90;
+          const sp = span(); const dur = sp.a !== null ? Math.min(120, Math.max(45, Math.round((sp.a - cur - sp.fixed) / (sp.k + 1) / 15) * 15)) : defDur;
           if (cores.length) {
             const a = cores[coreIdx % cores.length];
             const repeat = Math.floor(coreIdx / cores.length) > 0;
@@ -370,6 +420,7 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     { ok: /^PL\s*\d+\/\d+$/.test(c.docCode.trim()), msg: 'รหัสเอกสารรูปแบบ PL xxxx/2569' },
     { ok: !!c.school && !c.school.includes('...'), msg: 'ระบุชื่อโรงเรียนแล้ว' },
     { ok: !!c.dates.trim() && !c.dates.includes('...'), msg: 'ระบุวันที่จัดค่ายแล้ว' },
+    { ok: !!c.venue.trim(), msg: 'ระบุสถานที่/โรงแรมแล้ว' },
     { ok: c.students > 0 && c.specialPrice > 0, msg: 'จำนวนคนและราคาพิเศษถูกต้อง' },
     { ok: c.specialPrice <= c.normalPrice, msg: 'ราคาพิเศษไม่เกินราคาปกติ' },
     { ok: c.specialPrice > c.costPerPerson, msg: 'ราคาขายสูงกว่าต้นทุน/ท่าน' },

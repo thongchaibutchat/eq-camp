@@ -6,8 +6,8 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs
-} from './eqcamp-core';
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs
+} from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
   program: FileText, quotation: Calculator, booking: BookOpen, runsheet: Lock
@@ -22,7 +22,7 @@ const b64ToU8 = (b: string) => { const bin = atob(b); const u = new Uint8Array(b
 const imgsOut = (imgs: Img[]) => imgs.map(i => ({ caption: i.caption, data: i.data ? u8ToB64(i.data) : undefined }));
 const imgsIn = (arr: any[]): Img[] => (arr || []).map(i => ({ caption: i.caption || '', data: i.data ? b64ToU8(i.data) : undefined }));
 const snapshot = (camp: Camp, venues: VenueRec[], brief: string, withImages: boolean) => ({
-  _app: 'EQ Camp Generator', _v: 1, savedAt: new Date().toISOString(),
+  _app: 'EQ Camp Generator', _v: 2, savedAt: new Date().toISOString(),
   camp: { ...camp, actImgs: withImages ? imgsOut(camp.actImgs) : [], venueImgs: withImages ? imgsOut(camp.venueImgs) : [] },
   customVenues: venues, brief
 });
@@ -49,6 +49,7 @@ export default function App() {
   // autosave to localStorage (captions kept, image binaries dropped to stay within quota)
   useEffect(() => { saveLS(snapshot(camp, customVenues, brief, false)); }, [camp, customVenues, brief]);
   const fileInput = useRef<HTMLInputElement>(null);
+  const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
 
   const plan = useMemo(() => buildSchedule(camp), [camp]);
@@ -78,51 +79,50 @@ export default function App() {
   };
   // ให้ AI (Claude) ดึงข้อมูลจากบรีฟภาษาคน — ใช้ capability sample บน artifact; fallback เป็น regex
   const aiExtract = async (mode: 'new' | 'update') => {
-    const cl = (window as any).claude;
-    const sample = cl && typeof cl.use === 'function' ? await cl.use('sample').catch(() => null) : null;
-    if (!sample) { applyBrief(mode); flash('หน้านี้ยังเรียก AI ไม่ได้ — ใช้การแปลงบรีฟแบบปกติแทน (เปิดบนลิงก์ claude.ai เพื่อใช้ AI ช่วยดึง)', false); return; }
-    setBusy(true); flash('🤖 AI กำลังอ่านบรีฟและดึงข้อมูล...');
-    const prompt = `คุณเป็นผู้ช่วยฝ่ายขายค่ายวิชาการ อ่าน "บรีฟ" ภาษาไทยแบบอิสระด้านล่าง แล้วดึงข้อมูลเป็น JSON ออบเจ็กต์เดียวตามคีย์นี้ (เดาจากบริบทได้ ถ้าไม่พบให้ใส่ null — ห้ามแต่งข้อมูลที่ไม่มีในบรีฟ):
+    if (busy) return;
+    setBusy(true);
+    const reqId = ++aiReq.current;
+    const stale = () => reqId !== aiReq.current;
+    const ctl = new AbortController();
+    const timer = window.setTimeout(() => ctl.abort(), 90000);
+    try {
+      const cl = (window as any).claude;
+      const sample = cl && typeof cl.use === 'function' ? await cl.use('sample').catch(() => null) : null;
+      if (stale()) return;
+      if (!sample) { applyBrief(mode); flash('หน้านี้ยังเรียก AI ไม่ได้ — ใช้การแปลงบรีฟแบบปกติแทน (เปิดบนลิงก์ claude.ai เพื่อใช้ AI ช่วยดึง)', false); return; }
+      flash('🤖 AI กำลังอ่านบรีฟและดึงข้อมูล...');
+      const prompt = `คุณเป็นผู้ช่วยฝ่ายขายค่ายวิชาการ อ่าน "บรีฟ" ภาษาไทยแบบอิสระด้านล่าง แล้วดึงข้อมูลเป็น JSON ออบเจ็กต์เดียวตามคีย์นี้ (เดาจากบริบทได้ ถ้าไม่พบให้ใส่ null — ห้ามแต่งข้อมูลที่ไม่มีในบรีฟ):
 {"docCode":string|null,"subject":"math"|"steam"|"english"|"ai"|null,"school":string|null,"level":string|null,"students":number|null,"teachers":number|null,"durationMode":"half"|"day"|"overnight"|null,"days":number|null,"nights":number|null,"dates":string|null,"province":string|null,"venue":string|null,"venueVisit":string|null,"startTime":string|null,"travelHours":number|null,"normalPrice":number|null,"specialPrice":number|null}
 กติกา:
 - subject: คณิต→"math"; วิทยาศาสตร์/ทะเล/ธรรมชาติ/STEAM/สะเต็ม→"steam"; อังกฤษ/English→"english"; AI/โค้ดดิ้ง/หุ่นยนต์/โดรน→"ai"
-- durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง)
+- durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง); ถ้าบรีฟไม่บอกระยะเวลาเลย ใส่ durationMode/days/nights เป็น null
 - รองรับเลขไทยและคำไทย (เช่น "สองวันหนึ่งคืน"=2วัน1คืน)
-- ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท)
-- students/teachers: ดึงเฉพาะตัวเลขจำนวนคน
-- venue: ชื่อสถานที่/โรงแรม; venueVisit: แหล่งทัศนศึกษาถ้ามี
+- ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท); ไม่พบให้ null
+- students/teachers: ดึงเฉพาะตัวเลขจำนวนคน; ไม่พบให้ null (ห้ามเดาเป็น 0)
 ตอบเป็น JSON อย่างเดียว ไม่มีข้อความอื่น
 
 บรีฟ:
 """${brief}"""`;
-    try {
-      const r = await sample.json<any>(prompt, { modelTier: 'default' });
-      setCamp(c => {
-        let next: Camp = mode === 'new' ? blankCamp() : { ...c };
-        const S = ['docCode', 'school', 'level', 'dates', 'province', 'venue', 'venueVisit', 'startTime'] as const;
-        for (const k of S) if (typeof r[k] === 'string' && r[k].trim()) (next as any)[k] = r[k].trim();
-        const N = ['students', 'teachers', 'normalPrice', 'specialPrice', 'travelHours'] as const;
-        for (const k of N) { const v = Number(r[k]); if (Number.isFinite(v) && v > 0) (next as any)[k] = v; }
-        if (['math', 'steam', 'english', 'ai'].includes(r.subject)) { next.subject = r.subject; next.activityIds = defaultActs(r.subject).concat(next.extraActivities.filter(a => a.subjects.includes(r.subject)).map(a => a.id)); }
-        if (['half', 'day', 'overnight'].includes(r.durationMode)) next.durationMode = r.durationMode;
-        if (Number.isFinite(Number(r.days))) next.days = Number(r.days);
-        if (Number.isFinite(Number(r.nights))) next.nights = Number(r.nights);
-        if (!['half', 'day', 'overnight'].includes(r.durationMode)) next.durationMode = next.nights > 0 ? 'overnight' : (next.days <= 1 ? 'day' : 'overnight');
-        next = normalizeDuration(next);
-        if (!next.activityIds.length) next.activityIds = defaultActs(next.subject);
-        const f = autoImages(next); next.actImgs = f.act; next.venueImgs = f.ven;
-        return next;
-      });
-      const got = Object.entries(r).filter(([, v]) => v !== null && v !== '' && v !== undefined).map(([k]) => k);
-      flash(`🤖 AI ดึงข้อมูลสำเร็จ (${got.length} ช่อง) — ตรวจความถูกต้องในแท็บ 2-5 แล้วสร้างไฟล์ได้เลย`);
+      const r = await sample.json<any>(prompt, { modelTier: 'default', signal: ctl.signal });
+      if (stale()) return;
+      const res = applyExtraction(mode === 'new' ? blankCamp() : camp, r);
+      const f = autoImages(res.camp); res.camp.actImgs = f.act; res.camp.venueImgs = f.ven;
+      setCamp(res.camp);
+      const miss = res.missing.length ? ` · ยังขาด: ${res.missing.join(', ')}` : '';
+      const warn = res.warnings.length ? ' ⚠ ' + res.warnings[0] : '';
+      flash(`🤖 AI ดึงได้ ${res.applied.length} ช่อง (${res.applied.join(', ')})${miss}${warn} — ตรวจในแท็บ 2-5 ก่อนสร้างไฟล์`, res.warnings.length === 0);
     } catch (e: any) {
+      if (stale()) return;
       const code = e?.code || '';
-      if (code === 'not_granted' || code === 'sampling_disabled') { applyBrief(mode); flash('ยังไม่ได้อนุญาตให้หน้านี้ใช้ AI — ใช้การแปลงแบบปกติแทน', false); }
+      if (code === 'cancelled') flash('ยกเลิก/หมดเวลาเรียก AI — ลองใหม่ หรือใช้ปุ่มแบบปกติ', false);
+      else if (code === 'not_granted' || code === 'sampling_disabled') { applyBrief(mode); flash('ยังไม่ได้อนุญาตให้หน้านี้ใช้ AI — ใช้การแปลงแบบปกติแทน', false); }
       else if (code === 'rate_limited') flash('AI ถูกเรียกถี่เกินไป ลองใหม่อีกครั้งในอีกสักครู่', false);
       else if (code === 'invalid_json') { applyBrief(mode); flash('AI ตอบไม่เป็นรูปแบบที่อ่านได้ — ใช้การแปลงแบบปกติแทน', false); }
       else { applyBrief(mode); flash('เรียก AI ไม่สำเร็จ (' + (code || 'error') + ') — ใช้การแปลงแบบปกติแทน', false); }
+    } finally {
+      window.clearTimeout(timer);
+      if (!stale()) setBusy(false);
     }
-    setBusy(false);
   };
   const loadPreset = (id: string) => { setCamp(fromPreset(id)); flash(`โหลดแม่แบบ "${PRESETS.find(p => p.id === id)!.label}" แล้ว`); };
 

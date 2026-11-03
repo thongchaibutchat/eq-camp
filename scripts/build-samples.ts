@@ -49,7 +49,7 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   await write('8_hotel-request_brief-new-venue.docx', 'booking', b);
 
   // sample.export.json (ตาม schema.json)
-  const snap = { _app: 'EQ Camp Generator', _v: 1, savedAt: new Date().toISOString(),
+  const snap = { _app: 'EQ Camp Generator', _v: 2, savedAt: new Date().toISOString(),
     camp: { ...pl, actImgs: [], venueImgs: [] }, customVenues: [], brief: '' };
   fs.writeFileSync(path.join(OUT, 'sample.export.json'), JSON.stringify(snap, null, 2));
   console.log('  ✓ sample.export.json');
