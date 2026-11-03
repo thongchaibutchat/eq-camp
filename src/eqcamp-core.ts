@@ -558,7 +558,7 @@ const photoGrid = (imgs: Img[], fallbackN: number) => {
   const list = imgs.length ? imgs : Array.from({ length: fallbackN }, (_, i) => ({ caption: `(วางภาพที่ ${i + 1})` } as Img));
   const rows: TableRow[] = [];
   for (let i = 0; i < list.length; i += 2) rows.push(new TableRow({ children: [0, 1].map(j => { const im = list[i + j]; if (!im) return cell([P('')], W / 2); return cell([
-    im.data ? new Paragraph({ alignment: CTR, children: [new ImageRun({ data: im.data, transformation: { width: 235, height: 150 } })] }) : P('[ พื้นที่วางภาพ ]', { al: CTR, color: '94A3B8', before: 30, after: 30 }),
+    im.data ? new Paragraph({ alignment: CTR, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: { width: 235, height: 150 } })] }) : P('[ พื้นที่วางภาพ ]', { al: CTR, color: '94A3B8', before: 30, after: 30 }),
     P(im.caption, { sz: 13, color: '334155', al: CTR, after: 0 })], W / 2, { border: 'box' }); }) }));
   return tbl(rows, [W / 2, W / 2]);
 };
@@ -569,17 +569,25 @@ const b64bytes = (b64: string): Uint8Array => {
   const bin = typeof atob === 'function' ? atob(b64) : Buffer.from(b64, 'base64').toString('binary');
   const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u;
 };
+// ตรวจชนิดรูปจาก magic bytes (docx ImageRun ต้องระบุ type ให้ตรง ไม่งั้นรูปไม่ขึ้น)
+const imgType = (d: Uint8Array): 'png' | 'jpg' | 'gif' | 'bmp' => {
+  if (d[0] === 0x89 && d[1] === 0x50) return 'png';
+  if (d[0] === 0xff && d[1] === 0xd8) return 'jpg';
+  if (d[0] === 0x47 && d[1] === 0x49) return 'gif';
+  if (d[0] === 0x42 && d[1] === 0x4d) return 'bmp';
+  return 'png';
+};
 const CONTENT_W_PX = 626; // ความกว้างพื้นที่เนื้อหา A4 (9400 twips ≈ 6.53in × 96dpi)
 // หัวกระดาษ/ท้ายกระดาษตามภาค — แสดงทุกหน้า ทุกเอกสาร
 const letterheadHeader = (r: Region): Header => {
   const lh = LETTERHEADS[r];
   return new Header({ children: [new Paragraph({ alignment: CTR, spacing: { after: 40 },
-    children: [new ImageRun({ data: b64bytes(lh.headerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.headerH / lh.headerW) } })] })] });
+    children: [new ImageRun({ type: 'png', data: b64bytes(lh.headerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.headerH / lh.headerW) } })] })] });
 };
 const letterheadFooter = (r: Region): Footer => {
   const lh = LETTERHEADS[r];
   return new Footer({ children: [new Paragraph({ alignment: CTR, spacing: { before: 40 },
-    children: [new ImageRun({ data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
+    children: [new ImageRun({ type: 'png', data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
 };
 
 /* ===================== 4 DOCUMENT BUILDERS ===================== */
@@ -589,6 +597,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
   let body: (Paragraph | Table)[] = [];
   if (kind === 'program') {
     body = [code(c.docCode), ...title(k.titleTh, k.titleEn),
+      ...(c.courseCode ? [P(`รหัสหลักสูตรอ้างอิง ${c.courseCode}`, { sz: 13, color: '64748B', al: CTR, after: 6 })] : []),
       H('วัตถุประสงค์การเรียนรู้'), ...numbered(k.objectives), P('', { after: 2 }),
       infoRows([['จำนวน', [k.p1, k.p2]], ['วิทยากร', [`${k.staff} คน`]], ['ระยะเวลาอบรม', [k.dur]]]),
       H('กิจกรรมเชิงบูรณาการ'), ...numbered(k.acts), H('บูรณาการการเรียน (integration instruction)'), ...numbered(k.integ),
