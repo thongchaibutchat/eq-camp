@@ -6,12 +6,13 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
   program: FileText, quotation: Calculator, booking: BookOpen, runsheet: Lock
 };
+const KIND_LABEL: Record<Kind, string> = { opening: 'เปิดค่าย', core: 'กิจกรรมหลัก', night: 'ภาคค่ำ', recreation: 'สันทนาการ', closing: 'ปิดค่าย' };
 
 type VenueRec = { province: string; name: string; visit: string; note: string };
 const LS_KEY = 'eqcamp.db.v1';
@@ -41,9 +42,10 @@ export default function App() {
   const [camp, setCamp] = useState<Camp>(() => initial?.camp ?? fromPreset('pl0109'));
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
-  const [tab, setTab] = useState<'brief' | 'header' | 'activities' | 'schedule' | 'price' | 'images'>('brief');
+  const [tab, setTab] = useState<'brief' | 'db' | 'header' | 'activities' | 'schedule' | 'price' | 'images'>('brief');
   const [brief, setBrief] = useState(initial?.brief ?? 'PL 0109/2569 โรงเรียนอำนาจเจริญ ม.1-2 จำนวน 72 คน ครู 6 คน ค่ายคณิตศาสตร์ Math Camp 3 วัน 2 คืน วันที่ 18 – 20 พฤศจิกายน 2569 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท ราคาปกติ 4,590 ลดเหลือเพียง 3,290 บ./ท่าน');
   const [banner, setBanner] = useState<{ t: string; ok: boolean } | null>(null);
+  const [dbSel, setDbSel] = useState<string>(() => (initial?.camp?.courseCode) || COURSES[0].code);
   const allVenues = useMemo<VenueRec[]>(() => [...VENUES, ...customVenues], [customVenues]);
 
   // autosave to localStorage (captions kept, image binaries dropped to stay within quota)
@@ -255,7 +257,8 @@ export default function App() {
 
   const TABS = [
     { id: 'brief', label: '1. บรีฟ / แม่แบบ', icon: Sparkles },
-    { id: 'header', label: '2. หัวเอกสาร', icon: BookOpen },
+    { id: 'db', label: 'ฐานข้อมูลค่าย', icon: BookOpen },
+    { id: 'header', label: '2. หัวเอกสาร', icon: FileText },
     { id: 'activities', label: '3. กิจกรรม', icon: Layers },
     { id: 'schedule', label: `4. กำหนดการ (${camp.days} วัน)`, icon: Calendar },
     { id: 'price', label: '5. ราคา & งบ', icon: Calculator },
@@ -360,9 +363,67 @@ export default function App() {
                 </div>
               )}
 
+              {tab === 'db' && (() => {
+                const ds = courseDataset(dbSel);
+                return (
+                  <div className="space-y-3">
+                    <SectionTitle title="ฐานข้อมูลค่าย (14 หลักสูตรจริง)" sub="เลือกค่าย → เห็นเฉพาะข้อมูลที่ผูกกับค่ายนั้น (วัตถุประสงค์ · กิจกรรม · ภาพ) แล้วกด 'ใช้หลักสูตรนี้' เพื่อโหลดเข้าเอกสาร" />
+                    <div className="flex flex-wrap gap-1.5">
+                      {COURSES.map(co => {
+                        const on = dbSel === co.code; const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
+                        return <button key={co.code} onClick={() => setDbSel(co.code)} title={co.name} className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? 'bg-sky-700 text-white border-sky-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>{co.code}{nPhoto ? ' 📷' : ''}</button>;
+                      })}
+                    </div>
+                    {ds && (
+                      <div className="border border-slate-200 rounded-xl p-3 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-extrabold text-sky-900">{ds.course.name}</div>
+                            <div className="text-[11px] text-slate-500">{ds.course.code} · วิชา {SUBJECTS[ds.course.family as Subject]?.label || ds.course.family} · กิจกรรม {ds.total} · ภาพ {ds.photoCount}{ds.draftCount ? ` · รอตรวจ ${ds.draftCount}` : ''}</div>
+                          </div>
+                          <button onClick={() => { changeCourse(ds.course.code); setTab('header'); }} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0">ใช้หลักสูตรนี้ →</button>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-500 mb-1">วัตถุประสงค์หลัก (เข้าเอกสารข้อ 1–2)</div>
+                          <div className="text-[11px] text-slate-700 space-y-0.5">
+                            <div>1. {ds.course.obj1 || <span className="text-amber-600">— ยังไม่มีในฐาน (ทีมเติมใน MASTER)</span>}</div>
+                            <div>2. {ds.course.obj2 || <span className="text-amber-600">— ยังไม่มีในฐาน (ทีมเติมใน MASTER)</span>}</div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-500 mb-1">กิจกรรมที่ผูกกับค่ายนี้ ({ds.total})</div>
+                          {ds.total === 0 ? <div className="text-[11px] text-amber-600">ยังไม่มีกิจกรรมในฐานสำหรับหลักสูตรนี้</div> :
+                            <div className="space-y-1.5">
+                              {ds.actsByKind.map(g => (
+                                <div key={g.kind}>
+                                  <div className="text-[10px] font-bold text-slate-400">{KIND_LABEL[g.kind]} ({g.items.length})</div>
+                                  <ul className="list-disc ml-4 text-[11px] text-slate-700">
+                                    {g.items.map(a => <li key={a.id}>{a.title}{a.draft && <span className="ml-1 text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">รอตรวจ</span>}</li>)}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>}
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-bold text-slate-500 mb-1">ภาพกิจกรรมจริง ({ds.photoCount})</div>
+                          {ds.photoCount === 0 ? <div className="text-[11px] text-slate-400">ยังไม่มีภาพในคลังสำหรับหลักสูตรนี้ — อัปโหลดเองในแท็บ 6 หรือให้ทีมเพิ่มใน Drive</div> :
+                            <>
+                              <div className="grid grid-cols-4 gap-1.5">
+                                {ds.photos.slice(0, 8).map((p, i) => <img key={i} src={`data:image/jpeg;base64,${p.b64}`} className="w-full h-14 object-cover rounded-md border border-slate-200" alt="" />)}
+                              </div>
+                              <div className="text-[9px] text-amber-600 mt-1">⚠ รอทีมรับรองสิทธิ์เผยแพร่ก่อนส่งลูกค้า</div>
+                            </>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {tab === 'header' && (
                 <div className="space-y-3">
                   <SectionTitle title="2. รหัส PL · วิชา · โรงเรียน · จำนวน · ระยะเวลา · สถานที่" />
+                  {camp.courseCode && <div className="text-[10px] text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1.5">🔗 ผูกหลักสูตร <b>{camp.courseCode}</b> — กิจกรรม · ภาพ · วัตถุประสงค์ ดึงเฉพาะของค่ายนี้ · การกด "วิชา" ด้านล่างจะเลิกผูกหลักสูตร</div>}
                   <div className="grid grid-cols-2 gap-2.5">
                     <Field label="รหัสเอกสาร (มุมขวาบน)"><input value={camp.docCode} onChange={e => set({ docCode: e.target.value })} className={inp} /></Field>
                     <Field label="จำนวนวิทยากร (อัตโนมัติ)"><input value={`${staffText(camp.students)} คน`} readOnly className={inp + ' bg-slate-50 text-slate-500'} /></Field>
@@ -435,11 +496,11 @@ export default function App() {
 
               {tab === 'activities' && (
                 <div className="space-y-3">
-                  <SectionTitle title={`3. เลือกกิจกรรมจากคลัง (วิชา${SUBJECTS[camp.subject].label})`} sub="ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ" />
+                  <SectionTitle title={`3. เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-slate-500">ตารางต้องการ <b className="text-sky-700">{plan.coreSlots}</b> ช่องกิจกรรมหลัก · เลือกไว้ <b className="text-sky-700">{selectedCore}</b></span>
                     <div className="flex gap-2">
-                      <button onClick={() => set({ activityIds: defaultActs(camp.subject).concat(camp.extraActivities.filter(a => a.subjects.includes(camp.subject)).map(a => a.id)) })} className="font-bold text-sky-700">เลือกทั้งหมด</button>
+                      <button onClick={() => set({ activityIds: camp.courseCode ? defaultCourseActs(camp.courseCode) : defaultActs(camp.subject).concat(camp.extraActivities.filter(a => a.subjects.includes(camp.subject)).map(a => a.id)) })} className="font-bold text-sky-700">เลือกทั้งหมด</button>
                       <button onClick={() => set({ activityIds: camp.activityIds.filter(id => !subjectPool(camp).some(a => a.id === id && a.kind === 'core')) })} className="font-bold text-slate-400">ล้างกิจกรรมหลัก</button>
                     </div>
                   </div>

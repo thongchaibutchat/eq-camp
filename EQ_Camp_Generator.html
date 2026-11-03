@@ -28015,6 +28015,20 @@
     const name = (courseById(code2)?.name || "").replace(/^ค่าย/, "");
     return COURSE_PHOTOS[code2].slice(0, max).map((p, i) => ({ data: b64bytes(p.b64), caption: `\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22${name} (${i + 1})`.slice(0, 90) }));
   }
+  function courseDataset(code2) {
+    const course = courseById(code2);
+    if (!course) return void 0;
+    const acts = LIB.filter((a) => a.courseCode === code2);
+    const kinds = ["opening", "core", "night", "recreation", "closing"];
+    return {
+      course,
+      actsByKind: kinds.map((kind) => ({ kind, items: acts.filter((a) => a.kind === kind) })).filter((g) => g.items.length),
+      total: acts.length,
+      draftCount: acts.filter((a) => a.draft).length,
+      photoCount: COURSE_PHOTOS[code2]?.length || 0,
+      photos: COURSE_PHOTOS[code2] || []
+    };
+  }
   var VENUES = [
     { province: "\u0E40\u0E25\u0E22", name: "\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E40\u0E0A\u0E35\u0E22\u0E07\u0E04\u0E32\u0E19\u0E2E\u0E34\u0E25\u0E25\u0E4C\u0E23\u0E35\u0E2A\u0E2D\u0E23\u0E4C\u0E17", visit: "\u0E16\u0E19\u0E19\u0E27\u0E31\u0E12\u0E19\u0E18\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E35\u0E22\u0E07\u0E04\u0E32\u0E19 / \u0E0A\u0E21\u0E27\u0E34\u0E27\u0E17\u0E30\u0E40\u0E25\u0E2B\u0E21\u0E2D\u0E01 \u0E13 \u0E20\u0E39\u0E17\u0E2D\u0E01 \u0E2D\u0E33\u0E40\u0E20\u0E2D\u0E40\u0E0A\u0E35\u0E22\u0E07\u0E04\u0E32\u0E19 \u0E08\u0E31\u0E07\u0E2B\u0E27\u0E31\u0E14\u0E40\u0E25\u0E22", note: "\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21\u0E41\u0E25\u0E30\u0E2A\u0E23\u0E30\u0E27\u0E48\u0E32\u0E22\u0E19\u0E49\u0E33" },
     { province: "\u0E23\u0E30\u0E22\u0E2D\u0E07", name: "\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E42\u0E01\u0E25\u0E40\u0E14\u0E49\u0E19 \u0E0B\u0E34\u0E15\u0E35\u0E49 \u0E23\u0E30\u0E22\u0E2D\u0E07", visit: "\u0E28\u0E39\u0E19\u0E22\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E14\u0E49\u0E32\u0E19\u0E1E\u0E25\u0E31\u0E07\u0E07\u0E32\u0E19 / \u0E2A\u0E16\u0E32\u0E19\u0E41\u0E2A\u0E14\u0E07\u0E1E\u0E31\u0E19\u0E18\u0E38\u0E4C\u0E2A\u0E31\u0E15\u0E27\u0E4C\u0E19\u0E49\u0E33\u0E23\u0E30\u0E22\u0E2D\u0E07", note: "\u0E04\u0E38\u0E13\u0E17\u0E23\u0E32\u0E22 088-6171446 (\u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21\u0E08\u0E38\u0E44\u0E14\u0E49\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14 1,800 \u0E04\u0E19)" },
@@ -28750,10 +28764,10 @@
         ...dashed(k.budget),
         new Paragraph({ children: [new PageBreak()] }),
         ...title("\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
-        photoGrid(c.actImgs, 4),
+        photoGrid(c.actImgs, 2),
         P("", { after: 8 }),
         ...title(`\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${c.venue}`),
-        photoGrid(c.venueImgs, 4)
+        photoGrid(c.venueImgs, 2)
       ];
     } else if (kind === "quotation") {
       const cols = [700, 4300, 1100, 1600, 1700];
@@ -28851,6 +28865,7 @@
     booking: BookOpen,
     runsheet: Lock
   };
+  var KIND_LABEL = { opening: "\u0E40\u0E1B\u0E34\u0E14\u0E04\u0E48\u0E32\u0E22", core: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01", night: "\u0E20\u0E32\u0E04\u0E04\u0E48\u0E33", recreation: "\u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23", closing: "\u0E1B\u0E34\u0E14\u0E04\u0E48\u0E32\u0E22" };
   var LS_KEY = "eqcamp.db.v1";
   var u8ToB64 = (u8) => {
     let s = "";
@@ -28907,6 +28922,7 @@
     const [tab, setTab] = (0, import_react3.useState)("brief");
     const [brief, setBrief] = (0, import_react3.useState)(initial?.brief ?? "PL 0109/2569 \u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E2D\u0E33\u0E19\u0E32\u0E08\u0E40\u0E08\u0E23\u0E34\u0E0D \u0E21.1-2 \u0E08\u0E33\u0E19\u0E27\u0E19 72 \u0E04\u0E19 \u0E04\u0E23\u0E39 6 \u0E04\u0E19 \u0E04\u0E48\u0E32\u0E22\u0E04\u0E13\u0E34\u0E15\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C Math Camp 3 \u0E27\u0E31\u0E19 2 \u0E04\u0E37\u0E19 \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 18 \u2013 20 \u0E1E\u0E24\u0E28\u0E08\u0E34\u0E01\u0E32\u0E22\u0E19 2569 \u0E13 \u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E40\u0E0A\u0E35\u0E22\u0E07\u0E04\u0E32\u0E19\u0E2E\u0E34\u0E25\u0E25\u0E4C\u0E23\u0E35\u0E2A\u0E2D\u0E23\u0E4C\u0E17 \u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 4,590 \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 3,290 \u0E1A./\u0E17\u0E48\u0E32\u0E19");
     const [banner, setBanner] = (0, import_react3.useState)(null);
+    const [dbSel, setDbSel] = (0, import_react3.useState)(() => initial?.camp?.courseCode || COURSES[0].code);
     const allVenues = (0, import_react3.useMemo)(() => [...VENUES, ...customVenues], [customVenues]);
     (0, import_react3.useEffect)(() => {
       saveLS(snapshot(camp, customVenues, brief, false));
@@ -29187,7 +29203,8 @@
     };
     const TABS = [
       { id: "brief", label: "1. \u0E1A\u0E23\u0E35\u0E1F / \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A", icon: Sparkles },
-      { id: "header", label: "2. \u0E2B\u0E31\u0E27\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23", icon: BookOpen },
+      { id: "db", label: "\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E22", icon: BookOpen },
+      { id: "header", label: "2. \u0E2B\u0E31\u0E27\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23", icon: FileText },
       { id: "activities", label: "3. \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", icon: Layers },
       { id: "schedule", label: `4. \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23 (${camp.days} \u0E27\u0E31\u0E19)`, icon: Calendar },
       { id: "price", label: "5. \u0E23\u0E32\u0E04\u0E32 & \u0E07\u0E1A", icon: Calculator },
@@ -29316,8 +29333,91 @@
                   ] }, p.id))
                 ] })
               ] }),
+              tab === "db" && (() => {
+                const ds = courseDataset(dbSel);
+                return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-3", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E22 (14 \u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E08\u0E23\u0E34\u0E07)", sub: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E48\u0E32\u0E22 \u2192 \u0E40\u0E2B\u0E47\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E04\u0E48\u0E32\u0E22\u0E19\u0E31\u0E49\u0E19 (\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C \xB7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \xB7 \u0E20\u0E32\u0E1E) \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E43\u0E0A\u0E49\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49' \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E02\u0E49\u0E32\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex flex-wrap gap-1.5", children: COURSES.map((co) => {
+                    const on = dbSel === co.code;
+                    const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
+                    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => setDbSel(co.code), title: co.name, className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? "bg-sky-700 text-white border-sky-700" : "bg-slate-50 border-slate-200 text-slate-600"}`, children: [
+                      co.code,
+                      nPhoto ? " \u{1F4F7}" : ""
+                    ] }, co.code);
+                  }) }),
+                  ds && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "border border-slate-200 rounded-xl p-3 space-y-3", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-start justify-between gap-2", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-sm font-extrabold text-sky-900", children: ds.course.name }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-500", children: [
+                          ds.course.code,
+                          " \xB7 \u0E27\u0E34\u0E0A\u0E32 ",
+                          SUBJECTS[ds.course.family]?.label || ds.course.family,
+                          " \xB7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 ",
+                          ds.total,
+                          " \xB7 \u0E20\u0E32\u0E1E ",
+                          ds.photoCount,
+                          ds.draftCount ? ` \xB7 \u0E23\u0E2D\u0E15\u0E23\u0E27\u0E08 ${ds.draftCount}` : ""
+                        ] })
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+                        changeCourse(ds.course.code);
+                        setTab("header");
+                      }, className: "px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0", children: "\u0E43\u0E0A\u0E49\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 \u2192" })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: "\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E2B\u0E25\u0E31\u0E01 (\u0E40\u0E02\u0E49\u0E32\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E02\u0E49\u0E2D 1\u20132)" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-700 space-y-0.5", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                          "1. ",
+                          ds.course.obj1 || /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-amber-600", children: "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E19\u0E10\u0E32\u0E19 (\u0E17\u0E35\u0E21\u0E40\u0E15\u0E34\u0E21\u0E43\u0E19 MASTER)" })
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                          "2. ",
+                          ds.course.obj2 || /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-amber-600", children: "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E43\u0E19\u0E10\u0E32\u0E19 (\u0E17\u0E35\u0E21\u0E40\u0E15\u0E34\u0E21\u0E43\u0E19 MASTER)" })
+                        ] })
+                      ] })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: [
+                        "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E04\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49 (",
+                        ds.total,
+                        ")"
+                      ] }),
+                      ds.total === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-amber-600", children: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E43\u0E19\u0E10\u0E32\u0E19\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "space-y-1.5", children: ds.actsByKind.map((g) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[10px] font-bold text-slate-400", children: [
+                          KIND_LABEL[g.kind],
+                          " (",
+                          g.items.length,
+                          ")"
+                        ] }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("ul", { className: "list-disc ml-4 text-[11px] text-slate-700", children: g.items.map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("li", { children: [
+                          a.title,
+                          a.draft && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ml-1 text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded", children: "\u0E23\u0E2D\u0E15\u0E23\u0E27\u0E08" })
+                        ] }, a.id)) })
+                      ] }, g.kind)) })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: [
+                        "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E23\u0E34\u0E07 (",
+                        ds.photoCount,
+                        ")"
+                      ] }),
+                      ds.photoCount === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-slate-400", children: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E20\u0E32\u0E1E\u0E43\u0E19\u0E04\u0E25\u0E31\u0E07\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 \u2014 \u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E2D\u0E07\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A 6 \u0E2B\u0E23\u0E37\u0E2D\u0E43\u0E2B\u0E49\u0E17\u0E35\u0E21\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E43\u0E19 Drive" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-4 gap-1.5", children: ds.photos.slice(0, 8).map((p, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("img", { src: `data:image/jpeg;base64,${p.b64}`, className: "w-full h-14 object-cover rounded-md border border-slate-200", alt: "" }, i)) }),
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[9px] text-amber-600 mt-1", children: "\u26A0 \u0E23\u0E2D\u0E17\u0E35\u0E21\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E1C\u0E22\u0E41\u0E1E\u0E23\u0E48\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E48\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32" })
+                      ] })
+                    ] })
+                  ] })
+                ] });
+              })(),
               tab === "header" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-3", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "2. \u0E23\u0E2B\u0E31\u0E2A PL \xB7 \u0E27\u0E34\u0E0A\u0E32 \xB7 \u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19 \xB7 \u0E08\u0E33\u0E19\u0E27\u0E19 \xB7 \u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32 \xB7 \u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48" }),
+                camp.courseCode && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[10px] text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1.5", children: [
+                  "\u{1F517} \u0E1C\u0E39\u0E01\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 ",
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: camp.courseCode }),
+                  ' \u2014 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \xB7 \u0E20\u0E32\u0E1E \xB7 \u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C \u0E14\u0E36\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E02\u0E2D\u0E07\u0E04\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49 \xB7 \u0E01\u0E32\u0E23\u0E01\u0E14 "\u0E27\u0E34\u0E0A\u0E32" \u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E08\u0E30\u0E40\u0E25\u0E34\u0E01\u0E1C\u0E39\u0E01\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23'
+                ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-2.5", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 (\u0E21\u0E38\u0E21\u0E02\u0E27\u0E32\u0E1A\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: camp.docCode, onChange: (e) => set({ docCode: e.target.value }), className: inp }) }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 (\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: `${staffText(camp.students)} \u0E04\u0E19`, readOnly: true, className: inp + " bg-slate-50 text-slate-500" }) })
@@ -29387,7 +29487,7 @@
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(VenueAdd, { onAdd: addVenue })
               ] }),
               tab === "activities" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-3", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: `3. \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 (\u0E27\u0E34\u0E0A\u0E32${SUBJECTS[camp.subject].label})`, sub: "\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E33\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1B\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E43\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E30\u0E23\u0E49\u0E2D\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04 '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23' \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: `3. \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 ${camp.courseCode ? "\xB7 \u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 " + (courseById(camp.courseCode)?.name || camp.courseCode) : "(\u0E27\u0E34\u0E0A\u0E32" + SUBJECTS[camp.subject].label + ")"}`, sub: camp.courseCode ? "\u0E41\u0E2A\u0E14\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E02\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 + \u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23/\u0E40\u0E1B\u0E34\u0E14-\u0E1B\u0E34\u0E14\u0E01\u0E25\u0E32\u0E07\u0E17\u0E35\u0E48\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07" : "\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E33\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1B\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E43\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E30\u0E23\u0E49\u0E2D\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04 '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23' \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between text-[11px]", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-500", children: [
                     "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 ",
@@ -29396,7 +29496,7 @@
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-sky-700", children: selectedCore })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-2", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => set({ activityIds: defaultActs(camp.subject).concat(camp.extraActivities.filter((a) => a.subjects.includes(camp.subject)).map((a) => a.id)) }), className: "font-bold text-sky-700", children: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => set({ activityIds: camp.courseCode ? defaultCourseActs(camp.courseCode) : defaultActs(camp.subject).concat(camp.extraActivities.filter((a) => a.subjects.includes(camp.subject)).map((a) => a.id)) }), className: "font-bold text-sky-700", children: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => set({ activityIds: camp.activityIds.filter((id) => !subjectPool(camp).some((a) => a.id === id && a.kind === "core")) }), className: "font-bold text-slate-400", children: "\u0E25\u0E49\u0E32\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01" })
                   ] })
                 ] }),

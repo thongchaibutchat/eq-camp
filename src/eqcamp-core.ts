@@ -119,6 +119,21 @@ export function coursePhotos(code?: string, max = 4): Img[] {
   const name = (courseById(code)?.name || '').replace(/^ค่าย/, '');
   return COURSE_PHOTOS[code].slice(0, max).map((p, i) => ({ data: b64bytes(p.b64), caption: `บรรยากาศกิจกรรมค่าย${name} (${i + 1})`.slice(0, 90) }));
 }
+// สรุป "ฐานข้อมูลของค่าย/หลักสูตร" หนึ่งรายการ — รวมทุกอย่างที่ผูกกับ CUR นั้น (ใช้ในหน้าฐานข้อมูลค่าย)
+export interface CourseDataset { course: Course; actsByKind: { kind: Kind; items: Activity[] }[]; total: number; draftCount: number; photoCount: number; photos: { b64: string; w: number; h: number }[] }
+export function courseDataset(code: string): CourseDataset | undefined {
+  const course = courseById(code); if (!course) return undefined;
+  const acts = LIB.filter(a => a.courseCode === code);
+  const kinds: Kind[] = ['opening', 'core', 'night', 'recreation', 'closing'];
+  return {
+    course,
+    actsByKind: kinds.map(kind => ({ kind, items: acts.filter(a => a.kind === kind) })).filter(g => g.items.length),
+    total: acts.length,
+    draftCount: acts.filter(a => a.draft).length,
+    photoCount: COURSE_PHOTOS[code]?.length || 0,
+    photos: COURSE_PHOTOS[code] || []
+  };
+}
 export const VENUES = [
   { province: 'เลย', name: 'โรงแรมเชียงคานฮิลล์รีสอร์ท', visit: 'ถนนวัฒนธรรมเชียงคาน / ชมวิวทะเลหมอก ณ ภูทอก อำเภอเชียงคาน จังหวัดเลย', note: 'พร้อมห้องประชุมและสระว่ายน้ำ' },
   { province: 'ระยอง', name: 'โรงแรมโกลเด้น ซิตี้ ระยอง', visit: 'ศูนย์การเรียนรู้ด้านพลังงาน / สถานแสดงพันธุ์สัตว์น้ำระยอง', note: 'คุณทราย 088-6171446 (ห้องประชุมจุได้สูงสุด 1,800 คน)' },
@@ -626,8 +641,8 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       H('กิจกรรมเชิงบูรณาการ'), ...numbered(k.acts), H('บูรณาการการเรียน (integration instruction)'), ...numbered(k.integ),
       new Paragraph({ children: [new PageBreak()] }), ...scheduleBlock(c, plan, k), P('', { after: 4 }), priceBanner(c), P('', { after: 2 }),
       H('รายละเอียดงบประมาณมีดังนี้'), ...dashed(k.budget),
-      new Paragraph({ children: [new PageBreak()] }), ...title('ตัวอย่างภาพกิจกรรม'), photoGrid(c.actImgs, 4), P('', { after: 8 }),
-      ...title(`ที่พัก ${c.venue}`), photoGrid(c.venueImgs, 4)];
+      new Paragraph({ children: [new PageBreak()] }), ...title('ตัวอย่างภาพกิจกรรม'), photoGrid(c.actImgs, 2), P('', { after: 8 }),
+      ...title(`ที่พัก ${c.venue}`), photoGrid(c.venueImgs, 2)];
   } else if (kind === 'quotation') {
     const cols = [700, 4300, 1100, 1600, 1700];
     const hd = ['ลำดับ', 'รายการ', 'จำนวน', 'ราคา/ท่าน (บาท)', 'รวม (บาท)'];

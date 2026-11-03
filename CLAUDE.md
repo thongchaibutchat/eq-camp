@@ -34,6 +34,8 @@ branch → commit → PR เข้า main; ก่อนเริ่ม `git pul
 - ลิงก์เว็บทดสอบ (artifact): มี AI extraction (capability sample) + ดาวน์โหลด .docx (capability downloads)
 - **หัวกระดาษ/ท้ายกระดาษ**: ฝังทุกหน้าทุกเอกสาร เลือกตามภาคจาก province (regionOf) — แก้บั๊ครูปไม่ขึ้นด้วย `type:'png'` ใน ImageRun แล้ว (src/letterheads-data.ts)
 - **สูตรทีมงาน (ตายตัว)**: staffText() — 25-50→4-5 · 50-120→6-8 · 120-180→8-12 · 180-300→10-16
+- **หน้า "ฐานข้อมูลค่าย"** (แท็บใน UI): เลือก CUR → เห็นเฉพาะข้อมูลที่ผูกกับค่ายนั้น (วัตถุประสงค์/กิจกรรมแยก kind/ภาพ thumbnail) + ปุ่ม "ใช้หลักสูตรนี้". core helper = `courseDataset(code)`
+- **กรองตามหลักสูตร**: ผูก courseCode แล้ว แท็บกิจกรรม/เมนูรายช่วง/select-all/ภาพ ดึงเฉพาะของ CUR นั้น (subjectPool course-only อยู่แล้ว); header มีแบนเนอร์ "ผูกหลักสูตร"; เอกสารตัดช่องภาพ placeholder เหลือ 2 (จาก 4)
 - **เลือกกิจกรรมรายช่วง (per-slot)**: `camp.coreSlotIds[]` (ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม, ''=อัตโนมัติ) — UI แท็บ 4 มี dropdown ต่อช่อง; buildSchedule ใช้ pick ก่อน ไม่งั้นเติมอัตโนมัติ; Row.slot ติดดัชนีให้ UI
 - **ภาพกิจกรรมจริง**: `src/course-photos-data.ts` (COURSE_PHOTOS) ย่อ/บีบอัดจาก Drive โฟลเดอร์รวม 04b — ปัจจุบันมีเฉพาะ CUR-013 (STEAM 2 รูป), CUR-014 (อังกฤษ 4 รูป). coursePhotos(code)/hasCoursePhotos(code) ใน core; เลือกหลักสูตร→ฝัง actImgs อัตโนมัติ; ปุ่ม "ดึงภาพจริงของหลักสูตร" ในแท็บ 6. **สิทธิ์เผยแพร่: รอทีมรับรอง** → check() มี soft warning
 - buildSchedule กัน of(k)[0] undefined ด้วย pick1()+FALLBACK (opening/night/recreation/closing) — หลักสูตรที่ไม่มี night ไม่พังอีก
