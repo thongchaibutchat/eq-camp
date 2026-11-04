@@ -54,8 +54,9 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - COURSE_PHOTOS ปัจจุบันมี 4 รูป/หลักสูตร (STM=2) → ยังไม่ถึง 6-8 ต้องให้ทีมเติม
 
 ## เอกสารแนวราชการ + UI มินิมอล (รอบล่าสุด — ตาม Fix Spec)
-- **PDF/Word แนวราชการครบสเปก**: หัวกระดาษ+รหัสเอกสาร+เลขหน้าทุกหน้า (PDF วาด addImage + pdf.text; Word footer PageNumber.CURRENT/TOTAL_PAGES); ขอบ 1.8 ซม.; แถบวันที่พื้นกรมท่า; **ราคา+งบประมาณ+ลงนาม ขึ้นหน้าใหม่เสมอ** (PDF place newpage / Word pageBreakBefore); **งบประมาณเป็นตาราง** (ลำดับ|รายการ หัวกรมท่า) แทน bullet; **กล่องราคาขอบกรมท่า (เลิกสีชมพู)** ราคาพิเศษสีส้ม `C4641B`; **ช่องลงนาม ผู้จัดทำ/ผู้อนุมัติ + วันที่**; ภาพ 6-8 รูปมี **กรอบ+หมายเลข+คำบรรยาย**; ถ้าภาพ <6 → flash เตือน (ไม่ปลอมภาพ, ทีมเติมเอง); ไม่โชว์ "รหัสหลักสูตรอ้างอิง"
-- helper ใหม่ใน core: `budgetTable()`, `signatureBlock()`, `priceBudgetSection()`, cell border `'navy'`, `NAVY='0C2A41'`
+- **PDF/Word แนวราชการครบสเปก**: หัวกระดาษ+รหัสเอกสาร+เลขหน้าทุกหน้า (PDF วาด addImage + pdf.text; Word footer PageNumber.CURRENT/TOTAL_PAGES); ขอบ 1.8 ซม.; **ราคา+งบประมาณ ขึ้นหน้าใหม่เสมอ** (PDF place newpage / Word pageBreakBefore); **งบประมาณเป็นตาราง** (หัวแถบกรมท่า + เส้นคั่นแถวแนวนอนบาง ๆ เท่านั้น ไม่มีเส้นตั้ง/กรอบ) แทน bullet; **กล่องราคาขอบกรมท่าบาง (เลิกสีชมพู)** ราคาพิเศษสีส้ม `C4641B`; ภาพมี **หมายเลข+คำบรรยาย ไม่มีกรอบ**; กำหนดการไม่มีเส้นใต้แถว (ใช้ระยะห่าง); ถ้าภาพ <6 → flash เตือน (ไม่ปลอมภาพ, ทีมเติมเอง); ไม่โชว์ "รหัสหลักสูตรอ้างอิง"
+- **ตัดช่องลงนามออกแล้ว** (ผู้ใช้ขอ 4 พ.ย.) — ลบ signatureBlock; ลดเส้น (budget horizontal-only, photo ไม่มีกรอบ, schedule ไม่มีเส้นแถว, cell 'navy' บางลง size 8)
+- helper ใน core: `budgetTable()`, `priceBudgetSection()`, cell border `'navy'`, `NAVY='0C2A41'`
 - **UI มินิมอลแบบ Apple**: โทนเดียว navy `0C2A41` + เทา Apple (bg `#F5F5F7`, border `#E5E5EA`, text `#1D1D1F`/sub `#6E6E73`); ส้มใช้เฉพาะปุ่มหลัก(ดาวน์โหลด)/สถานะ; **เลิก gradient หัวเว็บ** (แบน), **เลิกเส้นส้มข้าง SectionTitle**, สถิติการ์ดแบน (ขาว+ขอบ เลขใหญ่ navy), **แท็บเป็นเส้นใต้** (ไม่ใช่ pill), เงาเกือบไม่มี (`shadow-card` เบามาก), มุมโค้ง 12px สม่ำเสมอ, ลด Kanit เหลือเฉพาะโลโก้+ชื่อระบบ (ที่เหลือ Sarabun); ปุ่ม AI เลิก gradient เป็นขาว+ขอบ
 - ตรวจแล้ว: PDF (Math/STEAM) + Word (Math/marine) ครบเกณฑ์, stress 264 + validate docx ผ่าน
 
