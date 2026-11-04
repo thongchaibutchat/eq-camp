@@ -39,6 +39,13 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - **ภาพที่พัก (venueImgs) องค์ประกอบมาตรฐาน 8 รูป**: ป้าย/มุมสูง 2 · ห้องพัก 2 · สระ/สิ่งอำนวยความสะดวก 2 · ห้องประชุม 2 (ทีมอัปโหลดเอง ตามลำดับนี้) — ดู `docs/TEAM_LAYOUT_GUIDE.md`
 - ภาพกิจกรรมจริงมี 11/14 หลักสูตร (ขาด GEO 0112, FOR 0110, PRE 0105); หลาย courseยังมี <6 รูป (ทีมเติมใน Drive 04b)
 
+## ดีไซน์ UI + ระบบบันทึกสถิติ (รอบล่าสุด)
+- **ดีไซน์ UI เครื่องมือ** ยึดแบรนด์ EQ: ธีม Tailwind ใน `web/index.html` (tailwind.config: สี brand navy/#155D90 + accent ส้ม + fontFamily display=Kanit, sans=Sarabun; guard `typeof tailwind!=='undefined'`); หัวข้อ/ปุ่ม/แท็บใช้ Kanit; ปุ่มหลัก=สีส้ม, ปุ่มรอง=โปร่งบนน้ำเงิน; สถานะ active ทั้งหมด = brand
+- **บันทึกสถิติการสร้างไฟล์ (`logEvent`)**: ทุกครั้งที่เซฟ Word/PDF/ครบชุด → เขียน doc ลง `db.collection('events')` (ts, by/byName, docKind, docCode, school, courseCode, subject, duration, จำนวน, ราคาปกติ/พิเศษ, region) — ไม่เก็บต้นทุน/กำไร; ล้มเหลวเงียบ ไม่ทำดาวน์โหลดพัง
+- **แท็บ "สถิติ/ประวัติ"** (`StatsPanel`): รวมยอด/แยกชนิด/กราฟต่อเดือน/หลักสูตรยอดฮิต/แยกผู้ใช้/ตารางประวัติ + ส่งออก CSV; subscribe `onSnapshot` ใน useEffect (unsub cleanup, timer 10s → สถานะ nodb)
+- **ข้อจำกัดสำคัญ**: `db` ใช้กับ artifact ที่แชร์ "สาธารณะ (public)" ไม่ได้ (แพลตฟอร์มบล็อก กันข้อมูลทีมรั่วสู่คนนอก) → ต้องสลับการแชร์เป็น **workspace/ทีม** ก่อน แล้วค่อย `declare_capabilities` เปิด db `{rules:[{path:'events',read:'view',write:'view'}]}` + `user:{scopes:['profile']}`. ตอนนี้ยัง public → แท็บสถิติแสดงสถานะ "เปิดบน claude.ai + ลงชื่อเข้าใช้" และยังไม่บันทึกจริงจนกว่าจะเปลี่ยนการแชร์
+- **ดาวน์โหลดสำหรับทีม**: ต้องเปิดลิงก์บน claude.ai + ลงชื่อเข้าใช้ (sandbox ให้เซฟผ่าน `downloads` capability เท่านั้น); เปิดไฟล์ standalone ในเครื่องก็เซฟได้ปกติ (anchorDownload). `downloads:true` = `{}` (เท่ากัน)
+
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)
 
