@@ -738,9 +738,16 @@ const scheduleBlock = (c: Camp, plan: Plan, k: ReturnType<typeof compose>, extra
   ...(hasVal(c.dates) ? [P(c.dates, { b: true, al: CTR, after: 0 })] : []),
   ...(hasVal(c.venue) ? [P(`ณ ${c.venue}`, { b: true, al: CTR, after: 8 })] : [P('', { after: 8 })]),
   ...plan.days.flatMap(d => [P('', { after: 0, sz: 6 }), scheduleTable(d, extra, `วันที่ ${d.day}${extra ? '  (ช่องขวา: ผู้รับผิดชอบ / อุปกรณ์)' : ''}`)]),
-  P('หมายเหตุ กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { b: true, color: '334155', before: 6 })
+  // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ ไม่หนา
+  P('หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { color: '334155', before: 8, after: 0 })
 ];
-const priceBanner = (c: Camp) => tbl([new TableRow({ children: [cell([P([R('ราคาปกติ ', { b: true, sz: 19, color: '0C4A6E' }), R(money(c.normalPrice), { b: true, sz: 19, color: 'DC2626', strike: true }), R(' ลดเหลือเพียง ', { b: true, sz: 19, color: '0C4A6E' }), R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 21, color: '15803D' })], { al: CTR, after: 0, keep: true })], W, { fill: 'F0F9FF', border: 'box' })] })], [W]);
+// แถบราคา: จัดกึ่งกลาง เรียบร้อย — ราคาปกติขีดฆ่า (เทา), ราคาพิเศษ "สีแดง" ตัวเข้มเด่น (ไม่พึ่งขีดฆ่าอย่างเดียว)
+const priceBanner = (c: Camp) => tbl([new TableRow({ cantSplit: true, children: [cell([P([
+  R('ราคาปกติ ', { sz: 18, color: '334155' }),
+  R(`${money(c.normalPrice)} บ./ท่าน`, { sz: 18, color: '94A3B8', strike: true }),
+  R('   ลดเหลือเพียง ', { sz: 18, color: '334155' }),
+  R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 22, color: 'DC2626' })
+], { al: CTR, after: 0 })], W, { fill: 'FEF2F2', border: 'box' })] })], [W]);
 // ขนาดจริงของภาพจาก header (PNG/JPEG) — ใช้คงสัดส่วนภาพ ไม่ให้ภาพบีบ/ยืด
 const imgSize = (d: Uint8Array): { w: number; h: number } | null => {
   if (d[0] === 0x89 && d[1] === 0x50) return { w: (d[16] << 24) | (d[17] << 16) | (d[18] << 8) | d[19], h: (d[20] << 24) | (d[21] << 16) | (d[22] << 8) | d[23] };
@@ -756,30 +763,34 @@ const imgSize = (d: Uint8Array): { w: number; h: number } | null => {
   return null;
 };
 // ภาพพอดีกรอบ (กว้างสุด BOX_W, สูงสุด BOX_H) คงสัดส่วนเดิมทุกภาพ → ตารางภาพเรียบร้อยสม่ำเสมอ
-const BOX_W = 290, BOX_H = 178;
+// ภาพในกริด: ยึดความกว้างเท่ากันทุกใบ (เต็มครึ่งคอลัมน์) → คอลัมน์ตรงเป็นระเบียบ; จำกัดความสูงสุดกันภาพแนวตั้งล้น
+const BOX_W = 312, BOX_H = 234;
 const fitBox = (d: Uint8Array) => {
-  const s = imgSize(d); if (!s || !s.w || !s.h) return { width: BOX_W, height: BOX_H };
-  const k = Math.min(BOX_W / s.w, BOX_H / s.h); return { width: Math.round(s.w * k), height: Math.round(s.h * k) };
+  const s = imgSize(d); if (!s || !s.w || !s.h) return { width: BOX_W, height: Math.round(BOX_W * 0.68) };
+  let w = BOX_W, h = Math.round(s.h * BOX_W / s.w);
+  if (h > BOX_H) { h = BOX_H; w = Math.round(s.w * BOX_H / s.h); }
+  return { width: w, height: h };
 };
+// กริดภาพ 2 คอลัมน์ ติดกันเป็นระเบียบ — ไม่มีเส้นกรอบ ไม่มีคำบรรยายใต้ภาพ, ภาพคงสัดส่วนขนาดสม่ำเสมอ (6–8 รูป)
 const photoGrid = (imgs: Img[], fallbackN: number, label = 'ภาพกิจกรรม') => {
-  const list = imgs.length ? imgs : Array.from({ length: fallbackN }, (_, i) => ({ caption: `${label} (${i + 1})` } as Img));
+  const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, (_, i) => ({ caption: `${label} (${i + 1})` } as Img))).slice(0, 8);
   const rows: TableRow[] = [];
-  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'box' }); return cell([
-    im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 40, after: 40 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] })
-      : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 70, after: 70, keep: kp }),
-    P(im.caption, { sz: 14, color: '334155', al: CTR, after: 2, keep: kp })], W / 2, { border: 'box' }); }) })); }
+  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); return cell([
+    im.data ? new Paragraph({ alignment: CTR, keepNext: kp, spacing: { before: 30, after: 30 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] })
+      : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 80, after: 80, keep: kp })], W / 2, { border: 'none' }); }) })); }
   return tbl(rows, [W / 2, W / 2]);
 };
 // ภาพประกอบ STEAM (คอลลาจ) — ใช้ซ้ำได้ทุกเอกสารของค่าย STEAM
 const steamGalleryPara = () => new Paragraph({ alignment: CTR, spacing: { before: 40 }, children: [new ImageRun({ type: 'jpg', data: b64bytes(STEAM_GALLERY.b64), transformation: { width: Math.min(520, CONTENT_W_PX), height: Math.round(Math.min(520, CONTENT_W_PX) * STEAM_GALLERY.h / STEAM_GALLERY.w) } })] });
 // ภาพประกอบในทุกไฟล์: ภาพกิจกรรม (ของจริงถ้ามี/ไม่งั้นดึงภาพหลักสูตร) + ภาพ STEAM หน้าสุดท้ายถ้าเป็นค่าย STEAM
 const photoSection = (c: Camp, opts: { venue?: boolean } = {}): (Paragraph | Table)[] => {
-  const acts = c.actImgs.length ? c.actImgs : coursePhotos(c.courseCode, 4);
-  const topic = courseShortTh(c);
-  const out: (Paragraph | Table)[] = [P('', { after: 6 }), ...title(`ภาพกิจกรรมค่าย${topic}`, undefined, 20, false), photoGrid(acts, 2, `ภาพกิจกรรมค่าย${topic}`)];
-  if (opts.venue && c.venueImgs.some(im => im.data)) { out.push(P('', { after: 6 }), ...title(`ที่พัก ${c.venue || ''}`.trim()), photoGrid(c.venueImgs, 2, 'ภาพสถานที่')); }
+  const acts = c.actImgs.length ? c.actImgs : coursePhotos(c.courseCode, 8);
+  // หน้าภาพแยกหน้าชัดเจน (ขึ้นหน้าใหม่) + หัวข้อ "ตัวอย่างภาพกิจกรรม" ตัวหนากึ่งกลางเสมอ
+  const out: (Paragraph | Table)[] = [...title('ตัวอย่างภาพกิจกรรม', undefined, 20, true), P('', { after: 2 }), photoGrid(acts, 6, 'ภาพกิจกรรม')];
+  // ที่พัก: อยู่หน้าหลังสุด — หัวข้อ "ตัวอย่างภาพบรรยากาศที่พัก <ชื่อที่พัก>" ตัวหนากึ่งกลาง (6–8 รูป: ป้าย/มุมสูง 2 · ห้องพัก 2 · สระ/สิ่งอำนวยความสะดวก 2 · ห้องประชุม 2)
+  if (opts.venue && c.venueImgs.some(im => im.data)) { out.push(...title(`ตัวอย่างภาพบรรยากาศที่พัก ${c.venue || ''}`.trim(), undefined, 20, true), P('', { after: 2 }), photoGrid(c.venueImgs, 6, 'ภาพที่พัก')); }
   // ภาพเซ็ต STEAM — เฉพาะหลักสูตร STEAM เท่านั้น (ไม่ใส่ให้ดาราศาสตร์/ธรณี/ทะเล ฯลฯ)
-  if (isSteamProgram(c)) { out.push(...title('ภาพกิจกรรมค่าย STEAM', undefined, 20, true), steamGalleryPara()); }
+  if (isSteamProgram(c)) { out.push(...title('ตัวอย่างภาพกิจกรรมค่าย STEAM', undefined, 20, true), steamGalleryPara()); }
   return out;
 };
 const sign = (l: string, who: string) => cell([P('', { after: 18 }), P('ลงชื่อ ....................................................', { al: CTR, after: 0 }), P(`( ${who} )`, { al: CTR, after: 0 }), P(l, { al: CTR, after: 0 })], W / 2);

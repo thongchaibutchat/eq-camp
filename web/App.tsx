@@ -139,7 +139,7 @@ export default function App() {
   const changeCourse = (code: string) => {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    const photos = coursePhotos(code, 4);
+    const photos = coursePhotos(code, 8);
     set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], ...(photos.length ? { actImgs: photos } : {}) });
     flash(`เลือกหลักสูตร "${co.name}" (รหัส ${code}) — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ${photos.length ? ` + ภาพจริง ${photos.length} รูป` : ''} (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
   };
@@ -169,7 +169,7 @@ export default function App() {
   const autoFillImages = () => { const f = autoImages(camp); set({ actImgs: f.act, venueImgs: f.ven }); flash('เติมช่องภาพ + คำบรรยายตามบรีฟแล้ว — กด "ค้นรูป" แต่ละช่องเพื่อหาภาพจริงมาอัปโหลด'); };
   // ดึงภาพกิจกรรมจริงของหลักสูตรจากคลังทีม (ฝังลงไฟล์ทันที) — เฉพาะหลักสูตรที่มีภาพแล้ว
   const pullCoursePhotos = () => {
-    const photos = coursePhotos(camp.courseCode, 4);
+    const photos = coursePhotos(camp.courseCode, 8);
     if (!photos.length) { flash('หลักสูตรนี้ยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — อัปโหลดเองหรือให้ทีมเพิ่มใน Drive', false); return; }
     set({ actImgs: photos });
     flash(`ดึงภาพจริง ${photos.length} รูปจากคลังทีมมาฝังแล้ว ⚠ สถานะลิขสิทธิ์เผยแพร่ยังรอทีมรับรองก่อนส่งลูกค้า`);
@@ -290,8 +290,12 @@ export default function App() {
 .eqpdf .day{font-weight:700;text-decoration:underline;margin-top:8px}
 .eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:1px 6px;vertical-align:top}.eqpdf table.sched td.t{width:170px;white-space:nowrap}
 .eqpdf .sub{color:#222;padding-left:0}
-.eqpdf .price{text-align:center;border:1px solid #94a3b8;padding:6px;margin:8px 0}
-.eqpdf .price .old{color:#DC2626;text-decoration:line-through}.eqpdf .price .new{color:#15803D;font-weight:700}</style>`;
+.eqpdf .note{color:#334155;margin:8px 0 2px}
+.eqpdf .price{text-align:center;border:1px solid #fca5a5;background:#FEF2F2;padding:7px;margin:6px 0 2px}
+.eqpdf .price .lbl{color:#334155;font-size:20px}.eqpdf .price .old{color:#94a3b8;text-decoration:line-through;font-size:20px}.eqpdf .price .new{color:#DC2626;font-weight:700;font-size:26px}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0F3D63;font-size:25px;margin:2px 0 8px}
+.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
+.eqpdf .pgrid img{width:48.6%;aspect-ratio:4/3;object-fit:cover;border-radius:5px;display:block}</style>`;
   const printPDF = async () => {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
     if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
@@ -318,8 +322,9 @@ export default function App() {
         `<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` +
         (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>' +
         schedRows +
-        `<div class="price">ราคาปกติ <span class="old">${money(camp.normalPrice)}</span> ลดเหลือเพียง <span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
-        `<h2>รายละเอียดงบประมาณ</h2>${ul(kk.budget)}`;
+        `<div class="note">หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม</div>` +
+        `<div class="price"><span class="lbl">ราคาปกติ </span><span class="old">${money(camp.normalPrice)} บ./ท่าน</span><span class="lbl">&nbsp;&nbsp; ลดเหลือเพียง </span><span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
+        `<h2>รายละเอียดงบประมาณมีดังนี้</h2>${ul(kk.budget)}`;
       const renderCanvas = async (inner: string) => {
         const w = document.createElement('div'); w.className = 'eqpdf';
         w.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
@@ -342,16 +347,24 @@ export default function App() {
       };
       addCanvas(await renderCanvas(cover), true);
       addCanvas(await renderCanvas(schedPage), false);
-      // ภาพประกอบในไฟล์ PDF ด้วย (ภาพจริงที่อัปโหลด / ภาพหลักสูตร + ภาพ STEAM ถ้าเป็นค่าย STEAM)
+      // ภาพประกอบ — แต่ละชุดแยกหน้าชัดเจน, กริด 6–8 รูปติดกัน object-fit:cover คมชัด, หัวข้อหนากึ่งกลาง
       const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
-      const imgT = (b64: string, mime: string) => `<img style="width:48%;margin:1%;border:1px solid #cbd5e1;border-radius:4px" src="data:${mime};base64,${b64}">`;
-      let photos = '';
+      const imgT = (b64: string, mime: string) => `<img src="data:${mime};base64,${b64}">`;
+      const grid = (srcs: string[]) => `<div class="pgrid">${srcs.slice(0, 8).join('')}</div>`;
+      // 1) ภาพกิจกรรม (ภาพจริงที่อัปโหลด / ภาพหลักสูตร)
       const withData = camp.actImgs.filter(a => a.data);
-      if (withData.length) photos = withData.slice(0, 6).map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg')).join('');
-      else if (hasCoursePhotos(camp.courseCode)) photos = COURSE_PHOTOS[camp.courseCode].slice(0, 6).map((p: any) => imgT(p.b64, 'image/jpeg')).join('');
-      let photoInner = photos ? `<h1>ภาพกิจกรรมค่าย${esc(courseShortTh(camp))}</h1><div style="display:flex;flex-wrap:wrap;justify-content:center">${photos}</div>` : '';
-      if (isSteamProgram(camp)) photoInner += `<h1 style="margin-top:14px">ภาพกิจกรรมค่าย STEAM</h1><div style="text-align:center"><img style="width:74%" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`;
-      if (photoInner) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + photoInner), false);
+      let actSrcs: string[] = [];
+      if (withData.length) actSrcs = withData.map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'));
+      else if (hasCoursePhotos(camp.courseCode)) actSrcs = COURSE_PHOTOS[camp.courseCode].map((p: any) => imgT(p.b64, 'image/jpeg'));
+      if (actSrcs.length) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + `<div class="phead">ตัวอย่างภาพกิจกรรม</div>${grid(actSrcs)}`), false);
+      // 2) ภาพบรรยากาศที่พัก (เฉพาะที่อัปโหลด) — หน้าหลังสุด
+      const venueData = camp.venueImgs.filter(a => a.data);
+      if (venueData.length) {
+        const vSrcs = venueData.map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'));
+        addCanvas(await renderCanvas(PDF_STYLE + brandHdr + `<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${grid(vSrcs)}`), false);
+      }
+      // 3) ภาพเซ็ต STEAM — เฉพาะค่าย STEAM
+      if (isSteamProgram(camp)) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + `<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:88%;border-radius:5px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`), false);
       const blob: Blob = pdf.output('blob');
       const name = fileName('program', camp).replace(/\.docx$/, '.pdf');
       const cl = (window as any).claude;
@@ -823,7 +836,7 @@ function VenueAdd({ onAdd }: { onAdd: (v: VenueRec) => void }) {
 // สร้างช่องภาพ + คำบรรยายจากบรีฟ (วิชา/กิจกรรมที่เลือก/สถานที่) เพื่อจัดวางตามบรีฟ
 function autoImages(c: Camp): { act: Img[]; ven: Img[] } {
   // ถ้าหลักสูตรมีภาพจริงของทีมในคลัง → ฝังภาพจริงให้เลย (ไม่งั้นสร้างช่อง+คำบรรยายตามกิจกรรม)
-  const photos = coursePhotos(c.courseCode, 4);
+  const photos = coursePhotos(c.courseCode, 8);
   if (photos.length) {
     const ven: Img[] = [
       { caption: `บรรยากาศที่พัก ${c.venue}${c.province ? ' จังหวัด' + c.province : ''}` } as Img,
