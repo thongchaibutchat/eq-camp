@@ -29227,14 +29227,26 @@
     };
     const anchorDownload = (blob, name) => {
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      let clicked = false;
+      try {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        clicked = true;
+      } catch {
+        clicked = false;
+      }
+      if (!clicked) {
+        try {
+          window.open(url, "_blank");
+        } catch {
+        }
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 8e3);
     };
     const download = async (dk) => {
       setBusy(true);
@@ -29323,7 +29335,7 @@
             "button",
             {
               onClick: () => download(kind),
-              disabled: busy || !ready && kind !== "runsheet",
+              disabled: busy,
               className: "px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-4 h-4" }),
@@ -29335,7 +29347,7 @@
             "button",
             {
               onClick: downloadAll,
-              disabled: busy || !ready,
+              disabled: busy,
               title: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E31\u0E49\u0E07 4 \u0E44\u0E1F\u0E25\u0E4C\u0E14\u0E49\u0E27\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19",
               className: "px-3 py-2 rounded-xl bg-sky-600 enabled:hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
               children: [
@@ -29796,10 +29808,11 @@
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "p-5 max-h-[70vh] overflow-y-auto", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Preview, { kind, camp, plan, k, total, cost, profit, margin }) })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => download(kind), disabled: busy || !ready && kind !== "runsheet", className: "w-full py-3 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white font-extrabold shadow flex items-center justify-center gap-2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => download(kind), disabled: busy, className: "w-full py-3 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white font-extrabold shadow flex items-center justify-center gap-2", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-5 h-5" }),
               busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C..." : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label} \u0E40\u0E1B\u0E47\u0E19\u0E44\u0E1F\u0E25\u0E4C Word (.docx)`
-            ] })
+            ] }),
+            !ready && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-amber-700 text-center -mt-1", children: '\u2139 \u0E22\u0E31\u0E07\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A\u0E1A\u0E32\u0E07\u0E02\u0E49\u0E2D (\u0E14\u0E39\u0E41\u0E16\u0E1A "\u0E15\u0E23\u0E27\u0E08\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E48\u0E07" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19) \u2014 \u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E1B\u0E47\u0E19\u0E09\u0E1A\u0E31\u0E1A\u0E23\u0E48\u0E32\u0E07\u0E44\u0E14\u0E49 \u0E41\u0E15\u0E48\u0E04\u0E27\u0E23\u0E40\u0E15\u0E34\u0E21\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E48\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32' })
           ] })
         ] })
       ] })

@@ -223,10 +223,15 @@ export default function App() {
   };
   const anchorDownload = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = name; a.rel = 'noopener';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+    let clicked = false;
+    try {
+      const a = document.createElement('a');
+      a.href = url; a.download = name; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove(); clicked = true;
+    } catch { clicked = false; }
+    // สำรอง: บางโฮสต์/iframe บล็อก <a download> → เปิดไฟล์ในแท็บใหม่ให้ผู้ใช้กดเซฟเอง
+    if (!clicked) { try { window.open(url, '_blank'); } catch {} }
+    setTimeout(() => URL.revokeObjectURL(url), 8000);
   };
   const download = async (dk: DocKind) => {
     setBusy(true);
@@ -298,11 +303,11 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => download(kind)} disabled={busy || (!ready && kind !== 'runsheet')}
+            <button onClick={() => download(kind)} disabled={busy}
               className="px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
               <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label}`}
             </button>
-            <button onClick={downloadAll} disabled={busy || !ready} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
+            <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
               className="px-3 py-2 rounded-xl bg-sky-600 enabled:hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
               <Layers className="w-4 h-4" />ครบชุด 4 ไฟล์
             </button>
@@ -680,9 +685,10 @@ export default function App() {
               <div className="bg-slate-800 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />พรีวิว: {DOC_TYPES.find(d => d.id === kind)!.label}</div>
               <div className="p-5 max-h-[70vh] overflow-y-auto"><Preview kind={kind} camp={camp} plan={plan} k={k} total={total} cost={cost} profit={profit} margin={margin} /></div>
             </div>
-            <button onClick={() => download(kind)} disabled={busy || (!ready && kind !== 'runsheet')} className="w-full py-3 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white font-extrabold shadow flex items-center justify-center gap-2">
+            <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white font-extrabold shadow flex items-center justify-center gap-2">
               <Download className="w-5 h-5" />{busy ? 'กำลังสร้างไฟล์...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} เป็นไฟล์ Word (.docx)`}
             </button>
+            {!ready && <div className="text-[11px] text-amber-700 text-center -mt-1">ℹ ยังมีข้อมูลไม่ครบบางข้อ (ดูแถบ "ตรวจก่อนส่ง" ด้านบน) — ดาวน์โหลดเป็นฉบับร่างได้ แต่ควรเติมให้ครบก่อนส่งลูกค้า</div>}
           </div>
         </div>
       </div>
