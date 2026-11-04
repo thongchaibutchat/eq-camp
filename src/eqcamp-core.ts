@@ -13,6 +13,8 @@ export type { Course } from './eqcamp-data';
 import { COURSE_PHOTOS } from './course-photos-data';
 export { COURSE_PHOTOS } from './course-photos-data';
 import { STEAM_GALLERY } from './steam-gallery-data';
+import { BRAND } from './brand-data';
+export { BRAND } from './brand-data';
 export type Subject = 'math' | 'steam' | 'english' | 'ai' | 'chinese' | 'leadership';
 export type DocKind = 'program' | 'quotation' | 'booking' | 'runsheet';
 // รูปแบบระยะเวลา: half = ครึ่งวัน, day = ไป-กลับเต็มวัน, overnight = พักค้าง
@@ -556,8 +558,13 @@ export function compose(c: Camp, plan: Plan) {
     plan.hasTrip && 'ค่ากิจกรรมทัศนศึกษาแหล่งเรียนรู้', 'ค่าอุปกรณ์การจัดค่ายทั้งหมด'
   ].filter(Boolean) as string[];
   const total = c.students + c.teachers;
+  // แยกชื่อหลักสูตรเป็นไทย + อังกฤษ: ชื่อในคลังอยู่รูป "ชื่อไทย (English Name)" → ไทยบรรทัดบน, อังกฤษในวงเล็บบรรทัดล่าง
+  const rawName = course ? course.name : S.titleTh;
+  const nm = rawName.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+  const nameTh = nm ? nm[1].trim() : rawName;      // ชื่อไทยล้วน (ไม่มีวงเล็บอังกฤษ)
+  const enName = nm ? nm[2].trim() : S.en;          // อังกฤษในวงเล็บ (หรือชื่อ EN มาตรฐานของวิชา)
   return {
-    titleTh: `หลักสูตร “${course ? course.name : S.titleTh}”`, titleEn: `( ${S.en} )`, objectives, acts, integ, budget, staff,
+    titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, objectives, acts, integ, budget, staff,
     p1: `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`, p2: `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน`,
     dur: c.durationMode === 'half' ? 'ครึ่งวัน (ไป-กลับ)'
       : c.durationMode === 'day' ? `${c.days} วัน (ไป-กลับ)`
@@ -636,9 +643,13 @@ const scheduleTable = (d: Day, extra?: boolean) => {
     cell([P(r.title, { b: true, sz: 15.5, after: 0 }), ...(r.sub || []).map(s => P(s, { sz: 15, indent: 0.5, after: 0 }))], cols[1], { border: 'line' }),
     ...(extra ? [cell([P('', { after: 0 })], cols[2], { border: 'line' })] : [])] })), cols);
 };
+// หน้ากำหนดการ: 1.กำหนดการ 2.ชื่อหลักสูตร(ไทย/อังกฤษ) 3.โรงเรียน 4.วันที่(ถ้ามี) 5.สถานที่(ถ้ามี)
+const hasVal = (s?: string) => !!(s && s.trim() && !s.includes('...'));
 const scheduleBlock = (c: Camp, plan: Plan, k: ReturnType<typeof compose>, extra = false) => [
-  ...title('กำหนดการ'), ...title(k.titleTh, k.titleEn),
-  P(c.school, { b: true, al: CTR, after: 0 }), P(c.dates, { b: true, al: CTR, after: 0 }), P(`ณ ${c.venue}`, { b: true, al: CTR, after: 8 }),
+  ...title('กำหนดการ'), ...title(k.nameTh, k.titleEn),
+  ...(hasVal(c.school) ? [P(c.school, { b: true, al: CTR, after: 0 })] : []),
+  ...(hasVal(c.dates) ? [P(c.dates, { b: true, al: CTR, after: 0 })] : []),
+  ...(hasVal(c.venue) ? [P(`ณ ${c.venue}`, { b: true, al: CTR, after: 8 })] : [P('', { after: 8 })]),
   ...plan.days.flatMap(d => [P('', { after: 0, sz: 6 }), dayBanner(`วันที่ ${d.day}${extra ? '  (ช่องขวา: ผู้รับผิดชอบ / อุปกรณ์)' : ''}`), scheduleTable(d, extra)]),
   P('หมายเหตุ กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { b: true, color: '334155', before: 6 })
 ];
@@ -667,11 +678,23 @@ const imgType = (d: Uint8Array): 'png' | 'jpg' | 'gif' | 'bmp' => {
   return 'png';
 };
 const CONTENT_W_PX = 626; // ความกว้างพื้นที่เนื้อหา A4 (9400 twips ≈ 6.53in × 96dpi)
-// หัวกระดาษ/ท้ายกระดาษตามภาค — แสดงทุกหน้า ทุกเอกสาร
-const letterheadHeader = (r: Region): Header => {
-  const lh = LETTERHEADS[r];
-  return new Header({ children: [new Paragraph({ alignment: CTR, spacing: { after: 40 },
-    children: [new ImageRun({ type: 'png', data: b64bytes(lh.headerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.headerH / lh.headerW) } })] })] });
+// หัวกระดาษ — ประกอบจากโลโก้ + ข้อความครบ (ชื่อบริษัท + ที่อยู่เต็ม + ติดต่อ) แสดงทุกหน้า ทุกเอกสาร
+// (ข้อมูลครบและคมชัดกว่าการ crop ภาพ; รองรับที่อยู่เฉพาะภาคได้ในอนาคตผ่าน BRAND)
+const LOGO_W_PX = 58;
+const brandHeader = (_r: Region): Header => {
+  const logoH = Math.round(LOGO_W_PX * BRAND.logoH / BRAND.logoW);
+  const logoCell = cell([new Paragraph({ spacing: { after: 0 }, children: [new ImageRun({ type: 'png', data: b64bytes(BRAND.logoB64), transformation: { width: LOGO_W_PX, height: logoH } })] })], 1150, { border: 'none' });
+  const infoCell = cell([
+    P(BRAND.name, { b: true, sz: 15, color: BLUE, after: 0 }),
+    P(BRAND.address, { sz: 12, color: '334155', after: 0 })
+  ], W - 1150 - 3400, { border: 'none' });
+  const contactCell = cell([
+    P(`โทร. ${BRAND.phone}`, { sz: 11, color: '334155', al: RGT, after: 0 }),
+    P(BRAND.web, { sz: 11, color: '334155', al: RGT, after: 0 }),
+    P(BRAND.email, { sz: 11, color: '334155', al: RGT, after: 0 })
+  ], 3400, { border: 'none' });
+  const bar = new Paragraph({ spacing: { before: 20, after: 20 }, border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: BLUE } }, children: [R('', { sz: 2 })] });
+  return new Header({ children: [tbl([new TableRow({ children: [logoCell, infoCell, contactCell] })], [1150, W - 1150 - 3400, 3400]), bar] });
 };
 const letterheadFooter = (r: Region): Footer => {
   const lh = LETTERHEADS[r];
@@ -749,7 +772,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
     styles: { default: { document: { run: { font: FONT, size: 32, sizeComplexScript: 32 } } } },
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1600, bottom: 1000, left: 1253, right: 1253, header: 340, footer: 260 } } },
-      headers: { default: letterheadHeader(region) },
+      headers: { default: brandHeader(region) },
       footers: { default: letterheadFooter(region) },
       children: body
     }] });

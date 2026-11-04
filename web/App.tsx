@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -279,6 +279,59 @@ export default function App() {
     } catch (e) { flash('สร้างชุดไฟล์ผิดพลาด: ' + (e as Error).message, false); }
     setBusy(false);
   };
+  // บันทึก PDF (เอกสารโปรแกรมค่าย) — พิมพ์ผ่าน iframe ในหน้า แล้วผู้ใช้เลือก "Save as PDF"
+  const printPDF = () => {
+    try {
+      const plan = buildSchedule(camp); const kk = compose(camp, plan);
+      const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
+      const ol = (arr: string[]) => '<ol>' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ol>';
+      const sched = plan.days.map(d => `<div class="day">วันที่ ${d.day}</div><table class="sched">` +
+        d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td><b>${esc(r.title)}</b>${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>').join('');
+      const has = (s?: string) => !!(s && s.trim() && !s.includes('...'));
+      const html = `<!doctype html><html lang="th"><head><meta charset="utf8">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+<style>@page{size:A4;margin:14mm 12mm}*{font-family:'Sarabun','TH SarabunPSK',sans-serif;box-sizing:border-box}
+body{color:#111;font-size:14px;line-height:1.5;margin:0}
+.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #155D90;padding-bottom:6px}
+.hdr img{width:58px;height:auto}.b-name{font-weight:700;color:#155D90}.b-addr{font-size:12px;color:#334155}
+.b-contact{margin-left:auto;text-align:right;font-size:11px;color:#334155}
+.code{text-align:right;font-weight:700;color:#155D90;margin-top:6px}
+h1{text-align:center;color:#0F3D63;font-size:20px;margin:4px 0 0}.en{text-align:center;color:#087FC2;font-weight:700;margin:0}
+.ref{text-align:center;color:#64748B;font-size:12px;margin:2px 0 8px}
+h2{color:#155D90;font-size:16px;margin:10px 0 4px}ol,ul{margin:4px 0;padding-left:22px}li{margin:2px 0}
+table.info{width:100%;border-collapse:collapse;margin:6px 0}table.info td{vertical-align:top;padding:2px 4px}table.info td.k{color:#155D90;font-weight:700;width:120px}
+.pagebreak{page-break-before:always}
+.day{background:#155D90;color:#fff;font-weight:700;padding:4px 8px;margin-top:8px}
+table.sched{width:100%;border-collapse:collapse}table.sched td{border-bottom:1px solid #cbd5e1;padding:4px 8px;vertical-align:top}table.sched td.t{width:150px;font-weight:700}
+.sub{color:#334155;font-size:13px;padding-left:10px}
+.price{text-align:center;background:#F0F9FF;border:1px solid #bae6fd;padding:8px;margin:8px 0;font-weight:700;font-size:16px}
+.price .old{color:#DC2626;text-decoration:line-through}.price .new{color:#15803D;font-size:18px}</style></head><body>
+<div class="hdr"><img src="data:image/png;base64,${BRAND.logoB64}"><div><div class="b-name">${esc(BRAND.name)}</div><div class="b-addr">${esc(BRAND.address)}</div></div><div class="b-contact">โทร. ${esc(BRAND.phone)}<br>${esc(BRAND.web)}<br>${esc(BRAND.email)}</div></div>
+<div class="code">${esc(camp.docCode)}</div>
+<h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>
+${camp.courseCode ? `<div class="ref">รหัสหลักสูตรอ้างอิง ${esc(camp.courseCode)}</div>` : ''}
+<h2>วัตถุประสงค์การเรียนรู้</h2>${ol(kk.objectives)}
+<table class="info"><tr><td class="k">จำนวน</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">วิทยากร</td><td>${esc(kk.staff)} คน</td></tr><tr><td class="k">ระยะเวลาอบรม</td><td>${esc(kk.dur)}</td></tr></table>
+<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}
+<h2>บูรณาการการเรียน (integration instruction)</h2>${ol(kk.integ)}
+<div class="pagebreak"></div>
+<h1>กำหนดการ</h1><div style="text-align:center"><b>${esc(kk.nameTh)}</b> <span class="en">${esc(kk.titleEn)}</span>${has(camp.school) ? '<br><b>' + esc(camp.school) + '</b>' : ''}${has(camp.dates) ? '<br><b>' + esc(camp.dates) + '</b>' : ''}${has(camp.venue) ? '<br><b>ณ ' + esc(camp.venue) + '</b>' : ''}</div>
+${sched}
+<div class="price">ราคาปกติ <span class="old">${money(camp.normalPrice)}</span> ลดเหลือเพียง <span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>
+<h2>รายละเอียดงบประมาณ</h2><ul>${kk.budget.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+</body></html>`;
+      const f = document.createElement('iframe');
+      f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+      document.body.appendChild(f);
+      const doc = f.contentWindow!.document; doc.open(); doc.write(html); doc.close();
+      flash('เปิดหน้าต่างพิมพ์ PDF — เลือกปลายทางเป็น "Save as PDF" / "บันทึกเป็น PDF"');
+      setTimeout(() => {
+        try { f.contentWindow!.focus(); f.contentWindow!.print(); }
+        catch { flash('หน้านี้พิมพ์ PDF ไม่ได้ — ดาวน์โหลด Word แล้วสั่ง Save as PDF แทน', false); }
+        setTimeout(() => f.remove(), 2000);
+      }, 850);
+    } catch (e) { flash('สร้าง PDF ไม่สำเร็จ: ' + (e as Error).message, false); }
+  };
 
   const TABS = [
     { id: 'brief', label: '1. บรีฟ / แม่แบบ', icon: Sparkles },
@@ -310,6 +363,10 @@ export default function App() {
             <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
               className="px-3 py-2 rounded-xl bg-sky-600 enabled:hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
               <Layers className="w-4 h-4" />ครบชุด 4 ไฟล์
+            </button>
+            <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF (ผ่านหน้าต่างพิมพ์)"
+              className="px-3 py-2 rounded-xl bg-rose-600 enabled:hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5">
+              <FileText className="w-4 h-4" />บันทึก PDF
             </button>
           </div>
         </div>
