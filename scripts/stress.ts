@@ -33,7 +33,7 @@ configs.push({ name:'zero_students', camp: mk({ subject:'math', school:'ร.ร.
 configs.push({ name:'weird_time', camp: mk({ subject:'ai', school:'ร.ร.', students:300, teachers:16, durationMode:'overnight', days:2, nights:1, venue:'ว', startTime:'เช้า', travelHours:NaN as any, normalPrice:9, specialPrice:9, costPerPerson:9 }) });
 configs.push({ name:'special_chars', camp: mk({ subject:'steam', school:'ร.ร. <A&B> "คำ" \u0000x', level:'ม.1&2', students:50, teachers:3, durationMode:'half', days:1, nights:0, venue:'โรงแรม <tag> & "ชื่อ"', venueVisit:'a<b>&c', normalPrice:2000, specialPrice:1500, costPerPerson:900 }) });
 configs.push({ name:'long_overnight_7d', camp: mk({ subject:'english', school:'ร.ร.ยาว', students:80, teachers:6, durationMode:'overnight', days:7, nights:6, venue:'ว', venueVisit:'x', normalPrice:9000, specialPrice:7000, costPerPerson:4000, startTime:'05.00', travelHours:8 }) });
-configs.push({ name:'photos_CUR014', camp: (()=>{ const c=mk({courseCode:'CUR-014', school:'ร.ร.ภาพ', students:110, teachers:8, durationMode:'overnight', days:2, nights:1, venue:'ว', venueVisit:'x', normalPrice:4000, specialPrice:3000, costPerPerson:1800}); c.actImgs=coursePhotos('CUR-014',4); return c; })() });
+configs.push({ name:'photos_CUR014', camp: (()=>{ const c=mk({courseCode:'PL ENG 0104', school:'ร.ร.ภาพ', students:110, teachers:8, durationMode:'overnight', days:2, nights:1, venue:'ว', venueVisit:'x', normalPrice:4000, specialPrice:3000, costPerPerson:1800}); c.actImgs=coursePhotos('PL ENG 0104',4); return c; })() });
 
 let fail = 0, ok = 0;
 (async () => {

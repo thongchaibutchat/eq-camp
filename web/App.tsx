@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -140,8 +140,8 @@ export default function App() {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
     const photos = coursePhotos(code, 4);
-    set({ courseCode: code, subject: co.family as Subject, activityIds: defaultCourseActs(code), coreSlotIds: [], ...(photos.length ? { actImgs: photos } : {}) });
-    flash(`เลือกหลักสูตร "${co.name}" — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ${photos.length ? ` + ภาพจริง ${photos.length} รูป` : ''} (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
+    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], ...(photos.length ? { actImgs: photos } : {}) });
+    flash(`เลือกหลักสูตร "${co.name}" (รหัส ${code}) — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ${photos.length ? ` + ภาพจริง ${photos.length} รูป` : ''} (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
   };
   const toggleAct = (id: string) => set({ activityIds: camp.activityIds.includes(id) ? camp.activityIds.filter(x => x !== id) : [...camp.activityIds, id] });
   const selectedCore = camp.activityIds.filter(id => subjectPool(camp).some(a => a.id === id && a.kind === 'core')).length;

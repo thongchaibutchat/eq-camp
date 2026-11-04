@@ -27,9 +27,9 @@
       "type": "object",
       "required": ["docCode", "subject", "school", "days", "nights", "specialPrice", "activityIds"],
       "properties": {
-        "docCode": { "type": "string", "pattern": "^PL\\s*\\d+/\\d+$", "description": "รหัสเอกสาร PL xxxx/2569" },
+        "docCode": { "type": "string", "pattern": "^PL\\s+([A-Z]{2,4}\\s+)?\\d{3,4}/\\d{4}$", "description": "รหัสเอกสาร อ้างจากรหัสหลักสูตรจริง เช่น 'PL STM 0101/2569' (รองรับแบบเก่า 'PL 0109/2569' ด้วย)" },
         "subject": { "enum": ["math", "steam", "english", "ai", "chinese", "leadership"], "description": "วิชา — กำหนดชื่อหลักสูตร วัตถุประสงค์ และชุดกิจกรรม" },
-        "courseCode": { "type": "string", "pattern": "^CUR-\\d{3}$", "description": "รหัสหลักสูตรจริง (CUR-001..014) ถ้าผูกกับหลักสูตรในคลัง; ไม่ผูก = เว้นว่าง" },
+        "courseCode": { "type": "string", "pattern": "^PL\\s[A-Z]{2,4}\\s\\d{3,4}$", "description": "รหัสหลักสูตรจริงตามทะเบียน EQ Camp (เช่น 'PL STM 0101', 'PL ENG 0104'); ไม่ผูก = เว้นว่าง" },
         "region": { "enum": ["central", "isan", "north", "south"], "description": "ภาคสำหรับเลือกหัวกระดาษ; เว้นว่าง = อนุมานจาก province อัตโนมัติ" },
         "school": { "type": "string" },
         "level": { "type": "string", "description": "ระดับชั้น เช่น ม.1-2" },
