@@ -4,7 +4,8 @@ import { Packer } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
-  buildDoc, fromPreset, blankCamp, defaultActs, parseBrief, DocKind, Camp
+  buildDoc, fromPreset, blankCamp, defaultActs, parseBrief, DocKind, Camp,
+  buildSchedule, coursePhotos, subjectPool
 } from '../src/eqcamp-core';
 
 const OUT = path.resolve(process.cwd(), 'samples');
@@ -51,6 +52,14 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   // 9: หลักสูตรจริงจากคลัง — ค่ายวิทยาศาสตร์ทางทะเล (CUR-003) กิจกรรมจริงเฉพาะธีม
   const sea = parseBrief('PL 0140/2569 โรงเรียนสาธิตชลบุรี ม.1-3 จำนวน 90 คน ครู 7 คน ค่ายวิทยาศาสตร์และสิ่งแวดล้อมทางทะเล 2 วัน 1 คืน วันที่ 15 – 16 มกราคม 2570 ณ โรงแรมพัทยาบีช จังหวัดชลบุรี ราคาปกติ 3,900 ลดเหลือเพียง 2,990', blankCamp());
   await write('9_program_CUR003_marine.docx', 'program', sea);
+
+  // 10: หลักสูตรจริง CUR-014 (อังกฤษ) — ฝังภาพจริงของทีม + เลือกกิจกรรมรายช่วง (per-slot override)
+  const eng = parseBrief('PL 0150/2569 โรงเรียนสาธิตนานาชาติ ม.1-3 จำนวน 110 คน ครู 8 คน ค่ายภาษาอังกฤษ English Camp 2 วัน 1 คืน วันที่ 20 – 21 มกราคม 2570 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท จังหวัดเลย ราคาปกติ 3,900 ลดเหลือเพียง 2,990', blankCamp());
+  eng.actImgs = coursePhotos(eng.courseCode, 4); // ฝังภาพจริงหลักสูตร (CUR-014)
+  // เลือกกิจกรรมช่องแรกด้วยมือ: หยิบ core ตัวที่ 2 ในคลังมาใส่ช่อง #1 (พิสูจน์ per-slot picker)
+  const cores = subjectPool(eng).filter(a => a.kind === 'core');
+  if (cores[1]) eng.coreSlotIds = [cores[1].id];
+  await write('10_program_CUR014_english_photos_slot.docx', 'program', eng);
 
   // sample.export.json (ตาม schema.json)
   const snap = { _app: 'EQ Camp Generator', _v: 2, savedAt: new Date().toISOString(),
