@@ -320,23 +320,34 @@ export default function App() {
   // ฟอนต์/ขนาดตรงกับ Word: TH Sarabun New ฝังในหน้า (ไม่พึ่งฟอนต์เครื่อง) · เนื้อหาตัวปกติ · ตัวหนาเฉพาะหัวข้อหลัก
   // กล่องเนื้อหาแต่ละชิ้นเรนเดอร์กว้าง 760px → วางทีละ "บล็อก" ไม่ตัดกลางบรรทัด; หัวกระดาษวาดทุกหน้า
   const PDF_STYLE = `<style>${FONT_FACE_CSS}
-.eqpdf{width:760px;background:#fff;color:#111;font-family:'EQSarabun',sans-serif;font-size:20px;line-height:1.22;font-weight:400}
+.eqpdf{width:760px;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:18px;line-height:1.25;font-weight:400}
 .eqpdf b{font-weight:700}
-.eqpdf .code{text-align:right;font-weight:700;color:#155D90}
-.eqpdf h1{text-align:center;color:#0F3D63;font-size:27px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;font-size:23px;margin:0}
-.eqpdf h2{color:#155D90;font-size:22px;font-weight:700;margin:7px 0 2px}
-.eqpdf .li{display:flex;margin:0 0 2px 0}.eqpdf .li .n{flex:0 0 32px;padding-left:8px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:3px 0}.eqpdf table.info td{vertical-align:top;padding:1px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:150px}
-.eqpdf .sh{text-align:center;font-weight:700;line-height:1.28}
-.eqpdf .day{font-weight:700;text-decoration:underline;color:#0F3D63;margin:0 0 2px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:0 6px;vertical-align:top;line-height:1.3}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#1f2937}
-.eqpdf .sub{color:#334155}
-.eqpdf .note{color:#334155;margin:2px 0}
-.eqpdf .price{text-align:center;border:1px solid #fca5a5;background:#FEF2F2;padding:7px;border-radius:4px}
-.eqpdf .price .lbl{color:#334155;font-size:20px}.eqpdf .price .old{color:#94a3b8;text-decoration:line-through;font-size:20px}.eqpdf .price .new{color:#DC2626;font-weight:700;font-size:26px}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0F3D63;font-size:25px;margin:0 0 8px}
-.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
-.eqpdf .pgrid img{width:48.6%;aspect-ratio:var(--a,4/3);object-fit:cover;border-radius:5px;display:block}</style>`;
+.eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
+.eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
+.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:8px 0 3px;border-bottom:1.5px solid #0C2A41;padding-bottom:2px}
+.eqpdf .li{display:flex;margin:0 0 3px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
+.eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
+.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 10px}
+.eqpdf .day{font-weight:700;color:#fff;background:#0C2A41;padding:3px 10px;border-radius:3px;margin:0 0 3px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:2px 8px;vertical-align:top;line-height:1.35;border-bottom:1px solid #E5E5EA}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
+.eqpdf .sub{color:#48484a}
+.eqpdf .note{color:#48484a;margin:3px 0}
+.eqpdf .price{text-align:center;border:2px solid #0C2A41;background:#fff;padding:10px;border-radius:5px;margin:2px 0 10px}
+.eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;text-decoration:line-through;font-size:18px}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
+.eqpdf table.bud{width:100%;border-collapse:collapse;margin:2px 0}
+.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:4px 8px;text-align:left;font-size:17px}
+.eqpdf table.bud td{border:1px solid #d6dbe0;padding:4px 8px;vertical-align:top}.eqpdf table.bud td.no{width:44px;text-align:center;color:#48484a}
+.eqpdf .sign{display:flex;gap:40px;margin-top:26px;text-align:center}.eqpdf .sign>div{flex:1}
+.eqpdf .sign .ln{border-bottom:1px dotted #1D1D1F;height:30px;margin-bottom:4px}
+.eqpdf .sign .rl{font-weight:700;color:#0C2A41}.eqpdf .sign .dt{color:#48484a;font-size:16px;margin-top:4px}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 10px}
+.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.eqpdf .pcell{width:47.5%}
+.eqpdf .pcell .pf{position:relative;border:1px solid #cbd0d6;border-radius:4px;overflow:hidden}
+.eqpdf .pcell img{width:100%;aspect-ratio:var(--a,4/3);object-fit:cover;display:block}
+.eqpdf .pcell .num{position:absolute;top:5px;left:5px;background:rgba(12,42,65,.88);color:#fff;font-size:14px;font-weight:700;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.eqpdf .pcell .cap{text-align:center;font-size:15px;color:#48484a;margin-top:2px;line-height:1.2}</style>`;
   const printPDF = async () => {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
     if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
@@ -358,17 +369,22 @@ export default function App() {
         document.body.removeChild(w); return c;
       };
       const pdf = new jsNS.jsPDF('p', 'mm', 'a4');
-      const pageW = 210, pageH = 297, M = 9;
+      const pageW = 210, pageH = 297, M = 18; // ขอบซ้าย-ขวา 1.8 ซม. (แนวราชการ)
       const contentW = pageW - 2 * M;
-      // หัวกระดาษ: วาดด้วย addImage ตรง ๆ (เชื่อถือได้ ไม่พึ่ง html2canvas) → ทุกหน้ามีหัวกระดาษ+เว้นระยะเท่ากัน
+      // หัวกระดาษ: วาดด้วย addImage ตรง ๆ (เชื่อถือได้ ไม่พึ่ง html2canvas) → ทุกหน้ามีหัวกระดาษ + รหัสเอกสาร + เว้นระยะเท่ากัน
       const lhData = 'data:image/png;base64,' + lh.b64;
       const lhH = contentW * (lh.h / lh.w);
-      const topGap = 7, botGap = 6, bottomM = 12;
-      const contentTop = topGap + lhH + botGap;
-      const drawHead = () => { pdf.addImage(lhData, 'PNG', M, topGap, contentW, lhH, 'eqlh', 'FAST'); };
+      const topGap = 10, bottomM = 14;
+      const codeStr = String(camp.docCode || '');
+      const drawHead = () => {
+        pdf.addImage(lhData, 'PNG', M, topGap, contentW, lhH, 'eqlh', 'FAST');
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(120);
+        pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: 'right' });
+      };
+      const contentTop = topGap + lhH + 9;
       let y = contentTop; drawHead();
       const newPage = () => { pdf.addPage(); drawHead(); y = contentTop; };
-      // วางบล็อกทั้งก้อน ไม่ตัดกลาง: ถ้าสั่งขึ้นหน้าใหม่ หรือพื้นที่ไม่พอ → ขึ้นหน้าใหม่ก่อน
+      // วางบล็อกทั้งก้อน ไม่ตัดกลางบรรทัด: ถ้าสั่งขึ้นหน้าใหม่ หรือพื้นที่ไม่พอ → ขึ้นหน้าใหม่ก่อน
       const place = async (inner: string, opts: { newpage?: boolean; gap?: number } = {}) => {
         const canvas = await renderCanvas(inner);
         const h = contentW * (canvas.height / canvas.width);
@@ -378,48 +394,65 @@ export default function App() {
         y += h + (opts.gap ?? 3);
       };
 
-      // ---- หน้าปก: โค้ด + ชื่อหลักสูตร + วัตถุประสงค์ + จำนวน/วิทยากร/ระยะเวลา + กิจกรรมบูรณาการ ----
-      await place(`<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 4 });
+      // ---- หน้าปก ----
+      await place(`<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
       await place(`<h2>วัตถุประสงค์การเรียนรู้</h2>${ol(kk.objectives)}` +
         `<table class="info"><tr><td class="k">จำนวน</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">วิทยากร</td><td>${esc(kk.staff)} คน</td></tr><tr><td class="k">ระยะเวลาอบรม</td><td>${esc(kk.dur)}</td></tr></table>`);
       await place(`<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}`);
       await place(`<h2>บูรณาการการเรียน (integration instruction)</h2>${ol(kk.integ)}`);
 
-      // ---- หน้ากำหนดการ: ขึ้นหน้าใหม่ หัวข้อกลาง แล้วแต่ละวันเป็นบล็อก (ไม่ตัดข้ามหน้า) ----
+      // ---- หน้ากำหนดการ: ขึ้นหน้าใหม่ · แต่ละวันเป็นบล็อก (ไม่ตัดข้ามหน้า) · ปิดด้วยหมายเหตุ ----
       await place(`<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` +
-        (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>', { newpage: true, gap: 5 });
+        (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>', { newpage: true, gap: 6 });
       for (const d of plan.days) {
         await place(`<div class="day">วันที่ ${d.day}</div><table class="sched">` +
-          d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>', { gap: 5 });
+          d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>', { gap: 6 });
       }
-      await place(`<div class="note">หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม</div>` +
-        `<div class="price"><span class="lbl">ราคาปกติ </span><span class="old">${money(camp.normalPrice)} บ./ท่าน</span><span class="lbl">&nbsp;&nbsp; ลดเหลือเพียง </span><span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>`, { gap: 4 });
-      await place(`<h2>รายละเอียดงบประมาณมีดังนี้</h2>${ul(kk.budget)}`);
+      await place(`<div class="note">หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม</div>`);
 
-      // ---- ภาพประกอบ: แต่ละชุดขึ้นหน้าใหม่ · กริด 6–8 รูปติดกัน object-fit:cover · หัวข้อหนากึ่งกลาง ----
+      // ---- ราคา + รายละเอียดงบประมาณ (ตาราง) + ลงนาม : ขึ้นหน้าใหม่เสมอ ----
+      const budRows = kk.budget.map((x, i) => `<tr><td class="no">${i + 1}</td><td>${esc(x)}</td></tr>`).join('');
+      await place(
+        `<div class="sech">ราคาและรายละเอียดงบประมาณ</div>` +
+        `<div class="price"><span class="lbl">ราคาปกติ </span><span class="old">${money(camp.normalPrice)} บ./ท่าน</span><span class="lbl">&nbsp;&nbsp; ลดเหลือเพียง </span><span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
+        `<table class="bud"><thead><tr><th style="width:44px">ลำดับ</th><th>รายการ</th></tr></thead><tbody>${budRows}</tbody></table>` +
+        `<div class="note">หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม</div>` +
+        `<div class="sign"><div><div class="ln"></div><div class="rl">ผู้จัดทำ / ฝ่ายขาย</div><div class="dt">วันที่ ......./......./.......</div></div>` +
+        `<div><div class="ln"></div><div class="rl">ผู้อนุมัติ</div><div class="dt">วันที่ ......./......./.......</div></div></div>`,
+        { newpage: true });
+
+      // ---- ภาพประกอบ 6–8 รูป: กริด 2 คอลัมน์ มีกรอบ + หมายเลข + คำบรรยายใต้รูป · แต่ละชุดขึ้นหน้าใหม่ ----
       const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
-      const imgT = (b64: string, mime: string) => `<img src="data:${mime};base64,${b64}">`;
-      // >4 รูป → ใช้สัดส่วนเตี้ยลง (16/9) ให้ครบ 8 รูปพอดีหน้าเดียวใต้หัวกระดาษ; ≤4 รูป → 4/3 สวยกว่า
-      const grid = (srcs: string[]) => { const n = Math.min(srcs.length, 8); const a = n > 4 ? '16/9' : '4/3'; return `<div class="pgrid" style="--a:${a}">${srcs.slice(0, 8).join('')}</div>`; };
+      const realCap = (c?: string) => !!(c && c.trim() && !/\.\.\./.test(c));
+      const cell = (src: string, n: number, cap: string) => `<div class="pcell"><div class="pf"><span class="num">${n}</span>${src}</div><div class="cap">${esc(cap)}</div></div>`;
+      // >4 รูป → สัดส่วน 16/9 ให้ครบ 8 รูปพอดีหน้าเดียว; ≤4 รูป → 4/3
+      const gridOf = (cells: string[]) => { const a = cells.length > 4 ? '16/9' : '4/3'; return `<div class="pgrid" style="--a:${a}">${cells.slice(0, 8).join('')}</div>`; };
+      let photoCount = 0;
       const withData = camp.actImgs.filter(a => a.data);
-      let actSrcs: string[] = [];
-      if (withData.length) actSrcs = withData.map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'));
-      else if (hasCoursePhotos(camp.courseCode)) actSrcs = COURSE_PHOTOS[camp.courseCode].map((p: any) => imgT(p.b64, 'image/jpeg'));
-      if (actSrcs.length) await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${grid(actSrcs)}`, { newpage: true });
+      let actCells: string[] = [];
+      if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : `ภาพกิจกรรมที่ ${i + 1}`));
+      else if (hasCoursePhotos(camp.courseCode)) actCells = COURSE_PHOTOS[camp.courseCode].slice(0, 8).map((p: any, i: number) => cell(`<img src="data:image/jpeg;base64,${p.b64}">`, i + 1, `ภาพกิจกรรมที่ ${i + 1}`));
+      if (actCells.length) { photoCount += actCells.length; await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${gridOf(actCells)}`, { newpage: true }); }
       const venueData = camp.venueImgs.filter(a => a.data);
       if (venueData.length) {
-        const vSrcs = venueData.map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'));
-        await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${grid(vSrcs)}`, { newpage: true });
+        const vCells = venueData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : `ภาพบรรยากาศที่พักที่ ${i + 1}`));
+        photoCount += vCells.length;
+        await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${gridOf(vCells)}`, { newpage: true });
       }
-      if (isSteamProgram(camp)) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:88%;border-radius:5px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
+      if (isSteamProgram(camp)) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
+
+      // เลขหน้า "X / Y" ทุกหน้า (ล่างกลาง)
+      const totPages = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= totPages; i++) { pdf.setPage(i); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(140); pdf.text(`${i} / ${totPages}`, pageW / 2, pageH - 7, { align: 'center' }); }
       const blob: Blob = pdf.output('blob');
       const name = fileName('program', camp).replace(/\.docx$/, '.pdf');
       const cl = (window as any).claude;
       const downloads = cl && typeof cl.use === 'function' ? await cl.use('downloads').catch(() => null) : null;
+      const photoWarn = photoCount < 6 ? ` ⚠ ภาพประกอบมี ${photoCount} รูป (แนะนำ 6–8) — เพิ่มภาพในแท็บ 6 ก่อนส่งลูกค้า` : '';
       if (downloads) {
-        try { await downloads.save({ filename: name, data: blob }); logEvent('pdf', camp, 'program'); flash('บันทึก PDF เรียบร้อย'); }
-        catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว'); } }
-      } else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว'); }
+        try { await downloads.save({ filename: name, data: blob }); logEvent('pdf', camp, 'program'); flash('บันทึก PDF เรียบร้อย' + photoWarn, !photoWarn); }
+        catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); } }
+      } else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); }
     } catch (e) { flash('สร้าง PDF ไม่สำเร็จ: ' + (e as Error).message, false); }
     setBusy(false);
   };
@@ -449,15 +482,15 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => download(kind)} disabled={busy}
-              className="tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-xs font-display font-semibold shadow-lift flex items-center gap-1.5">
+              className="tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-xs font-semibold shadow-lift flex items-center gap-1.5">
               <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label}`}
             </button>
             <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
-              className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-display font-medium flex items-center gap-1.5">
+              className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-medium flex items-center gap-1.5">
               <Layers className="w-4 h-4" />ครบชุด 4 ไฟล์
             </button>
             <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF"
-              className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-display font-medium flex items-center gap-1.5">
+              className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-medium flex items-center gap-1.5">
               <FileText className="w-4 h-4" />บันทึก PDF
             </button>
           </div>
@@ -468,18 +501,18 @@ export default function App() {
         {banner && (
           <div className={`mb-4 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between border ${banner.ok ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-rose-50 border-rose-300 text-rose-950'}`}>
             <span className="flex items-center gap-1.5">{banner.ok ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-rose-600" />}{banner.t}</span>
-            <button onClick={() => setBanner(null)} className="text-slate-500 hover:text-slate-900 font-bold px-2">✕</button>
+            <button onClick={() => setBanner(null)} className="text-sub hover:text-slate-900 font-bold px-2">✕</button>
           </div>
         )}
 
         {/* Sales workflow: 4 document types */}
-        <div className="bg-white rounded-2xl border border-slate-300 p-3 mb-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-brand-mist p-3 mb-4 shadow-card">
           <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-            <div className="text-xs font-bold text-slate-600 flex items-center gap-1.5"><Wand2 className="w-3.5 h-3.5" />เลือกเอกสารตามขั้นตอนการขาย — ทุกฉบับดึงข้อมูลชุดเดียวกัน จึงตรงกันทั้งกระบวนการ</div>
+            <div className="text-xs font-bold text-sub flex items-center gap-1.5"><Wand2 className="w-3.5 h-3.5" />เลือกเอกสารตามขั้นตอนการขาย — ทุกฉบับดึงข้อมูลชุดเดียวกัน จึงตรงกันทั้งกระบวนการ</div>
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-slate-400 mr-1">ฐานข้อมูลกลาง:</span>
-              <button onClick={exportDB} className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[11px] font-bold text-slate-700">ส่งออก JSON</button>
-              <button onClick={() => fileInput.current?.click()} className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[11px] font-bold text-slate-700">นำเข้า</button>
+              <button onClick={exportDB} className="px-2.5 py-1 rounded-lg bg-paper hover:bg-slate-200 border border-brand-mist text-[11px] font-bold text-slate-700">ส่งออก JSON</button>
+              <button onClick={() => fileInput.current?.click()} className="px-2.5 py-1 rounded-lg bg-paper hover:bg-slate-200 border border-brand-mist text-[11px] font-bold text-slate-700">นำเข้า</button>
               <button onClick={resetDB} className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-[11px] font-bold text-rose-600">รีเซ็ต</button>
               <input ref={fileInput} type="file" accept="application/json,.json" className="hidden" onChange={e => { importDB(e.target.files?.[0]); e.target.value = ''; }} />
             </div>
@@ -490,10 +523,10 @@ export default function App() {
               const Icon = KIND_ICON[d.id]; const on = kind === d.id;
               return (
                 <button key={d.id} onClick={() => setKind(d.id)}
-                  className={`tap text-left p-3 rounded-xl border ${on ? 'bg-brand-navy text-white border-brand-navy shadow-lift' : 'bg-white border-brand-mist hover:border-brand/60'}`}>
-                  <div className="flex items-center gap-1.5 mb-1"><Icon className={`w-4 h-4 ${on ? 'text-accent' : 'text-brand'}`} /><span className="text-[10px] font-display font-medium opacity-80">{d.stage}</span>{d.internal && <Lock className="w-3 h-3 ml-auto" />}</div>
-                  <div className="text-xs font-display font-semibold leading-tight">{d.label}</div>
-                  <div className={`text-[10px] mt-1 leading-snug ${on ? 'text-sky-100/80' : 'text-slate-500'}`}>{d.desc}</div>
+                  className={`tap text-left p-3.5 rounded-xl border ${on ? 'bg-brand-navy text-white border-brand-navy' : 'bg-white border-brand-mist hover:border-brand/40'}`}>
+                  <div className="flex items-center gap-1.5 mb-1.5"><span className={`text-[10px] font-medium ${on ? 'text-white/70' : 'text-sub'}`}>{d.stage}</span>{d.internal && <Lock className={`w-3 h-3 ml-auto ${on ? 'text-white/70' : 'text-sub'}`} />}</div>
+                  <div className="text-[13px] font-semibold leading-tight">{d.label}</div>
+                  <div className={`text-[11px] mt-1 leading-snug ${on ? 'text-white/70' : 'text-sub'}`}>{d.desc}</div>
                 </button>
               );
             })}
@@ -504,37 +537,37 @@ export default function App() {
           {/* LEFT: editor */}
           <div className="lg:col-span-5 space-y-4">
             {/* edit tabs */}
-            <div className="tabrail bg-white rounded-2xl border border-brand-mist p-2 shadow-card flex gap-1.5 overflow-x-auto">
+            <div className="tabrail bg-white rounded-xl border border-brand-mist px-3 flex gap-5 overflow-x-auto">
               {TABS.map(t => {
-                const Icon = t.icon; const on = tab === t.id;
+                const on = tab === t.id;
                 return (
                   <button key={t.id} onClick={() => setTab(t.id)}
-                    className={`tap px-3 py-2 rounded-xl text-[11px] font-display font-medium whitespace-nowrap flex items-center gap-1 border ${on ? 'bg-brand text-white border-brand' : 'bg-white text-slate-600 border-brand-mist hover:border-brand/50'}`}>
-                    <Icon className={`w-3.5 h-3.5 ${on ? 'text-sky-50' : 'text-brand/70'}`} />{t.label}
+                    className={`tap py-2.5 text-[12px] whitespace-nowrap border-b-2 -mb-px ${on ? 'text-brand-ink border-brand font-semibold' : 'text-sub border-transparent hover:text-brand-ink font-medium'}`}>
+                    {t.label}
                   </button>
                 );
               })}
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-300 shadow-sm p-4 sm:p-5">
+            <div className="bg-white rounded-2xl border border-brand-mist shadow-card p-4 sm:p-5">
               {tab === 'brief' && (
                 <div className="space-y-4">
                   <SectionTitle title="1. สร้างจากบรีฟออนไลน์ หรือเลือกแม่แบบไฟล์จริง" sub="วางข้อความบรีฟ ระบบจะดึง รหัส PL / โรงเรียน / จำนวนคน / วิชา / วัน-คืน / วันที่ / สถานที่ / ราคา เข้าแบบฟอร์มให้อัตโนมัติ" />
-                  <textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-slate-300 text-xs" />
-                  <button onClick={() => aiExtract('new')} disabled={busy} className="w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-navy to-brand-sky hover:from-brand-ink hover:to-brand disabled:opacity-50 text-white font-display font-semibold text-xs shadow-lift flex items-center justify-center gap-1.5 tap">🤖 {busy ? 'AI กำลังดึงข้อมูล...' : 'ให้ AI ดึงข้อมูลจากบรีฟ (แม่นกับภาษาคน)'}</button>
+                  <textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-brand-mist text-xs" />
+                  <button onClick={() => aiExtract('new')} disabled={busy} className="w-full py-2.5 rounded-xl bg-white border border-brand-mist hover:border-brand text-brand font-semibold text-xs flex items-center justify-center gap-1.5 tap">🤖 {busy ? 'AI กำลังดึงข้อมูล...' : 'ให้ AI ดึงข้อมูลจากบรีฟ (แม่นกับภาษาคน)'}</button>
                   <p className="text-[10px] text-brand/80 -mt-1">AI อ่านบรีฟอิสระได้ดีกว่า เช่น “วิทยาศาสตร์ทางทะเล...เด็ก 100 คน...โรงแรมกาสะรอง พัทยา...ขายหัวละ 3290” — ใช้ได้เมื่อเปิดบนลิงก์ claude.ai (ครั้งแรกจะขออนุญาต)</p>
                   <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => applyBrief('new')} className="py-2.5 rounded-xl bg-brand hover:bg-brand-navy text-white font-bold text-xs shadow flex items-center justify-center gap-1.5"><Sparkles className="w-4 h-4" />สร้างใหม่ (แบบปกติ)</button>
-                    <button onClick={() => applyBrief('update')} className="py-2.5 rounded-xl bg-white border border-brand text-brand hover:bg-brand-mist/50 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5">อัปเดตงานปัจจุบัน</button>
+                    <button onClick={() => applyBrief('update')} className="py-2.5 rounded-xl bg-white border border-brand text-brand hover:bg-brand-mist/50 font-bold text-xs shadow-card flex items-center justify-center gap-1.5">อัปเดตงานปัจจุบัน</button>
                   </div>
-                  <p className="text-[10px] text-slate-500 -mt-1">ปุ่มแบบปกติใช้ตัวจับคำ (ไม่ต้องต่อ AI): “สร้างใหม่” ล้างค่าเก่าก่อน · “อัปเดต” เก็บค่าที่บรีฟไม่ได้กล่าวถึง</p>
+                  <p className="text-[10px] text-sub -mt-1">ปุ่มแบบปกติใช้ตัวจับคำ (ไม่ต้องต่อ AI): “สร้างใหม่” ล้างค่าเก่าก่อน · “อัปเดต” เก็บค่าที่บรีฟไม่ได้กล่าวถึง</p>
                   <div className="pt-3 border-t border-slate-100 space-y-2">
                     <div className="text-xs font-bold text-slate-700">หรือเลือกแม่แบบไฟล์มาตรฐาน:</div>
                     {PRESETS.map(p => (
                       <button key={p.id} onClick={() => loadPreset(p.id)} className="w-full text-left p-3 rounded-xl border border-slate-200 hover:border-sky-500 hover:bg-brand-mist/50/40 flex items-center justify-between">
                         <div>
                           <div className="text-xs font-extrabold">{p.label}</div>
-                          <div className="text-[11px] text-slate-500">{p.camp.school} · {p.camp.venue} · ลดเหลือ {money(p.camp.specialPrice!)} บ.</div>
+                          <div className="text-[11px] text-sub">{p.camp.school} · {p.camp.venue} · ลดเหลือ {money(p.camp.specialPrice!)} บ.</div>
                         </div>
                         <ChevronRight className="w-4 h-4 text-brand shrink-0" />
                       </button>
@@ -551,7 +584,7 @@ export default function App() {
                     <div className="flex flex-wrap gap-1.5">
                       {COURSES.map(co => {
                         const on = dbSel === co.code; const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
-                        return <button key={co.code} onClick={() => setDbSel(co.code)} title={co.name} className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? 'bg-brand text-white border-brand' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>{co.code}{nPhoto ? ' 📷' : ''}</button>;
+                        return <button key={co.code} onClick={() => setDbSel(co.code)} title={co.name} className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? 'bg-brand text-white border-brand' : 'bg-slate-50 border-slate-200 text-sub'}`}>{co.code}{nPhoto ? ' 📷' : ''}</button>;
                       })}
                     </div>
                     {ds && (
@@ -559,19 +592,19 @@ export default function App() {
                         <div className="flex items-start justify-between gap-2">
                           <div>
                             <div className="text-sm font-extrabold text-sky-900">{ds.course.name}</div>
-                            <div className="text-[11px] text-slate-500">{ds.course.code} · วิชา {SUBJECTS[ds.course.family as Subject]?.label || ds.course.family} · กิจกรรม {ds.total} · ภาพ {ds.photoCount}{ds.draftCount ? ` · รอตรวจ ${ds.draftCount}` : ''}</div>
+                            <div className="text-[11px] text-sub">{ds.course.code} · วิชา {SUBJECTS[ds.course.family as Subject]?.label || ds.course.family} · กิจกรรม {ds.total} · ภาพ {ds.photoCount}{ds.draftCount ? ` · รอตรวจ ${ds.draftCount}` : ''}</div>
                           </div>
                           <button onClick={() => { changeCourse(ds.course.code); setTab('header'); }} className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0">ใช้หลักสูตรนี้ →</button>
                         </div>
                         <div>
-                          <div className="text-[11px] font-bold text-slate-500 mb-1">วัตถุประสงค์หลัก (เข้าเอกสารข้อ 1–2)</div>
+                          <div className="text-[11px] font-bold text-sub mb-1">วัตถุประสงค์หลัก (เข้าเอกสารข้อ 1–2)</div>
                           <div className="text-[11px] text-slate-700 space-y-0.5">
                             <div>1. {ds.course.obj1 || <span className="text-amber-600">— ยังไม่มีในฐาน (ทีมเติมใน MASTER)</span>}</div>
                             <div>2. {ds.course.obj2 || <span className="text-amber-600">— ยังไม่มีในฐาน (ทีมเติมใน MASTER)</span>}</div>
                           </div>
                         </div>
                         <div>
-                          <div className="text-[11px] font-bold text-slate-500 mb-1">กิจกรรมที่ผูกกับค่ายนี้ ({ds.total})</div>
+                          <div className="text-[11px] font-bold text-sub mb-1">กิจกรรมที่ผูกกับค่ายนี้ ({ds.total})</div>
                           {ds.total === 0 ? <div className="text-[11px] text-amber-600">ยังไม่มีกิจกรรมในฐานสำหรับหลักสูตรนี้</div> :
                             <div className="space-y-1.5">
                               {ds.actsByKind.map(g => (
@@ -585,7 +618,7 @@ export default function App() {
                             </div>}
                         </div>
                         <div>
-                          <div className="text-[11px] font-bold text-slate-500 mb-1">ภาพกิจกรรมจริง ({ds.photoCount})</div>
+                          <div className="text-[11px] font-bold text-sub mb-1">ภาพกิจกรรมจริง ({ds.photoCount})</div>
                           {ds.photoCount === 0 ? <div className="text-[11px] text-slate-400">ยังไม่มีภาพในคลังสำหรับหลักสูตรนี้ — อัปโหลดเองในแท็บ 6 หรือให้ทีมเพิ่มใน Drive</div> :
                             <>
                               <div className="grid grid-cols-4 gap-1.5">
@@ -606,7 +639,7 @@ export default function App() {
                   {camp.courseCode && <div className="text-[10px] text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1.5">🔗 ผูกหลักสูตร <b>{camp.courseCode}</b> — กิจกรรม · ภาพ · วัตถุประสงค์ ดึงเฉพาะของค่ายนี้ · การกด "วิชา" ด้านล่างจะเลิกผูกหลักสูตร</div>}
                   <div className="grid grid-cols-2 gap-2.5">
                     <Field label="รหัสเอกสาร (มุมขวาบน)"><input value={camp.docCode} onChange={e => set({ docCode: e.target.value })} className={inp} /></Field>
-                    <Field label="จำนวนวิทยากร (อัตโนมัติ)"><input value={`${staffText(camp.students)} คน`} readOnly className={inp + ' bg-slate-50 text-slate-500'} /></Field>
+                    <Field label="จำนวนวิทยากร (อัตโนมัติ)"><input value={`${staffText(camp.students)} คน`} readOnly className={inp + ' bg-slate-50 text-sub'} /></Field>
                   </div>
                   <Field label="วิชา / ประเภทค่าย (เปลี่ยนชื่อหลักสูตร + กิจกรรมเริ่มต้น)">
                     <div className="grid grid-cols-2 gap-1.5">
@@ -622,7 +655,7 @@ export default function App() {
                     </select>
                     {camp.courseCode && <div className="text-[10px] text-amber-700 mt-1">กิจกรรมจากคลังนี้สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
                   </Field>
-                  <div className="text-[11px] text-slate-500 -mt-1">หลักสูตร: <b>{k.titleTh}</b> {k.titleEn}</div>
+                  <div className="text-[11px] text-sub -mt-1">หลักสูตร: <b>{k.titleTh}</b> {k.titleEn}</div>
                   <Field label="ชื่อโรงเรียน"><input value={camp.school} onChange={e => set({ school: e.target.value })} className={inp} /></Field>
                   <div className="grid grid-cols-3 gap-2.5">
                     <Field label="ระดับชั้น"><input value={camp.level} onChange={e => set({ level: e.target.value })} className={inp} /></Field>
@@ -652,7 +685,7 @@ export default function App() {
                     <input value={camp.venue} onChange={e => set({ venue: e.target.value })} className={inp} />
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       {allVenues.map(v => (
-                        <button key={v.name} onClick={() => set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note })} className={`px-2 py-1 rounded-lg text-[10px] font-semibold border ${camp.venue === v.name ? 'bg-sky-100 border-sky-400 text-sky-800' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>{v.name.replace('โรงแรม', '')} · {v.province}</button>
+                        <button key={v.name} onClick={() => set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note })} className={`px-2 py-1 rounded-lg text-[10px] font-semibold border ${camp.venue === v.name ? 'bg-sky-100 border-sky-400 text-sky-800' : 'bg-slate-50 border-slate-200 text-sub'}`}>{v.name.replace('โรงแรม', '')} · {v.province}</button>
                       ))}
                     </div>
                   </Field>
@@ -668,7 +701,7 @@ export default function App() {
                       <option value="">อัตโนมัติจากจังหวัด → {LETTERHEADS[regionOf(camp.province)].label}</option>
                       {(Object.keys(LETTERHEADS) as Region[]).map(r => <option key={r} value={r}>{LETTERHEADS[r].label}</option>)}
                     </select>
-                    <div className="text-[10px] text-slate-500 mt-1">หัวกระดาษ EQ Camp จะขึ้นทุกหน้า ทุกเอกสาร (แบรนด์/ติดต่อยังรอทีมยืนยันขั้นสุดท้าย)</div>
+                    <div className="text-[10px] text-sub mt-1">หัวกระดาษ EQ Camp จะขึ้นทุกหน้า ทุกเอกสาร (แบรนด์/ติดต่อยังรอทีมยืนยันขั้นสุดท้าย)</div>
                   </Field>
                   <VenueAdd onAdd={addVenue} />
                 </div>
@@ -678,7 +711,7 @@ export default function App() {
                 <div className="space-y-3">
                   <SectionTitle title={`3. เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-500">ตารางต้องการ <b className="text-brand">{plan.coreSlots}</b> ช่องกิจกรรมหลัก · เลือกไว้ <b className="text-brand">{selectedCore}</b></span>
+                    <span className="text-sub">ตารางต้องการ <b className="text-brand">{plan.coreSlots}</b> ช่องกิจกรรมหลัก · เลือกไว้ <b className="text-brand">{selectedCore}</b></span>
                     <div className="flex gap-2">
                       <button onClick={() => set({ activityIds: camp.courseCode ? defaultCourseActs(camp.courseCode) : defaultActs(camp.subject).concat(camp.extraActivities.filter(a => a.subjects.includes(camp.subject)).map(a => a.id)) })} className="font-bold text-brand">เลือกทั้งหมด</button>
                       <button onClick={() => set({ activityIds: camp.activityIds.filter(id => !subjectPool(camp).some(a => a.id === id && a.kind === 'core')) })} className="font-bold text-slate-400">ล้างกิจกรรมหลัก</button>
@@ -690,7 +723,7 @@ export default function App() {
                     const label = { opening: 'เปิดค่าย', core: 'กิจกรรมหลัก (ฐานการเรียนรู้)', night: 'ภาคค่ำ', recreation: 'สันทนาการ', closing: 'ปิดค่าย' }[kind];
                     return (
                       <div key={kind}>
-                        <div className="text-[11px] font-bold text-slate-500 mb-1">{label}</div>
+                        <div className="text-[11px] font-bold text-sub mb-1">{label}</div>
                         <div className="space-y-1.5">
                           {items.map(a => {
                             const on = camp.activityIds.includes(a.id);
@@ -698,10 +731,10 @@ export default function App() {
                             return (
                               <div key={a.id} className={`p-2.5 rounded-lg border flex items-start gap-2 ${on ? 'bg-sky-50 border-sky-400' : 'bg-white border-slate-200'}`}>
                                 <button onClick={() => toggleAct(a.id)} className="flex items-start gap-2 flex-1 text-left">
-                                  <div className={`w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? 'bg-brand' : 'border border-slate-300'}`}>{on && <CheckCircle2 className="w-4 h-4 text-white" />}</div>
+                                  <div className={`w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? 'bg-brand' : 'border border-brand-mist'}`}>{on && <CheckCircle2 className="w-4 h-4 text-white" />}</div>
                                   <div>
                                     <div className="text-xs font-bold leading-snug">{a.title}{custom && <span className="ml-1 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded">เพิ่มเอง</span>}{a.draft && !custom && <span className="ml-1 text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">รอตรวจ</span>}</div>
-                                    {a.desc && <div className="text-[10px] text-slate-500">{a.desc}</div>}
+                                    {a.desc && <div className="text-[10px] text-sub">{a.desc}</div>}
                                     {a.draft && !custom && <div className="text-[9px] text-amber-600">ต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
                                   </div>
                                 </button>
@@ -721,8 +754,8 @@ export default function App() {
                 <div className="space-y-3">
                   <SectionTitle title="4. กำหนดการ (สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา)" sub="ช่อง 'กิจกรรมหลัก' เลือกกิจกรรมจากฐานได้รายช่วง (เมนูด้านล่างหัวข้อ) — เลือก 'อัตโนมัติ' ให้ระบบจัดเอง" />
                   <div className="flex items-center justify-between text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-                    <span className="text-slate-600">ช่องกิจกรรมหลักทั้งหมด <b className="text-brand">{plan.days.reduce((n, d) => n + d.items.filter(r => r.slot !== undefined).length, 0)}</b> ช่อง · เลือกเอง <b className="text-brand">{(camp.coreSlotIds || []).filter(Boolean).length}</b></span>
-                    <button onClick={clearSlots} className="font-bold text-slate-400 hover:text-slate-600">ล้างเป็นอัตโนมัติทั้งหมด</button>
+                    <span className="text-sub">ช่องกิจกรรมหลักทั้งหมด <b className="text-brand">{plan.days.reduce((n, d) => n + d.items.filter(r => r.slot !== undefined).length, 0)}</b> ช่อง · เลือกเอง <b className="text-brand">{(camp.coreSlotIds || []).filter(Boolean).length}</b></span>
+                    <button onClick={clearSlots} className="font-bold text-slate-400 hover:text-sub">ล้างเป็นอัตโนมัติทั้งหมด</button>
                   </div>
                   {plan.days.map(d => (
                     <div key={d.day} className="border border-slate-200 rounded-xl overflow-hidden">
@@ -730,13 +763,13 @@ export default function App() {
                       <div className="divide-y divide-slate-100">
                         {d.items.map((r, i) => (
                           <div key={i} className="flex gap-2 px-2.5 py-1.5 text-[11px]">
-                            <span className="font-bold text-slate-500 w-28 shrink-0">{r.time}</span>
+                            <span className="font-bold text-sub w-28 shrink-0">{r.time}</span>
                             <span className="text-slate-800 flex-1 min-w-0">
                               {r.slot !== undefined && <span className="inline-block mb-0.5 px-1 rounded bg-brand-mist text-brand text-[9px] font-bold">กิจกรรมหลัก #{r.slot + 1}</span>}
                               <span className="block">{r.title}{r.sub?.map((s, j) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
                               {r.slot !== undefined && (
                                 <select value={(camp.coreSlotIds || [])[r.slot] || ''} onChange={e => setSlot(r.slot!, e.target.value)}
-                                  className="mt-1 w-full px-1.5 py-1 rounded border border-slate-300 text-[10px] bg-white">
+                                  className="mt-1 w-full px-1.5 py-1 rounded border border-brand-mist text-[10px] bg-white">
                                   <option value="">— อัตโนมัติ (ระบบเลือกให้) —</option>
                                   {coreOptions.map(a => (
                                     <option key={a.id} value={a.id}>{a.draft ? '⚠ ' : ''}{a.title.replace(/^กิจกรรม\s*/, '').slice(0, 60)}</option>
@@ -749,7 +782,7 @@ export default function App() {
                       </div>
                     </div>
                   ))}
-                  <div className="text-[11px] text-slate-500">มื้ออาหาร: เช้า {plan.meals.b} · กลางวัน {plan.meals.l} · เย็น {plan.meals.d} · ว่าง {plan.meals.s}</div>
+                  <div className="text-[11px] text-sub">มื้ออาหาร: เช้า {plan.meals.b} · กลางวัน {plan.meals.l} · เย็น {plan.meals.d} · ว่าง {plan.meals.s}</div>
                   <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">⚠ กิจกรรมที่มีเครื่องหมาย ⚠ มาจากคลัง 14 หลักสูตร สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>
                 </div>
               )}
@@ -786,7 +819,7 @@ export default function App() {
                     </button>
                     <button onClick={autoFillImages} className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-bold flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" />เติมช่องภาพตามบรีฟ</button>
                   </div>
-                  <div className="text-[10px] text-slate-500">{hasCoursePhotos(camp.courseCode) ? 'หลักสูตรนี้มีภาพกิจกรรมจริงของทีมในคลัง — กดปุ่มเขียวเพื่อฝังลงไฟล์ทันที' : 'หลักสูตรที่เลือกยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — ใช้ "เติมช่องภาพตามบรีฟ" แล้วอัปโหลดภาพที่มีสิทธิ์เอง'}</div>
+                  <div className="text-[10px] text-sub">{hasCoursePhotos(camp.courseCode) ? 'หลักสูตรนี้มีภาพกิจกรรมจริงของทีมในคลัง — กดปุ่มเขียวเพื่อฝังลงไฟล์ทันที' : 'หลักสูตรที่เลือกยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — ใช้ "เติมช่องภาพตามบรีฟ" แล้วอัปโหลดภาพที่มีสิทธิ์เอง'}</div>
                   <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">⚠ ภาพจากคลังทีมยังรอทีมรับรองสิทธิ์เผยแพร่ก่อนส่งลูกค้า · ภาพที่พักให้ใช้สื่อทางการของโรงแรม เพื่อความถูกต้องของลิขสิทธิ์ในเอกสารขาย</div>
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
@@ -797,7 +830,7 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-2">
                         {camp[group].map((im, i) => (
                           <div key={i} className="border border-slate-200 rounded-xl p-2 space-y-1.5">
-                            <label className="block aspect-[8/5] rounded-lg bg-slate-100 border border-dashed border-slate-300 overflow-hidden cursor-pointer grid place-items-center text-[10px] text-slate-400">
+                            <label className="block aspect-[8/5] rounded-lg bg-paper border border-dashed border-slate-300 overflow-hidden cursor-pointer grid place-items-center text-[10px] text-slate-400">
                               {im.data ? <span className="text-emerald-600 font-bold">✓ ฝังรูปแล้ว</span> : 'คลิกเพื่ออัปโหลด'}
                               <input type="file" accept="image/*" className="hidden" onChange={e => onImage(group, i, e.target.files?.[0])} />
                             </label>
@@ -821,22 +854,22 @@ export default function App() {
 
           {/* RIGHT: preview + checklist */}
           <div className="lg:col-span-7 space-y-4">
-            <div className={`rounded-2xl border p-4 shadow-sm ${ready ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'}`}>
-              <div className="flex items-center gap-1.5 text-xs font-extrabold mb-2">{ready ? <><CheckCircle2 className="w-4 h-4 text-emerald-600" />พร้อมสร้างไฟล์ — ตรวจครบทุกข้อ</> : <><AlertTriangle className="w-4 h-4 text-amber-600" />ตรวจก่อนส่ง</>}</div>
+            <div className="rounded-xl border border-brand-mist bg-white p-4 shadow-card">
+              <div className={`flex items-center gap-1.5 text-[13px] font-semibold mb-2.5 ${ready ? 'text-emerald-700' : 'text-accent-deep'}`}>{ready ? <><CheckCircle2 className="w-4 h-4" />พร้อมสร้างไฟล์ — ตรวจครบทุกข้อ</> : <><AlertTriangle className="w-4 h-4" />ตรวจก่อนส่ง</>}</div>
               <div className="grid sm:grid-cols-2 gap-x-4 gap-y-1">
                 {checks.map((c, i) => (
-                  <div key={i} className={`text-[11px] flex items-start gap-1.5 ${c.ok ? 'text-slate-600' : (c as any).soft ? 'text-sky-800' : 'text-amber-800 font-semibold'}`}>
+                  <div key={i} className={`text-[11px] flex items-start gap-1.5 ${c.ok ? 'text-sub' : (c as any).soft ? 'text-sky-800' : 'text-amber-800 font-semibold'}`}>
                     <span className="shrink-0 mt-0.5">{c.ok ? '✓' : (c as any).soft ? 'ℹ' : '⚠'}</span>{c.msg}
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
-              <div className="bg-slate-800 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />พรีวิว: {DOC_TYPES.find(d => d.id === kind)!.label}</div>
+            <div className="bg-white rounded-2xl border border-brand-mist shadow-card overflow-hidden">
+              <div className="bg-brand-navy text-white px-4 py-2.5 text-xs font-semibold flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />พรีวิว: {DOC_TYPES.find(d => d.id === kind)!.label}</div>
               <div className="p-5 max-h-[70vh] overflow-y-auto"><Preview kind={kind} camp={camp} plan={plan} k={k} total={total} cost={cost} profit={profit} margin={margin} /></div>
             </div>
-            <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-display font-semibold shadow-lift tap flex items-center justify-center gap-2">
+            <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold shadow-lift tap flex items-center justify-center gap-2">
               <Download className="w-5 h-5" />{busy ? 'กำลังสร้างไฟล์...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} เป็นไฟล์ Word (.docx)`}
             </button>
             {!ready && <div className="text-[11px] text-amber-700 text-center -mt-1">ℹ ยังมีข้อมูลไม่ครบบางข้อ (ดูแถบ "ตรวจก่อนส่ง" ด้านบน) — ดาวน์โหลดเป็นฉบับร่างได้ แต่ควรเติมให้ครบก่อนส่งลูกค้า</div>}
@@ -853,8 +886,8 @@ function CustomAdd({ onAdd }: { onAdd: (title: string, kind: Kind, desc: string)
   return (
     <div className="mt-2 p-3 rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/40 space-y-2">
       <div className="text-[11px] font-bold text-sky-800 flex items-center gap-1"><Plus className="w-3.5 h-3.5" />เพิ่มกิจกรรมเอง (สั่งค่าแบบไหนก็ได้)</div>
-      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="ชื่อกิจกรรม เช่น Escape Room คณิตศาสตร์" className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" />
-      <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="คำอธิบายย่อ (ไม่บังคับ)" className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" />
+      <input value={title} onChange={e => setTitle(e.target.value)} placeholder="ชื่อกิจกรรม เช่น Escape Room คณิตศาสตร์" className="w-full px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" />
+      <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="คำอธิบายย่อ (ไม่บังคับ)" className="w-full px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" />
       <div className="flex items-center gap-1.5">
         <div className="flex gap-1">
           {kinds.map(x => <button key={x.k} onClick={() => setKind(x.k)} className={`px-2 py-1 rounded-lg text-[10px] font-bold border ${kind === x.k ? 'bg-brand text-white border-brand' : 'bg-white border-slate-300'}`}>{x.l}</button>)}
@@ -871,12 +904,12 @@ function VenueAdd({ onAdd }: { onAdd: (v: VenueRec) => void }) {
     <div className="mt-1 p-3 rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/40 space-y-2">
       <div className="text-[11px] font-bold text-sky-800 flex items-center gap-1"><Plus className="w-3.5 h-3.5" />เพิ่มสถานที่/โรงแรมเองเข้าคลัง</div>
       <div className="grid grid-cols-2 gap-1.5">
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="ชื่อโรงแรม" className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" />
-        <input value={province} onChange={e => setProvince(e.target.value)} placeholder="จังหวัด" className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" />
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="ชื่อโรงแรม" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" />
+        <input value={province} onChange={e => setProvince(e.target.value)} placeholder="จังหวัด" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" />
       </div>
-      <input value={visit} onChange={e => setVisit(e.target.value)} placeholder="แหล่งทัศนศึกษาใกล้เคียง (ไม่บังคับ)" className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" />
+      <input value={visit} onChange={e => setVisit(e.target.value)} placeholder="แหล่งทัศนศึกษาใกล้เคียง (ไม่บังคับ)" className="w-full px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" />
       <div className="flex gap-1.5">
-        <input value={note} onChange={e => setNote(e.target.value)} placeholder="ผู้ติดต่อ/เรต (ภายใน)" className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" />
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="ผู้ติดต่อ/เรต (ภายใน)" className="flex-1 px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" />
         <button disabled={!name.trim()} onClick={() => { onAdd({ name: name.trim(), province: province.trim(), visit: visit.trim(), note: note.trim() }); setName(''); setProvince(''); setVisit(''); setNote(''); }} className="px-3 py-1.5 rounded-lg bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-[11px] font-bold whitespace-nowrap">เพิ่ม + ใช้เลย</button>
       </div>
     </div>
@@ -905,12 +938,12 @@ function autoImages(c: Camp): { act: Img[]; ven: Img[] } {
   return { act, ven };
 }
 
-const inp = 'w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs';
+const inp = 'w-full px-3 py-1.5 rounded-lg border border-brand-mist text-xs';
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="block text-[11px] font-bold text-slate-700 mb-1">{label}</label>{children}</div>;
 }
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
-  return <div className="pb-2 mb-1 border-b border-brand-mist flex items-start gap-2"><span className="mt-1 w-1 h-4 rounded-full bg-accent shrink-0" /><div><h2 className="text-sm font-display font-semibold text-brand-ink leading-tight">{title}</h2>{sub && <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">{sub}</p>}</div></div>;
+  return <div className="pb-2.5 mb-3 border-b border-brand-mist"><h2 className="text-[15px] font-semibold text-brand-ink leading-tight tracking-tight">{title}</h2>{sub && <p className="text-xs text-sub mt-1 leading-relaxed">{sub}</p>}</div>;
 }
 function Stat({ label, value, tone }: { label: string; value: string; tone: 'sky' | 'slate' | 'emerald' | 'amber' | 'rose' }) {
   const c = { sky: 'bg-sky-50 text-sky-800', slate: 'bg-slate-50 text-slate-700', emerald: 'bg-emerald-50 text-emerald-800', amber: 'bg-amber-50 text-amber-800', rose: 'bg-rose-50 text-rose-800' }[tone];
@@ -971,7 +1004,7 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
         ระบบบันทึกสถิติทำงานเมื่อเปิดลิงก์นี้บน <b>claude.ai</b> และ <b>ลงชื่อเข้าใช้ด้วยบัญชีทีม</b> เท่านั้น<br />
         ถ้าเปิดจากไฟล์ในเครื่อง (ดับเบิลคลิก) หรือยังไม่ได้ลงชื่อเข้าใช้ จะยังสร้างไฟล์ได้ตามปกติ แต่จะไม่บันทึกประวัติ
       </div>
-      <button onClick={() => { setState('loading'); setTick(t => t + 1); }} className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-display font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" />ลองใหม่</button>
+      <button onClick={() => { setState('loading'); setTick(t => t + 1); }} className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" />ลองใหม่</button>
     </div>
   );
   const maxM = Math.max(1, ...agg.months.map(m => agg.byMonth[m]));
@@ -982,28 +1015,28 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
       <div className="flex items-start justify-between gap-2">
         <SectionTitle title="สถิติ / ประวัติการสร้างไฟล์" sub="บันทึกอัตโนมัติทุกครั้งที่ทีมสร้างไฟล์ (เก็บบนบัญชีทีม ตรวจย้อนหลังได้)" />
         <div className="flex gap-1.5 shrink-0">
-          <button onClick={() => { setState('loading'); setTick(t => t + 1); }} title="รีเฟรช" className="px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[11px] font-display font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" /></button>
-          <button onClick={exportCsv} disabled={!events.length} className="px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[11px] font-display font-medium flex items-center gap-1 tap"><Download className="w-3.5 h-3.5" />CSV</button>
+          <button onClick={() => { setState('loading'); setTick(t => t + 1); }} title="รีเฟรช" className="px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[11px] font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" /></button>
+          <button onClick={exportCsv} disabled={!events.length} className="px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[11px] font-medium flex items-center gap-1 tap"><Download className="w-3.5 h-3.5" />CSV</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-xl py-2.5 bg-brand text-white"><div className="text-[10px] opacity-80">ไฟล์ทั้งหมด</div><div className="text-xl font-display font-semibold">{agg.total}</div></div>
-        <div className="rounded-xl py-2.5 bg-brand-mist text-brand-ink"><div className="text-[10px] opacity-70">เป็น PDF</div><div className="text-xl font-display font-semibold">{agg.pdf}</div></div>
-        <div className="rounded-xl py-2.5 bg-accent-soft text-accent-deep"><div className="text-[10px] opacity-80">ผู้ใช้งาน</div><div className="text-xl font-display font-semibold">{users.length}</div></div>
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="rounded-xl py-4 bg-white border border-brand-mist"><div className="text-3xl font-semibold text-brand-navy leading-none">{agg.total}</div><div className="text-[11px] text-sub mt-1.5">ไฟล์ทั้งหมด</div></div>
+        <div className="rounded-xl py-4 bg-white border border-brand-mist"><div className="text-3xl font-semibold text-brand-navy leading-none">{agg.pdf}</div><div className="text-[11px] text-sub mt-1.5">เป็น PDF</div></div>
+        <div className="rounded-xl py-4 bg-white border border-brand-mist"><div className="text-3xl font-semibold text-brand-navy leading-none">{users.length}</div><div className="text-[11px] text-sub mt-1.5">ผู้ใช้งาน</div></div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         {(['program', 'quotation', 'booking', 'runsheet'] as const).map(dk => (
           <div key={dk} className="rounded-xl border border-brand-mist px-3 py-2 flex items-center justify-between">
-            <span className="text-[11px] text-slate-600">{DK_LABEL[dk]}</span><span className="text-sm font-display font-semibold text-brand">{agg.byType[dk] || 0}</span>
+            <span className="text-[11px] text-sub">{DK_LABEL[dk]}</span><span className="text-sm font-semibold text-brand">{agg.byType[dk] || 0}</span>
           </div>
         ))}
       </div>
 
       {agg.months.length > 0 && (
         <div>
-          <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5">ไฟล์ต่อเดือน</div>
+          <div className="text-[11px] font-medium text-sub mb-1.5">ไฟล์ต่อเดือน</div>
           <div className="flex items-end gap-1.5 h-24 border-b border-brand-mist pb-0">
             {agg.months.slice(-12).map(m => (
               <div key={m} className="flex-1 flex flex-col items-center justify-end gap-1" title={`${m}: ${agg.byMonth[m]}`}>
@@ -1018,10 +1051,10 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
 
       {topCourse.length > 0 && (
         <div>
-          <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5">หลักสูตร/วิชา ที่สร้างบ่อย</div>
+          <div className="text-[11px] font-medium text-sub mb-1.5">หลักสูตร/วิชา ที่สร้างบ่อย</div>
           <div className="space-y-1">
             {topCourse.map(([co, n]) => (
-              <div key={co} className="flex items-center gap-2"><span className="text-[10px] w-20 shrink-0 text-slate-600 truncate" title={co}>{co}</span>
+              <div key={co} className="flex items-center gap-2"><span className="text-[10px] w-20 shrink-0 text-sub truncate" title={co}>{co}</span>
                 <div className="flex-1 h-3 rounded bg-brand-mist overflow-hidden"><div className="h-full bg-brand/70" style={{ width: `${Math.round((n / topCourse[0][1]) * 100)}%` }} /></div>
                 <span className="text-[10px] w-6 text-right font-semibold text-brand">{n}</span></div>
             ))}
@@ -1031,30 +1064,30 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
 
       {users.length > 0 && (
         <div>
-          <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1"><Users className="w-3.5 h-3.5" />แยกตามผู้ใช้</div>
+          <div className="text-[11px] font-medium text-sub mb-1.5 flex items-center gap-1"><Users className="w-3.5 h-3.5" />แยกตามผู้ใช้</div>
           <div className="flex flex-wrap gap-1.5">
-            {users.map(([u, n]) => <span key={u} className="px-2 py-1 rounded-lg bg-slate-50 border border-brand-mist text-[10px]"><b className="text-brand-ink">{u}</b> <span className="text-slate-500">· {n}</span></span>)}
+            {users.map(([u, n]) => <span key={u} className="px-2 py-1 rounded-lg bg-slate-50 border border-brand-mist text-[10px]"><b className="text-brand-ink">{u}</b> <span className="text-sub">· {n}</span></span>)}
           </div>
         </div>
       )}
 
       <div>
-        <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1"><History className="w-3.5 h-3.5" />ประวัติล่าสุด</div>
+        <div className="text-[11px] font-medium text-sub mb-1.5 flex items-center gap-1"><History className="w-3.5 h-3.5" />ประวัติล่าสุด</div>
         <div className="border border-brand-mist rounded-xl overflow-hidden max-h-72 overflow-y-auto">
           <table className="w-full text-[10px]">
-            <thead className="bg-brand-mist/60 text-slate-600 sticky top-0"><tr>
-              <th className="text-left px-2 py-1.5 font-display font-medium">เวลา</th><th className="text-left px-2 py-1.5 font-display font-medium">ผู้ใช้</th>
-              <th className="text-left px-2 py-1.5 font-display font-medium">เอกสาร</th><th className="text-left px-2 py-1.5 font-display font-medium">รหัส/โรงเรียน</th>
-              <th className="text-right px-2 py-1.5 font-display font-medium">ราคา</th>
+            <thead className="bg-brand-mist/60 text-sub sticky top-0"><tr>
+              <th className="text-left px-2 py-1.5 font-medium">เวลา</th><th className="text-left px-2 py-1.5 font-medium">ผู้ใช้</th>
+              <th className="text-left px-2 py-1.5 font-medium">เอกสาร</th><th className="text-left px-2 py-1.5 font-medium">รหัส/โรงเรียน</th>
+              <th className="text-right px-2 py-1.5 font-medium">ราคา</th>
             </tr></thead>
             <tbody>
               {events.slice(0, 80).map(e => (
                 <tr key={e.id} className="border-t border-brand-mist/70">
-                  <td className="px-2 py-1 text-slate-500 whitespace-nowrap">{(e.ts || '').slice(0, 16).replace('T', ' ')}</td>
+                  <td className="px-2 py-1 text-sub whitespace-nowrap">{(e.ts || '').slice(0, 16).replace('T', ' ')}</td>
                   <td className="px-2 py-1 text-slate-700 truncate max-w-[90px]" title={e.byName || e.by}>{e.byName || e.by || '—'}</td>
                   <td className="px-2 py-1"><span className="text-brand">{DK_LABEL[e.docKind] || e.docKind || '—'}</span>{e.action === 'pdf' && <span className="ml-1 text-accent-deep font-semibold">PDF</span>}</td>
-                  <td className="px-2 py-1 text-slate-600 truncate max-w-[150px]" title={`${e.docCode} · ${e.school}`}>{e.docCode}{e.school ? ` · ${e.school}` : ''}</td>
-                  <td className="px-2 py-1 text-right text-slate-600 whitespace-nowrap">{e.specialPrice ? money(e.specialPrice) : '—'}</td>
+                  <td className="px-2 py-1 text-sub truncate max-w-[150px]" title={`${e.docCode} · ${e.school}`}>{e.docCode}{e.school ? ` · ${e.school}` : ''}</td>
+                  <td className="px-2 py-1 text-right text-sub whitespace-nowrap">{e.specialPrice ? money(e.specialPrice) : '—'}</td>
                 </tr>
               ))}
               {!events.length && <tr><td colSpan={5} className="px-2 py-6 text-center text-slate-400">ยังไม่มีประวัติ — เมื่อทีมเริ่มสร้างไฟล์ รายการจะมาแสดงที่นี่</td></tr>}
@@ -1094,7 +1127,7 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
       <div className="mb-2"><b className="text-sky-800">เรียน</b> ผู้อำนวยการ{c.school}<br /><b className="text-sky-800">เรื่อง</b> เสนอราคา{k.titleTh.replace('หลักสูตร ', '')}</div>
       <table className="w-full border-collapse text-[12px] my-2"><tbody>
         <tr className="bg-brand-navy text-white"><th className="border p-1">ลำดับ</th><th className="border p-1">รายการ</th><th className="border p-1">จำนวน</th><th className="border p-1">ราคา/ท่าน</th><th className="border p-1">รวม</th></tr>
-        <tr><td className="border p-1 text-center">1</td><td className="border p-1"><b>{k.titleTh}</b><br /><span className="text-[11px] text-slate-500">{k.dur} · {c.dates}</span></td><td className="border p-1 text-center">{c.students}</td><td className="border p-1 text-right">{money(c.specialPrice)}</td><td className="border p-1 text-right">{money(total)}</td></tr>
+        <tr><td className="border p-1 text-center">1</td><td className="border p-1"><b>{k.titleTh}</b><br /><span className="text-[11px] text-sub">{k.dur} · {c.dates}</span></td><td className="border p-1 text-center">{c.students}</td><td className="border p-1 text-right">{money(c.specialPrice)}</td><td className="border p-1 text-right">{money(total)}</td></tr>
         <tr className="bg-sky-50 font-bold"><td className="border p-1 text-right" colSpan={4}>ยอดรวมสุทธิ</td><td className="border p-1 text-right">{money(total)}</td></tr>
       </tbody></table>
       <div className="text-emerald-700 font-bold">ประหยัด {money(c.normalPrice - c.specialPrice)} บ./ท่าน</div>
@@ -1113,7 +1146,7 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
         <div className="pl-2 text-[12px]">วันที่เข้าพัก: {c.dates}<br />ระยะเวลา: {k.dur}<br />ผู้เข้าพัก: นักเรียน {c.students} ครู {c.teachers} วิทยากร {k.staff} คน</div>
         <H>รายการที่ขอเสนอราคา</H>
         <OL items={[c.nights > 0 ? `ห้องพัก ${c.nights} คืน` : 'ไม่ต้องการห้องพัก (ไป-กลับ)', `อาหารหลัก ${m.b + m.l + m.d} มื้อ (เช้า ${m.b} กลางวัน ${m.l} เย็น ${m.d})`, `อาหารว่าง ${m.s} มื้อ`, 'ห้องประชุมพร้อมเครื่องเสียง โปรเจกเตอร์', 'ห้องพักวิทยากร + พื้นที่เก็บอุปกรณ์']} />
-        <div className="text-[11px] text-slate-500 mt-2">ไม่แสดงราคาขาย/ต้นทุนในเอกสารฉบับนี้</div>
+        <div className="text-[11px] text-sub mt-2">ไม่แสดงราคาขาย/ต้นทุนในเอกสารฉบับนี้</div>
       </div>
     );
   }
@@ -1139,7 +1172,7 @@ function Sched({ plan, extra }: { plan: any; extra?: boolean }) {
       <div className="bg-brand text-white text-[12px] font-semibold px-2 py-1">วันที่ {d.day}</div>
       {d.items.map((r: any, i: number) => (
         <div key={i} className="flex gap-2 text-[11px] border-b border-slate-100 py-1">
-          <span className="font-bold text-slate-500 w-24 shrink-0">{r.time}</span>
+          <span className="font-bold text-sub w-24 shrink-0">{r.time}</span>
           <span className="flex-1">{r.title}{r.sub?.map((s: string, j: number) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
           {extra && <span className="w-20 border-l border-slate-200 text-slate-300 text-[10px] pl-1">ผู้รับผิดชอบ</span>}
         </div>

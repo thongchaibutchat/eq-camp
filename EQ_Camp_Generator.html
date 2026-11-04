@@ -5,15 +5,18 @@
 if (typeof tailwind !== 'undefined') tailwind.config = {
   theme: { extend: {
     colors: {
-      brand: { ink: '#0C2A41', navy: '#0E3A5C', DEFAULT: '#155D90', sky: '#0B82C4', mist: '#E7EEF4' },
-      accent: { DEFAULT: '#E07B2E', deep: '#C4641B', soft: '#FBEAD9' },
-      paper: '#ECF0F4'
+      // โทนเดียว: กรมท่า (navy) + เทา Apple — สีเดียวทั้งระบบ
+      brand: { ink: '#1D1D1F', navy: '#0C2A41', DEFAULT: '#0C2A41', sky: '#0C2A41', mist: '#E5E5EA' },
+      sub: '#6E6E73',
+      accent: { DEFAULT: '#C4641B', deep: '#A5530F', soft: '#F5EEE6' }, // ส้ม — ใช้เฉพาะปุ่มหลัก/สถานะ
+      paper: '#F5F5F7'
     },
     fontFamily: {
       sans: ['Sarabun', 'Noto Sans Thai', 'system-ui', 'sans-serif'],
       display: ['Kanit', 'Sarabun', 'system-ui', 'sans-serif']
     },
-    boxShadow: { card: '0 1px 2px rgba(14,58,92,.06), 0 1px 3px rgba(14,58,92,.05)', lift: '0 6px 20px -8px rgba(14,58,92,.35)' }
+    boxShadow: { card: '0 1px 2px rgba(0,0,0,.04)', lift: '0 2px 10px rgba(0,0,0,.07)' },
+    borderRadius: { xl: '12px', '2xl': '12px' }
   } }
 };
 </script>
@@ -23,15 +26,13 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root { color-scheme: light; }
-  body { background: #ECF0F4; font-family: 'Sarabun','Noto Sans Thai',system-ui,sans-serif; }
+  body { background: #F5F5F7; color: #1D1D1F; font-family: 'Sarabun','Noto Sans Thai',system-ui,sans-serif; -webkit-font-smoothing: antialiased; }
   .font-display { font-family: 'Kanit','Sarabun',system-ui,sans-serif; }
-  /* หัวกระดาษทำงาน: ลายเส้นวงโคจรจาง ๆ ให้รู้สึกเป็นแบรนด์ EQ ไม่ใช่แถบดำทั่วไป */
-  .brandbar { background:
-      radial-gradient(120% 140% at 88% -20%, rgba(224,123,46,.22), transparent 55%),
-      linear-gradient(103deg, #0C2A41 0%, #0E3A5C 46%, #155D90 100%); }
-  .step-rail::-webkit-scrollbar, .tabrail::-webkit-scrollbar { height: 6px; }
-  .step-rail::-webkit-scrollbar-thumb, .tabrail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
-  @media (prefers-reduced-motion: no-preference) { .tap { transition: transform .12s ease, background-color .15s ease, border-color .15s ease, color .15s ease; } .tap:active { transform: translateY(1px); } }
+  /* แถบหัวเว็บ: สีกรมท่าเรียบ สีเดียว ไม่มี gradient/เงาจัด */
+  .brandbar { background: #0C2A41; }
+  .tabrail::-webkit-scrollbar { height: 5px; }
+  .tabrail::-webkit-scrollbar-thumb { background: #D1D1D6; border-radius: 999px; }
+  @media (prefers-reduced-motion: no-preference) { .tap { transition: background-color .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease; } .tap:active { opacity: .85; } }
 </style>
 </head><body><div id="root"></div><script>
 "use strict";
@@ -31259,6 +31260,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var FONT = { ascii: FONT_NAME, hAnsi: FONT_NAME, cs: FONT_NAME, eastAsia: FONT_NAME };
   var BLUE = "155D90";
   var SKY = "087FC2";
+  var NAVY = "0C2A41";
   var W = 9400;
   var XML_BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
   var xmlSafe = (t) => (t === null || t === void 0 ? "" : String(t)).replace(XML_BAD, "");
@@ -31285,7 +31287,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var LB = { style: BorderStyle.SINGLE, size: 4, color: "CBD5E1" };
   var cell = (kids, w, o = {}) => {
     const bx = { style: BorderStyle.SINGLE, size: 6, color: "94A3B8" };
-    const bd = o.border === "box" ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === "line" ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
+    const nv = { style: BorderStyle.SINGLE, size: 16, color: NAVY };
+    const bd = o.border === "navy" ? { top: nv, bottom: nv, left: nv, right: nv } : o.border === "box" ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === "line" ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
     return new TableCell({
       children: kids,
       width: { size: w, type: WidthType.DXA },
@@ -31323,11 +31326,32 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21", { color: "334155", before: 8, after: 0 })
   ];
   var priceBanner = (c) => tbl([new TableRow({ cantSplit: true, children: [cell([P([
-    R2("\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ", { sz: 18, color: "334155" }),
-    R2(`${money(c.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { sz: 18, color: "94A3B8", strike: true }),
-    R2("   \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ", { sz: 18, color: "334155" }),
-    R2(`${money(c.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { b: true, sz: 22, color: "DC2626" })
-  ], { al: CTR, after: 0 })], W, { fill: "FEF2F2", border: "box" })] })], [W]);
+    R2("\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ", { sz: 18, color: "3A3A3C" }),
+    R2(`${money(c.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { sz: 18, color: "8E8E93", strike: true }),
+    R2("    \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ", { sz: 18, color: "3A3A3C" }),
+    R2(`${money(c.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { b: true, sz: 22, color: "C4641B" })
+  ], { al: CTR, after: 0 })], W, { border: "navy" })] })], [W]);
+  var budgetTable = (items) => tbl([
+    new TableRow({ tableHeader: true, children: [cell([P("\u0E25\u0E33\u0E14\u0E31\u0E1A", { b: true, color: "FFFFFF", al: CTR, after: 0 })], 1100, { fill: NAVY, border: "box" }), cell([P("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", { b: true, color: "FFFFFF", after: 0 })], W - 1100, { fill: NAVY, border: "box" })] }),
+    ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: "box" }), cell([P(x, { after: 0 })], W - 1100, { border: "box" })] }))
+  ], [1100, W - 1100]);
+  var signatureBlock = () => {
+    const col = (role) => cell([
+      P("", { after: 0, before: 360 }),
+      P("(..............................................)", { al: CTR, after: 0 }),
+      P(role, { b: true, al: CTR, color: NAVY, after: 0 }),
+      P("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ......./......./.......", { al: CTR, color: "48484A", sz: 15, after: 0 })
+    ], W / 2, { border: "none" });
+    return tbl([new TableRow({ cantSplit: true, children: [col("\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E17\u0E33 / \u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22"), col("\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")] })], [W / 2, W / 2]);
+  };
+  var priceBudgetSection = (c, k) => [
+    P("\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 6, pb: true, keep: true }),
+    priceBanner(c),
+    P("", { after: 4 }),
+    budgetTable(k.budget),
+    P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", { color: "48484A", before: 4, after: 0 }),
+    signatureBlock()
+  ];
   var imgSize = (d) => {
     if (d[0] === 137 && d[1] === 80) return { w: d[16] << 24 | d[17] << 16 | d[18] << 8 | d[19], h: d[20] << 24 | d[21] << 16 | d[22] << 8 | d[23] };
     if (d[0] === 255 && d[1] === 216) {
@@ -31357,16 +31381,19 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     return { width: w, height: h };
   };
   var photoGrid = (imgs, fallbackN, label = "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21") => {
-    const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, (_, i) => ({ caption: `${label} (${i + 1})` }))).slice(0, 8);
+    const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, () => ({ caption: "" }))).slice(0, 8);
     const rows = [];
     for (let i = 0; i < list.length; i += 2) {
       const kp = i + 2 < list.length;
       rows.push(new TableRow({ cantSplit: true, children: [0, 1].map((j) => {
         const im = list[i + j];
+        const n = i + j + 1;
         if (!im) return cell([P("", { keep: kp })], W / 2, { border: "none" });
+        const cap = im.caption && im.caption.trim() && !im.caption.includes("...") ? im.caption : `${label}\u0E17\u0E35\u0E48 ${n}`;
         return cell([
-          im.data ? new Paragraph({ alignment: CTR, keepNext: kp, spacing: { before: 30, after: 30 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] }) : P("\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E20\u0E32\u0E1E", { al: CTR, color: "94A3B8", before: 80, after: 80, keep: kp })
-        ], W / 2, { border: "none" });
+          im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] }) : P("\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E20\u0E32\u0E1E", { al: CTR, color: "94A3B8", before: 70, after: 70, keep: true }),
+          new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R2(`${n}  `, { b: true, sz: 13, color: BLUE }), R2(cap, { sz: 13, color: "48484A" })] })
+        ], W / 2, { border: "box" });
       }) }));
     }
     return tbl(rows, [W / 2, W / 2]);
@@ -31413,11 +31440,16 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   };
   var letterheadFooter = (r) => {
     const lh = LETTERHEADS[r];
-    return new Footer2({ children: [new Paragraph({
-      alignment: CTR,
-      spacing: { before: 40 },
-      children: [new ImageRun({ type: "png", data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })]
-    })] });
+    const pn = (child) => new TextRun({ children: [child], font: FONT, size: 28, sizeComplexScript: 28, color: "8E8E93" });
+    const pnTxt = (t) => new TextRun({ text: t, font: FONT, size: 28, sizeComplexScript: 28, color: "8E8E93" });
+    return new Footer2({ children: [
+      new Paragraph({ alignment: CTR, spacing: { after: 20 }, children: [pnTxt("\u0E2B\u0E19\u0E49\u0E32 "), pn(PageNumber.CURRENT), pnTxt(" / "), pn(PageNumber.TOTAL_PAGES)] }),
+      new Paragraph({
+        alignment: CTR,
+        spacing: { before: 0 },
+        children: [new ImageRun({ type: "png", data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })]
+      })
+    ] });
   };
   function buildDoc(kind, c, planIn, k0) {
     const plan = planIn || buildSchedule(c);
@@ -31438,11 +31470,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         H("\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)"),
         ...numbered(k.integ),
         ...scheduleBlock(c, plan, k, false, true),
-        P("", { after: 4 }),
-        priceBanner(c),
-        P("", { after: 2 }),
-        H("\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49"),
-        ...dashed(k.budget, true),
+        ...priceBudgetSection(c, k),
         ...photoSection(c, { venue: true })
       ];
     } else if (kind === "quotation") {
@@ -32032,23 +32060,34 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       setBusy(false);
     };
     const PDF_STYLE = `<style>${FONT_FACE_CSS}
-.eqpdf{width:760px;background:#fff;color:#111;font-family:'EQSarabun',sans-serif;font-size:20px;line-height:1.22;font-weight:400}
+.eqpdf{width:760px;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:18px;line-height:1.25;font-weight:400}
 .eqpdf b{font-weight:700}
-.eqpdf .code{text-align:right;font-weight:700;color:#155D90}
-.eqpdf h1{text-align:center;color:#0F3D63;font-size:27px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;font-size:23px;margin:0}
-.eqpdf h2{color:#155D90;font-size:22px;font-weight:700;margin:7px 0 2px}
-.eqpdf .li{display:flex;margin:0 0 2px 0}.eqpdf .li .n{flex:0 0 32px;padding-left:8px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:3px 0}.eqpdf table.info td{vertical-align:top;padding:1px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:150px}
-.eqpdf .sh{text-align:center;font-weight:700;line-height:1.28}
-.eqpdf .day{font-weight:700;text-decoration:underline;color:#0F3D63;margin:0 0 2px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:0 6px;vertical-align:top;line-height:1.3}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#1f2937}
-.eqpdf .sub{color:#334155}
-.eqpdf .note{color:#334155;margin:2px 0}
-.eqpdf .price{text-align:center;border:1px solid #fca5a5;background:#FEF2F2;padding:7px;border-radius:4px}
-.eqpdf .price .lbl{color:#334155;font-size:20px}.eqpdf .price .old{color:#94a3b8;text-decoration:line-through;font-size:20px}.eqpdf .price .new{color:#DC2626;font-weight:700;font-size:26px}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0F3D63;font-size:25px;margin:0 0 8px}
-.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
-.eqpdf .pgrid img{width:48.6%;aspect-ratio:var(--a,4/3);object-fit:cover;border-radius:5px;display:block}</style>`;
+.eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
+.eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
+.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:8px 0 3px;border-bottom:1.5px solid #0C2A41;padding-bottom:2px}
+.eqpdf .li{display:flex;margin:0 0 3px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
+.eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
+.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 10px}
+.eqpdf .day{font-weight:700;color:#fff;background:#0C2A41;padding:3px 10px;border-radius:3px;margin:0 0 3px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:2px 8px;vertical-align:top;line-height:1.35;border-bottom:1px solid #E5E5EA}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
+.eqpdf .sub{color:#48484a}
+.eqpdf .note{color:#48484a;margin:3px 0}
+.eqpdf .price{text-align:center;border:2px solid #0C2A41;background:#fff;padding:10px;border-radius:5px;margin:2px 0 10px}
+.eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;text-decoration:line-through;font-size:18px}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
+.eqpdf table.bud{width:100%;border-collapse:collapse;margin:2px 0}
+.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:4px 8px;text-align:left;font-size:17px}
+.eqpdf table.bud td{border:1px solid #d6dbe0;padding:4px 8px;vertical-align:top}.eqpdf table.bud td.no{width:44px;text-align:center;color:#48484a}
+.eqpdf .sign{display:flex;gap:40px;margin-top:26px;text-align:center}.eqpdf .sign>div{flex:1}
+.eqpdf .sign .ln{border-bottom:1px dotted #1D1D1F;height:30px;margin-bottom:4px}
+.eqpdf .sign .rl{font-weight:700;color:#0C2A41}.eqpdf .sign .dt{color:#48484a;font-size:16px;margin-top:4px}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 10px}
+.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.eqpdf .pcell{width:47.5%}
+.eqpdf .pcell .pf{position:relative;border:1px solid #cbd0d6;border-radius:4px;overflow:hidden}
+.eqpdf .pcell img{width:100%;aspect-ratio:var(--a,4/3);object-fit:cover;display:block}
+.eqpdf .pcell .num{position:absolute;top:5px;left:5px;background:rgba(12,42,65,.88);color:#fff;font-size:14px;font-weight:700;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.eqpdf .pcell .cap{text-align:center;font-size:15px;color:#48484a;margin-top:2px;line-height:1.2}</style>`;
     const printPDF = async () => {
       const jsNS = window.jspdf;
       const h2c = window.html2canvas;
@@ -32083,15 +32122,20 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           return c;
         };
         const pdf = new jsNS.jsPDF("p", "mm", "a4");
-        const pageW = 210, pageH = 297, M = 9;
+        const pageW = 210, pageH = 297, M = 18;
         const contentW = pageW - 2 * M;
         const lhData = "data:image/png;base64," + lh.b64;
         const lhH = contentW * (lh.h / lh.w);
-        const topGap = 7, botGap = 6, bottomM = 12;
-        const contentTop = topGap + lhH + botGap;
+        const topGap = 10, bottomM = 14;
+        const codeStr = String(camp.docCode || "");
         const drawHead = () => {
           pdf.addImage(lhData, "PNG", M, topGap, contentW, lhH, "eqlh", "FAST");
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(8);
+          pdf.setTextColor(120);
+          pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: "right" });
         };
+        const contentTop = topGap + lhH + 9;
         let y = contentTop;
         drawHead();
         const newPage = () => {
@@ -32107,59 +32151,77 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", M, y, contentW, h);
           y += h + (opts.gap ?? 3);
         };
-        await place(`<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 4 });
+        await place(`<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
         await place(`<h2>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49</h2>${ol(kk.objectives)}<table class="info"><tr><td class="k">\u0E08\u0E33\u0E19\u0E27\u0E19</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23</td><td>${esc(kk.staff)} \u0E04\u0E19</td></tr><tr><td class="k">\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21</td><td>${esc(kk.dur)}</td></tr></table>`);
         await place(`<h2>\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23</h2>${ol(kk.acts)}`);
         await place(`<h2>\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)</h2>${ol(kk.integ)}`);
-        await place(`<div class="sh">\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` + (has(camp.school) ? "<br>" + esc(camp.school) : "") + (has(camp.dates) ? "<br>" + esc(camp.dates) : "") + (has(camp.venue) ? "<br>\u0E13 " + esc(camp.venue) : "") + "</div>", { newpage: true, gap: 5 });
+        await place(`<div class="sh">\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` + (has(camp.school) ? "<br>" + esc(camp.school) : "") + (has(camp.dates) ? "<br>" + esc(camp.dates) : "") + (has(camp.venue) ? "<br>\u0E13 " + esc(camp.venue) : "") + "</div>", { newpage: true, gap: 6 });
         for (const d of plan2.days) {
-          await place(`<div class="day">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}</div><table class="sched">` + d.items.map((r) => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map((s) => `<div class="sub">${esc(s)}</div>`).join("")}</td></tr>`).join("") + "</table>", { gap: 5 });
+          await place(`<div class="day">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}</div><table class="sched">` + d.items.map((r) => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map((s) => `<div class="sub">${esc(s)}</div>`).join("")}</td></tr>`).join("") + "</table>", { gap: 6 });
         }
-        await place(`<div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div>`, { gap: 4 });
-        await place(`<h2>\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49</h2>${ul(kk.budget)}`);
+        await place(`<div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div>`);
+        const budRows = kk.budget.map((x, i) => `<tr><td class="no">${i + 1}</td><td>${esc(x)}</td></tr>`).join("");
+        await place(
+          `<div class="sech">\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div><table class="bud"><thead><tr><th style="width:44px">\u0E25\u0E33\u0E14\u0E31\u0E1A</th><th>\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</th></tr></thead><tbody>${budRows}</tbody></table><div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div><div class="sign"><div><div class="ln"></div><div class="rl">\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E17\u0E33 / \u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22</div><div class="dt">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ......./......./.......</div></div><div><div class="ln"></div><div class="rl">\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34</div><div class="dt">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ......./......./.......</div></div></div>`,
+          { newpage: true }
+        );
         const u8b64 = (u) => {
           let s = "";
           for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
           return btoa(s);
         };
-        const imgT = (b64, mime) => `<img src="data:${mime};base64,${b64}">`;
-        const grid = (srcs) => {
-          const n = Math.min(srcs.length, 8);
-          const a = n > 4 ? "16/9" : "4/3";
-          return `<div class="pgrid" style="--a:${a}">${srcs.slice(0, 8).join("")}</div>`;
+        const realCap = (c) => !!(c && c.trim() && !/\.\.\./.test(c));
+        const cell2 = (src, n, cap) => `<div class="pcell"><div class="pf"><span class="num">${n}</span>${src}</div><div class="cap">${esc(cap)}</div></div>`;
+        const gridOf = (cells) => {
+          const a = cells.length > 4 ? "16/9" : "4/3";
+          return `<div class="pgrid" style="--a:${a}">${cells.slice(0, 8).join("")}</div>`;
         };
+        let photoCount = 0;
         const withData = camp.actImgs.filter((a) => a.data);
-        let actSrcs = [];
-        if (withData.length) actSrcs = withData.map((a) => imgT(u8b64(a.data), a.data[0] === 137 ? "image/png" : "image/jpeg"));
-        else if (hasCoursePhotos(camp.courseCode)) actSrcs = COURSE_PHOTOS[camp.courseCode].map((p) => imgT(p.b64, "image/jpeg"));
-        if (actSrcs.length) await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>${grid(actSrcs)}`, { newpage: true });
+        let actCells = [];
+        if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell2(`<img src="data:${a.data[0] === 137 ? "image/png" : "image/jpeg"};base64,${u8b64(a.data)}">`, i + 1, realCap(a.caption) ? a.caption : `\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48 ${i + 1}`));
+        else if (hasCoursePhotos(camp.courseCode)) actCells = COURSE_PHOTOS[camp.courseCode].slice(0, 8).map((p, i) => cell2(`<img src="data:image/jpeg;base64,${p.b64}">`, i + 1, `\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48 ${i + 1}`));
+        if (actCells.length) {
+          photoCount += actCells.length;
+          await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>${gridOf(actCells)}`, { newpage: true });
+        }
         const venueData = camp.venueImgs.filter((a) => a.data);
         if (venueData.length) {
-          const vSrcs = venueData.map((a) => imgT(u8b64(a.data), a.data[0] === 137 ? "image/png" : "image/jpeg"));
-          await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${esc(camp.venue || "")}</div>${grid(vSrcs)}`, { newpage: true });
+          const vCells = venueData.slice(0, 8).map((a, i) => cell2(`<img src="data:${a.data[0] === 137 ? "image/png" : "image/jpeg"};base64,${u8b64(a.data)}">`, i + 1, realCap(a.caption) ? a.caption : `\u0E20\u0E32\u0E1E\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01\u0E17\u0E35\u0E48 ${i + 1}`));
+          photoCount += vCells.length;
+          await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${esc(camp.venue || "")}</div>${gridOf(vCells)}`, { newpage: true });
         }
-        if (isSteamProgram(camp)) await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM</div><div style="text-align:center"><img style="width:88%;border-radius:5px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
+        if (isSteamProgram(camp)) await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
+        const totPages = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= totPages; i++) {
+          pdf.setPage(i);
+          pdf.setFont("helvetica", "normal");
+          pdf.setFontSize(9);
+          pdf.setTextColor(140);
+          pdf.text(`${i} / ${totPages}`, pageW / 2, pageH - 7, { align: "center" });
+        }
         const blob = pdf.output("blob");
         const name = fileName("program", camp).replace(/\.docx$/, ".pdf");
         const cl = window.claude;
         const downloads = cl && typeof cl.use === "function" ? await cl.use("downloads").catch(() => null) : null;
+        const photoWarn = photoCount < 6 ? ` \u26A0 \u0E20\u0E32\u0E1E\u0E1B\u0E23\u0E30\u0E01\u0E2D\u0E1A\u0E21\u0E35 ${photoCount} \u0E23\u0E39\u0E1B (\u0E41\u0E19\u0E30\u0E19\u0E33 6\u20138) \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E20\u0E32\u0E1E\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A 6 \u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E48\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32` : "";
         if (downloads) {
           try {
             await downloads.save({ filename: name, data: blob });
             logEvent("pdf", camp, "program");
-            flash("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF \u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22");
+            flash("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF \u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22" + photoWarn, !photoWarn);
           } catch (e) {
             if (e?.code === "declined") flash("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF", false);
             else {
               anchorDownload(blob, name);
               logEvent("pdf", camp, "program");
-              flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27");
+              flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27" + photoWarn, !photoWarn);
             }
           }
         } else {
           anchorDownload(blob, name);
           logEvent("pdf", camp, "program");
-          flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27");
+          flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27" + photoWarn, !photoWarn);
         }
       } catch (e) {
         flash("\u0E2A\u0E23\u0E49\u0E32\u0E07 PDF \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + e.message, false);
@@ -32194,7 +32256,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
             {
               onClick: () => download(kind),
               disabled: busy,
-              className: "tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-xs font-display font-semibold shadow-lift flex items-center gap-1.5",
+              className: "tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-xs font-semibold shadow-lift flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-4 h-4" }),
                 busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u2026" : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label}`
@@ -32207,7 +32269,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               onClick: downloadAll,
               disabled: busy,
               title: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E31\u0E49\u0E07 4 \u0E44\u0E1F\u0E25\u0E4C\u0E14\u0E49\u0E27\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19",
-              className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-display font-medium flex items-center gap-1.5",
+              className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-medium flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Layers, { className: "w-4 h-4" }),
                 "\u0E04\u0E23\u0E1A\u0E0A\u0E38\u0E14 4 \u0E44\u0E1F\u0E25\u0E4C"
@@ -32220,7 +32282,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               onClick: printPDF,
               disabled: busy,
               title: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E42\u0E1B\u0E23\u0E41\u0E01\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22\u0E40\u0E1B\u0E47\u0E19 PDF",
-              className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-display font-medium flex items-center gap-1.5",
+              className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-medium flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileText, { className: "w-4 h-4" }),
                 "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF"
@@ -32235,18 +32297,18 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
             banner.ok ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4 text-emerald-600" }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TriangleAlert, { className: "w-4 h-4 text-rose-600" }),
             banner.t
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setBanner(null), className: "text-slate-500 hover:text-slate-900 font-bold px-2", children: "\u2715" })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setBanner(null), className: "text-sub hover:text-slate-900 font-bold px-2", children: "\u2715" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-white rounded-2xl border border-slate-300 p-3 mb-4 shadow-sm", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-white rounded-2xl border border-brand-mist p-3 mb-4 shadow-card", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between gap-2 mb-2 flex-wrap", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-xs font-bold text-slate-600 flex items-center gap-1.5", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-xs font-bold text-sub flex items-center gap-1.5", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(WandSparkles, { className: "w-3.5 h-3.5" }),
               "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E15\u0E32\u0E21\u0E02\u0E31\u0E49\u0E19\u0E15\u0E2D\u0E19\u0E01\u0E32\u0E23\u0E02\u0E32\u0E22 \u2014 \u0E17\u0E38\u0E01\u0E09\u0E1A\u0E31\u0E1A\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 \u0E08\u0E36\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07\u0E01\u0E23\u0E30\u0E1A\u0E27\u0E19\u0E01\u0E32\u0E23"
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-1.5", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] text-slate-400 mr-1", children: "\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E25\u0E32\u0E07:" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: exportDB, className: "px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[11px] font-bold text-slate-700", children: "\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 JSON" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => fileInput.current?.click(), className: "px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-300 text-[11px] font-bold text-slate-700", children: "\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: exportDB, className: "px-2.5 py-1 rounded-lg bg-paper hover:bg-slate-200 border border-brand-mist text-[11px] font-bold text-slate-700", children: "\u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01 JSON" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => fileInput.current?.click(), className: "px-2.5 py-1 rounded-lg bg-paper hover:bg-slate-200 border border-brand-mist text-[11px] font-bold text-slate-700", children: "\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: resetDB, className: "px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-[11px] font-bold text-rose-600", children: "\u0E23\u0E35\u0E40\u0E0B\u0E47\u0E15" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { ref: fileInput, type: "file", accept: "application/json,.json", className: "hidden", onChange: (e) => {
                 importDB(e.target.files?.[0]);
@@ -32262,15 +32324,14 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               "button",
               {
                 onClick: () => setKind(d.id),
-                className: `tap text-left p-3 rounded-xl border ${on ? "bg-brand-navy text-white border-brand-navy shadow-lift" : "bg-white border-brand-mist hover:border-brand/60"}`,
+                className: `tap text-left p-3.5 rounded-xl border ${on ? "bg-brand-navy text-white border-brand-navy" : "bg-white border-brand-mist hover:border-brand/40"}`,
                 children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-1.5 mb-1", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon2, { className: `w-4 h-4 ${on ? "text-accent" : "text-brand"}` }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] font-display font-medium opacity-80", children: d.stage }),
-                    d.internal && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Lock, { className: "w-3 h-3 ml-auto" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-1.5 mb-1.5", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: `text-[10px] font-medium ${on ? "text-white/70" : "text-sub"}`, children: d.stage }),
+                    d.internal && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Lock, { className: `w-3 h-3 ml-auto ${on ? "text-white/70" : "text-sub"}` })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-display font-semibold leading-tight", children: d.label }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `text-[10px] mt-1 leading-snug ${on ? "text-sky-100/80" : "text-slate-500"}`, children: d.desc })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[13px] font-semibold leading-tight", children: d.label }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `text-[11px] mt-1 leading-snug ${on ? "text-white/70" : "text-sub"}`, children: d.desc })
                 ]
               },
               d.id
@@ -32279,27 +32340,23 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-1 lg:grid-cols-12 gap-5 items-start", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "lg:col-span-5 space-y-4", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tabrail bg-white rounded-2xl border border-brand-mist p-2 shadow-card flex gap-1.5 overflow-x-auto", children: TABS.map((t) => {
-              const Icon2 = t.icon;
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tabrail bg-white rounded-xl border border-brand-mist px-3 flex gap-5 overflow-x-auto", children: TABS.map((t) => {
               const on = tab === t.id;
-              return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                 "button",
                 {
                   onClick: () => setTab(t.id),
-                  className: `tap px-3 py-2 rounded-xl text-[11px] font-display font-medium whitespace-nowrap flex items-center gap-1 border ${on ? "bg-brand text-white border-brand" : "bg-white text-slate-600 border-brand-mist hover:border-brand/50"}`,
-                  children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon2, { className: `w-3.5 h-3.5 ${on ? "text-sky-50" : "text-brand/70"}` }),
-                    t.label
-                  ]
+                  className: `tap py-2.5 text-[12px] whitespace-nowrap border-b-2 -mb-px ${on ? "text-brand-ink border-brand font-semibold" : "text-sub border-transparent hover:text-brand-ink font-medium"}`,
+                  children: t.label
                 },
                 t.id
               );
             }) }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-white rounded-2xl border border-slate-300 shadow-sm p-4 sm:p-5", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-white rounded-2xl border border-brand-mist shadow-card p-4 sm:p-5", children: [
               tab === "brief" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-4", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "1. \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E35\u0E1F\u0E2D\u0E2D\u0E19\u0E44\u0E25\u0E19\u0E4C \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E44\u0E1F\u0E25\u0E4C\u0E08\u0E23\u0E34\u0E07", sub: "\u0E27\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E14\u0E36\u0E07 \u0E23\u0E2B\u0E31\u0E2A PL / \u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19 / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E19 / \u0E27\u0E34\u0E0A\u0E32 / \u0E27\u0E31\u0E19-\u0E04\u0E37\u0E19 / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 / \u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48 / \u0E23\u0E32\u0E04\u0E32 \u0E40\u0E02\u0E49\u0E32\u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { rows: 5, value: brief, onChange: (e) => setBrief(e.target.value), className: "w-full p-3 rounded-xl border border-slate-300 text-xs" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => aiExtract("new"), disabled: busy, className: "w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-navy to-brand-sky hover:from-brand-ink hover:to-brand disabled:opacity-50 text-white font-display font-semibold text-xs shadow-lift flex items-center justify-center gap-1.5 tap", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { rows: 5, value: brief, onChange: (e) => setBrief(e.target.value), className: "w-full p-3 rounded-xl border border-brand-mist text-xs" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => aiExtract("new"), disabled: busy, className: "w-full py-2.5 rounded-xl bg-white border border-brand-mist hover:border-brand text-brand font-semibold text-xs flex items-center justify-center gap-1.5 tap", children: [
                   "\u{1F916} ",
                   busy ? "AI \u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25..." : "\u0E43\u0E2B\u0E49 AI \u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E35\u0E1F (\u0E41\u0E21\u0E48\u0E19\u0E01\u0E31\u0E1A\u0E20\u0E32\u0E29\u0E32\u0E04\u0E19)"
                 ] }),
@@ -32309,15 +32366,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sparkles, { className: "w-4 h-4" }),
                     "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34)"
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => applyBrief("update"), className: "py-2.5 rounded-xl bg-white border border-brand text-brand hover:bg-brand-mist/50 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5", children: "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E07\u0E32\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => applyBrief("update"), className: "py-2.5 rounded-xl bg-white border border-brand text-brand hover:bg-brand-mist/50 font-bold text-xs shadow-card flex items-center justify-center gap-1.5", children: "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E07\u0E32\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19" })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[10px] text-slate-500 -mt-1", children: "\u0E1B\u0E38\u0E48\u0E21\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E43\u0E0A\u0E49\u0E15\u0E31\u0E27\u0E08\u0E31\u0E1A\u0E04\u0E33 (\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E15\u0E48\u0E2D AI): \u201C\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E2B\u0E21\u0E48\u201D \u0E25\u0E49\u0E32\u0E07\u0E04\u0E48\u0E32\u0E40\u0E01\u0E48\u0E32\u0E01\u0E48\u0E2D\u0E19 \xB7 \u201C\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u201D \u0E40\u0E01\u0E47\u0E1A\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E1A\u0E23\u0E35\u0E1F\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E01\u0E25\u0E48\u0E32\u0E27\u0E16\u0E36\u0E07" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[10px] text-sub -mt-1", children: "\u0E1B\u0E38\u0E48\u0E21\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E43\u0E0A\u0E49\u0E15\u0E31\u0E27\u0E08\u0E31\u0E1A\u0E04\u0E33 (\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E15\u0E48\u0E2D AI): \u201C\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E2B\u0E21\u0E48\u201D \u0E25\u0E49\u0E32\u0E07\u0E04\u0E48\u0E32\u0E40\u0E01\u0E48\u0E32\u0E01\u0E48\u0E2D\u0E19 \xB7 \u201C\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u201D \u0E40\u0E01\u0E47\u0E1A\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E1A\u0E23\u0E35\u0E1F\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E01\u0E25\u0E48\u0E32\u0E27\u0E16\u0E36\u0E07" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "pt-3 border-t border-slate-100 space-y-2", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-bold text-slate-700", children: "\u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E44\u0E1F\u0E25\u0E4C\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19:" }),
                   PRESETS.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => loadPreset(p.id), className: "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-sky-500 hover:bg-brand-mist/50/40 flex items-center justify-between", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-extrabold", children: p.label }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-500", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-sub", children: [
                         p.camp.school,
                         " \xB7 ",
                         p.camp.venue,
@@ -32337,7 +32394,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex flex-wrap gap-1.5", children: COURSES.map((co) => {
                     const on = dbSel === co.code;
                     const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
-                    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => setDbSel(co.code), title: co.name, className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-200 text-slate-600"}`, children: [
+                    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => setDbSel(co.code), title: co.name, className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-200 text-sub"}`, children: [
                       co.code,
                       nPhoto ? " \u{1F4F7}" : ""
                     ] }, co.code);
@@ -32346,7 +32403,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-start justify-between gap-2", children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-sm font-extrabold text-sky-900", children: ds.course.name }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-500", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-sub", children: [
                           ds.course.code,
                           " \xB7 \u0E27\u0E34\u0E0A\u0E32 ",
                           SUBJECTS[ds.course.family]?.label || ds.course.family,
@@ -32363,7 +32420,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                       }, className: "px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0", children: "\u0E43\u0E0A\u0E49\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 \u2192" })
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: "\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E2B\u0E25\u0E31\u0E01 (\u0E40\u0E02\u0E49\u0E32\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E02\u0E49\u0E2D 1\u20132)" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-bold text-sub mb-1", children: "\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E2B\u0E25\u0E31\u0E01 (\u0E40\u0E02\u0E49\u0E32\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E02\u0E49\u0E2D 1\u20132)" }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-700 space-y-0.5", children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                           "1. ",
@@ -32376,7 +32433,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                       ] })
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-bold text-sub mb-1", children: [
                         "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E04\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49 (",
                         ds.total,
                         ")"
@@ -32395,7 +32452,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                       ] }, g.kind)) })
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-bold text-sub mb-1", children: [
                         "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E23\u0E34\u0E07 (",
                         ds.photoCount,
                         ")"
@@ -32417,7 +32474,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-2.5", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 (\u0E21\u0E38\u0E21\u0E02\u0E27\u0E32\u0E1A\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: camp.docCode, onChange: (e) => set({ docCode: e.target.value }), className: inp }) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 (\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: `${staffText(camp.students)} \u0E04\u0E19`, readOnly: true, className: inp + " bg-slate-50 text-slate-500" }) })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 (\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: `${staffText(camp.students)} \u0E04\u0E19`, readOnly: true, className: inp + " bg-slate-50 text-sub" }) })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E27\u0E34\u0E0A\u0E32 / \u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E04\u0E48\u0E32\u0E22 (\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 + \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-1.5", children: Object.keys(SUBJECTS).map((s) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => changeSubject(s), className: `py-2 rounded-lg text-xs font-bold border ${camp.subject === s ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-300"}`, children: SUBJECTS[s].label }, s)) }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Field, { label: "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E08\u0E23\u0E34\u0E07\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 14 \u0E18\u0E35\u0E21 (\u0E14\u0E36\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E23\u0E34\u0E07\u0E02\u0E2D\u0E07\u0E18\u0E35\u0E21\u0E19\u0E31\u0E49\u0E19 \u2014 \u0E41\u0E21\u0E48\u0E19\u0E01\u0E27\u0E48\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E04\u0E48\u0E27\u0E34\u0E0A\u0E32)", children: [
@@ -32431,7 +32488,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                   ] }),
                   camp.courseCode && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-amber-700 mt-1", children: '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07\u0E19\u0E35\u0E49\u0E2A\u0E16\u0E32\u0E19\u0E30 "\u0E23\u0E2D\u0E15\u0E23\u0E27\u0E08" \u2014 \u0E17\u0E35\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E02\u0E31\u0E49\u0E19\u0E15\u0E2D\u0E19/\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C/\u0E40\u0E27\u0E25\u0E32\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E31\u0E14\u0E08\u0E23\u0E34\u0E07' })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-500 -mt-1", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-sub -mt-1", children: [
                   "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23: ",
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: k.titleTh }),
                   " ",
@@ -32460,7 +32517,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E08\u0E31\u0E14\u0E04\u0E48\u0E32\u0E22", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: camp.dates, onChange: (e) => set({ dates: e.target.value }), className: inp }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Field, { label: "\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48 / \u0E42\u0E23\u0E07\u0E41\u0E23\u0E21 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E15\u0E34\u0E21\u0E17\u0E31\u0E28\u0E19\u0E28\u0E36\u0E01\u0E29\u0E32+\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D)", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: camp.venue, onChange: (e) => set({ venue: e.target.value }), className: inp }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1.5 flex flex-wrap gap-1.5", children: allVenues.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }), className: `px-2 py-1 rounded-lg text-[10px] font-semibold border ${camp.venue === v.name ? "bg-sky-100 border-sky-400 text-sky-800" : "bg-slate-50 border-slate-200 text-slate-600"}`, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mt-1.5 flex flex-wrap gap-1.5", children: allVenues.map((v) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }), className: `px-2 py-1 rounded-lg text-[10px] font-semibold border ${camp.venue === v.name ? "bg-sky-100 border-sky-400 text-sky-800" : "bg-slate-50 border-slate-200 text-sub"}`, children: [
                     v.name.replace("\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21", ""),
                     " \xB7 ",
                     v.province
@@ -32479,14 +32536,14 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     ] }),
                     Object.keys(LETTERHEADS).map((r) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: r, children: LETTERHEADS[r].label }, r))
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-slate-500 mt-1", children: "\u0E2B\u0E31\u0E27\u0E01\u0E23\u0E30\u0E14\u0E32\u0E29 EQ Camp \u0E08\u0E30\u0E02\u0E36\u0E49\u0E19\u0E17\u0E38\u0E01\u0E2B\u0E19\u0E49\u0E32 \u0E17\u0E38\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 (\u0E41\u0E1A\u0E23\u0E19\u0E14\u0E4C/\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D\u0E22\u0E31\u0E07\u0E23\u0E2D\u0E17\u0E35\u0E21\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E02\u0E31\u0E49\u0E19\u0E2A\u0E38\u0E14\u0E17\u0E49\u0E32\u0E22)" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-sub mt-1", children: "\u0E2B\u0E31\u0E27\u0E01\u0E23\u0E30\u0E14\u0E32\u0E29 EQ Camp \u0E08\u0E30\u0E02\u0E36\u0E49\u0E19\u0E17\u0E38\u0E01\u0E2B\u0E19\u0E49\u0E32 \u0E17\u0E38\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 (\u0E41\u0E1A\u0E23\u0E19\u0E14\u0E4C/\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D\u0E22\u0E31\u0E07\u0E23\u0E2D\u0E17\u0E35\u0E21\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E02\u0E31\u0E49\u0E19\u0E2A\u0E38\u0E14\u0E17\u0E49\u0E32\u0E22)" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(VenueAdd, { onAdd: addVenue })
               ] }),
               tab === "activities" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-3", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: `3. \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 ${camp.courseCode ? "\xB7 \u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 " + (courseById(camp.courseCode)?.name || camp.courseCode) : "(\u0E27\u0E34\u0E0A\u0E32" + SUBJECTS[camp.subject].label + ")"}`, sub: camp.courseCode ? "\u0E41\u0E2A\u0E14\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E02\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 + \u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23/\u0E40\u0E1B\u0E34\u0E14-\u0E1B\u0E34\u0E14\u0E01\u0E25\u0E32\u0E07\u0E17\u0E35\u0E48\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07" : "\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E33\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1B\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E43\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E30\u0E23\u0E49\u0E2D\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04 '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23' \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between text-[11px]", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-500", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-sub", children: [
                     "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 ",
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: plan.coreSlots }),
                     " \u0E0A\u0E48\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01 \xB7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E27\u0E49 ",
@@ -32502,20 +32559,20 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                   if (!items.length) return null;
                   const label = { opening: "\u0E40\u0E1B\u0E34\u0E14\u0E04\u0E48\u0E32\u0E22", core: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01 (\u0E10\u0E32\u0E19\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49)", night: "\u0E20\u0E32\u0E04\u0E04\u0E48\u0E33", recreation: "\u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23", closing: "\u0E1B\u0E34\u0E14\u0E04\u0E48\u0E32\u0E22" }[kind2];
                   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-bold text-slate-500 mb-1", children: label }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-bold text-sub mb-1", children: label }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "space-y-1.5", children: items.map((a) => {
                       const on = camp.activityIds.includes(a.id);
                       const custom = a.id.startsWith("cust-");
                       return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `p-2.5 rounded-lg border flex items-start gap-2 ${on ? "bg-sky-50 border-sky-400" : "bg-white border-slate-200"}`, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => toggleAct(a.id), className: "flex items-start gap-2 flex-1 text-left", children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? "bg-brand" : "border border-slate-300"}`, children: on && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4 text-white" }) }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? "bg-brand" : "border border-brand-mist"}`, children: on && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4 text-white" }) }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-xs font-bold leading-snug", children: [
                               a.title,
                               custom && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ml-1 text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1 rounded", children: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E2D\u0E07" }),
                               a.draft && !custom && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ml-1 text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded", children: "\u0E23\u0E2D\u0E15\u0E23\u0E27\u0E08" })
                             ] }),
-                            a.desc && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-slate-500", children: a.desc }),
+                            a.desc && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-sub", children: a.desc }),
                             a.draft && !custom && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[9px] text-amber-600", children: "\u0E15\u0E49\u0E2D\u0E07\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E02\u0E31\u0E49\u0E19\u0E15\u0E2D\u0E19/\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C/\u0E40\u0E27\u0E25\u0E32\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E31\u0E14\u0E08\u0E23\u0E34\u0E07" })
                           ] })
                         ] }),
@@ -32529,13 +32586,13 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               tab === "schedule" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-3", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "4. \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23 (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E08\u0E32\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 + \u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32)", sub: "\u0E0A\u0E48\u0E2D\u0E07 '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01' \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E10\u0E32\u0E19\u0E44\u0E14\u0E49\u0E23\u0E32\u0E22\u0E0A\u0E48\u0E27\u0E07 (\u0E40\u0E21\u0E19\u0E39\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07\u0E2B\u0E31\u0E27\u0E02\u0E49\u0E2D) \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 '\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34' \u0E43\u0E2B\u0E49\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E31\u0E14\u0E40\u0E2D\u0E07" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-600", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-sub", children: [
                     "\u0E0A\u0E48\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 ",
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: plan.days.reduce((n, d) => n + d.items.filter((r) => r.slot !== void 0).length, 0) }),
                     " \u0E0A\u0E48\u0E2D\u0E07 \xB7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2D\u0E07 ",
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: (camp.coreSlotIds || []).filter(Boolean).length })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: clearSlots, className: "font-bold text-slate-400 hover:text-slate-600", children: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: clearSlots, className: "font-bold text-slate-400 hover:text-sub", children: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" })
                 ] }),
                 plan.days.map((d) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "border border-slate-200 rounded-xl overflow-hidden", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-brand text-white text-xs font-semibold px-3 py-1.5", children: [
@@ -32543,7 +32600,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     d.day
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "divide-y divide-slate-100", children: d.items.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-2 px-2.5 py-1.5 text-[11px]", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-bold text-slate-500 w-28 shrink-0", children: r.time }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-bold text-sub w-28 shrink-0", children: r.time }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-800 flex-1 min-w-0", children: [
                       r.slot !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "inline-block mb-0.5 px-1 rounded bg-brand-mist text-brand text-[9px] font-bold", children: [
                         "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01 #",
@@ -32558,7 +32615,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                         {
                           value: (camp.coreSlotIds || [])[r.slot] || "",
                           onChange: (e) => setSlot(r.slot, e.target.value),
-                          className: "mt-1 w-full px-1.5 py-1 rounded border border-slate-300 text-[10px] bg-white",
+                          className: "mt-1 w-full px-1.5 py-1 rounded border border-brand-mist text-[10px] bg-white",
                           children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: "\u2014 \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 (\u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E49) \u2014" }),
                             coreOptions.map((a) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("option", { value: a.id, children: [
@@ -32571,7 +32628,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     ] })
                   ] }, i)) })
                 ] }, d.day)),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-500", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-sub", children: [
                   "\u0E21\u0E37\u0E49\u0E2D\u0E2D\u0E32\u0E2B\u0E32\u0E23: \u0E40\u0E0A\u0E49\u0E32 ",
                   plan.meals.b,
                   " \xB7 \u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 ",
@@ -32623,7 +32680,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     "\u0E40\u0E15\u0E34\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E15\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F"
                   ] })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-slate-500", children: hasCoursePhotos(camp.courseCode) ? "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49\u0E21\u0E35\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E23\u0E34\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E35\u0E21\u0E43\u0E19\u0E04\u0E25\u0E31\u0E07 \u2014 \u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E40\u0E02\u0E35\u0E22\u0E27\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1D\u0E31\u0E07\u0E25\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E17\u0E31\u0E19\u0E17\u0E35" : '\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E20\u0E32\u0E1E\u0E08\u0E23\u0E34\u0E07\u0E43\u0E19\u0E04\u0E25\u0E31\u0E07\u0E17\u0E35\u0E21 (\u0E22\u0E31\u0E07\u0E02\u0E32\u0E14: \u0E18\u0E23\u0E13\u0E35\u0E27\u0E34\u0E17\u0E22\u0E32, \u0E19\u0E34\u0E15\u0E34\u0E27\u0E34\u0E17\u0E22\u0E32\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C, Pre-genius) \u2014 \u0E43\u0E0A\u0E49 "\u0E40\u0E15\u0E34\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E15\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F" \u0E41\u0E25\u0E49\u0E27\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E20\u0E32\u0E1E\u0E17\u0E35\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E2D\u0E07' }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-sub", children: hasCoursePhotos(camp.courseCode) ? "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49\u0E21\u0E35\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E23\u0E34\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E35\u0E21\u0E43\u0E19\u0E04\u0E25\u0E31\u0E07 \u2014 \u0E01\u0E14\u0E1B\u0E38\u0E48\u0E21\u0E40\u0E02\u0E35\u0E22\u0E27\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1D\u0E31\u0E07\u0E25\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E17\u0E31\u0E19\u0E17\u0E35" : '\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E20\u0E32\u0E1E\u0E08\u0E23\u0E34\u0E07\u0E43\u0E19\u0E04\u0E25\u0E31\u0E07\u0E17\u0E35\u0E21 (\u0E22\u0E31\u0E07\u0E02\u0E32\u0E14: \u0E18\u0E23\u0E13\u0E35\u0E27\u0E34\u0E17\u0E22\u0E32, \u0E19\u0E34\u0E15\u0E34\u0E27\u0E34\u0E17\u0E22\u0E32\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C, Pre-genius) \u2014 \u0E43\u0E0A\u0E49 "\u0E40\u0E15\u0E34\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E15\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F" \u0E41\u0E25\u0E49\u0E27\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E20\u0E32\u0E1E\u0E17\u0E35\u0E48\u0E21\u0E35\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E2D\u0E07' }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2", children: "\u26A0 \u0E20\u0E32\u0E1E\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07\u0E17\u0E35\u0E21\u0E22\u0E31\u0E07\u0E23\u0E2D\u0E17\u0E35\u0E21\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E40\u0E1C\u0E22\u0E41\u0E1E\u0E23\u0E48\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E48\u0E07\u0E25\u0E39\u0E01\u0E04\u0E49\u0E32 \xB7 \u0E20\u0E32\u0E1E\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01\u0E43\u0E2B\u0E49\u0E43\u0E0A\u0E49\u0E2A\u0E37\u0E48\u0E2D\u0E17\u0E32\u0E07\u0E01\u0E32\u0E23\u0E02\u0E2D\u0E07\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E07\u0E25\u0E34\u0E02\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E02\u0E32\u0E22" }),
                 ["actImgs", "venueImgs"].map((group) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between mb-1.5", children: [
@@ -32635,7 +32692,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-2", children: [
                     camp[group].map((im, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "border border-slate-200 rounded-xl p-2 space-y-1.5", children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "block aspect-[8/5] rounded-lg bg-slate-100 border border-dashed border-slate-300 overflow-hidden cursor-pointer grid place-items-center text-[10px] text-slate-400", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "block aspect-[8/5] rounded-lg bg-paper border border-dashed border-slate-300 overflow-hidden cursor-pointer grid place-items-center text-[10px] text-slate-400", children: [
                         im.data ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-emerald-600 font-bold", children: "\u2713 \u0E1D\u0E31\u0E07\u0E23\u0E39\u0E1B\u0E41\u0E25\u0E49\u0E27" }) : "\u0E04\u0E25\u0E34\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14",
                         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: "image/*", className: "hidden", onChange: (e) => onImage(group, i, e.target.files?.[0]) })
                       ] }),
@@ -32659,28 +32716,28 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
             ] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "lg:col-span-7 space-y-4", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `rounded-2xl border p-4 shadow-sm ${ready ? "bg-emerald-50 border-emerald-300" : "bg-amber-50 border-amber-300"}`, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex items-center gap-1.5 text-xs font-extrabold mb-2", children: ready ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4 text-emerald-600" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl border border-brand-mist bg-white p-4 shadow-card", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `flex items-center gap-1.5 text-[13px] font-semibold mb-2.5 ${ready ? "text-emerald-700" : "text-accent-deep"}`, children: ready ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4" }),
                 "\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C \u2014 \u0E15\u0E23\u0E27\u0E08\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E02\u0E49\u0E2D"
               ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TriangleAlert, { className: "w-4 h-4 text-amber-600" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(TriangleAlert, { className: "w-4 h-4" }),
                 "\u0E15\u0E23\u0E27\u0E08\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E48\u0E07"
               ] }) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid sm:grid-cols-2 gap-x-4 gap-y-1", children: checks.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `text-[11px] flex items-start gap-1.5 ${c.ok ? "text-slate-600" : c.soft ? "text-sky-800" : "text-amber-800 font-semibold"}`, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid sm:grid-cols-2 gap-x-4 gap-y-1", children: checks.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `text-[11px] flex items-start gap-1.5 ${c.ok ? "text-sub" : c.soft ? "text-sky-800" : "text-amber-800 font-semibold"}`, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "shrink-0 mt-0.5", children: c.ok ? "\u2713" : c.soft ? "\u2139" : "\u26A0" }),
                 c.msg
               ] }, i)) })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-slate-800 text-white px-4 py-2 text-xs font-bold flex items-center gap-1.5", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-white rounded-2xl border border-brand-mist shadow-card overflow-hidden", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-brand-navy text-white px-4 py-2.5 text-xs font-semibold flex items-center gap-1.5", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Eye, { className: "w-3.5 h-3.5" }),
                 "\u0E1E\u0E23\u0E35\u0E27\u0E34\u0E27: ",
                 DOC_TYPES.find((d) => d.id === kind).label
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "p-5 max-h-[70vh] overflow-y-auto", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Preview, { kind, camp, plan, k, total, cost, profit, margin }) })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => download(kind), disabled: busy, className: "w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-display font-semibold shadow-lift tap flex items-center justify-center gap-2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => download(kind), disabled: busy, className: "w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold shadow-lift tap flex items-center justify-center gap-2", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-5 h-5" }),
               busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C..." : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label} \u0E40\u0E1B\u0E47\u0E19\u0E44\u0E1F\u0E25\u0E4C Word (.docx)`
             ] }),
@@ -32700,8 +32757,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Plus, { className: "w-3.5 h-3.5" }),
         "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E2D\u0E07 (\u0E2A\u0E31\u0E48\u0E07\u0E04\u0E48\u0E32\u0E41\u0E1A\u0E1A\u0E44\u0E2B\u0E19\u0E01\u0E47\u0E44\u0E14\u0E49)"
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: title2, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E40\u0E0A\u0E48\u0E19 Escape Room \u0E04\u0E13\u0E34\u0E15\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C", className: "w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: desc, onChange: (e) => setDesc(e.target.value), placeholder: "\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22\u0E22\u0E48\u0E2D (\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)", className: "w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: title2, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E40\u0E0A\u0E48\u0E19 Escape Room \u0E04\u0E13\u0E34\u0E15\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C", className: "w-full px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: desc, onChange: (e) => setDesc(e.target.value), placeholder: "\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22\u0E22\u0E48\u0E2D (\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)", className: "w-full px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-1.5", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex gap-1", children: kinds.map((x) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setKind(x.k), className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${kind === x.k ? "bg-brand text-white border-brand" : "bg-white border-slate-300"}`, children: x.l }, x.k)) }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { disabled: !title2.trim(), onClick: () => {
@@ -32723,12 +32780,12 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48/\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E40\u0E2D\u0E07\u0E40\u0E02\u0E49\u0E32\u0E04\u0E25\u0E31\u0E07"
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-1.5", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21", className: "px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: province, onChange: (e) => setProvince(e.target.value), placeholder: "\u0E08\u0E31\u0E07\u0E2B\u0E27\u0E31\u0E14", className: "px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: name, onChange: (e) => setName(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21", className: "px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: province, onChange: (e) => setProvince(e.target.value), placeholder: "\u0E08\u0E31\u0E07\u0E2B\u0E27\u0E31\u0E14", className: "px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: visit, onChange: (e) => setVisit(e.target.value), placeholder: "\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E17\u0E31\u0E28\u0E19\u0E28\u0E36\u0E01\u0E29\u0E32\u0E43\u0E01\u0E25\u0E49\u0E40\u0E04\u0E35\u0E22\u0E07 (\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)", className: "w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: visit, onChange: (e) => setVisit(e.target.value), placeholder: "\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E17\u0E31\u0E28\u0E19\u0E28\u0E36\u0E01\u0E29\u0E32\u0E43\u0E01\u0E25\u0E49\u0E40\u0E04\u0E35\u0E22\u0E07 (\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)", className: "w-full px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-1.5", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D/\u0E40\u0E23\u0E15 (\u0E20\u0E32\u0E22\u0E43\u0E19)", className: "flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D/\u0E40\u0E23\u0E15 (\u0E20\u0E32\u0E22\u0E43\u0E19)", className: "flex-1 px-2.5 py-1.5 rounded-lg border border-brand-mist text-xs" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { disabled: !name.trim(), onClick: () => {
           onAdd({ name: name.trim(), province: province.trim(), visit: visit.trim(), note: note.trim() });
           setName("");
@@ -32757,7 +32814,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ];
     return { act, ven };
   }
-  var inp = "w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs";
+  var inp = "w-full px-3 py-1.5 rounded-lg border border-brand-mist text-xs";
   function Field({ label, children }) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("label", { className: "block text-[11px] font-bold text-slate-700 mb-1", children: label }),
@@ -32765,12 +32822,9 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ] });
   }
   function SectionTitle({ title: title2, sub }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "pb-2 mb-1 border-b border-brand-mist flex items-start gap-2", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mt-1 w-1 h-4 rounded-full bg-accent shrink-0" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: "text-sm font-display font-semibold text-brand-ink leading-tight", children: title2 }),
-        sub && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[11px] text-slate-500 mt-0.5 leading-snug", children: sub })
-      ] })
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "pb-2.5 mb-3 border-b border-brand-mist", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: "text-[15px] font-semibold text-brand-ink leading-tight tracking-tight", children: title2 }),
+      sub && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-xs text-sub mt-1 leading-relaxed", children: sub })
     ] });
   }
   function Stat({ label, value, tone }) {
@@ -32863,7 +32917,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => {
         setState("loading");
         setTick((t) => t + 1);
-      }, className: "px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-display font-medium flex items-center gap-1 tap", children: [
+      }, className: "px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-medium flex items-center gap-1 tap", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: "w-3.5 h-3.5" }),
         "\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48"
       ] })
@@ -32878,33 +32932,33 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
             setState("loading");
             setTick((t) => t + 1);
-          }, title: "\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A", className: "px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[11px] font-display font-medium flex items-center gap-1 tap", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: "w-3.5 h-3.5" }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: exportCsv, disabled: !events2.length, className: "px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[11px] font-display font-medium flex items-center gap-1 tap", children: [
+          }, title: "\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A", className: "px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[11px] font-medium flex items-center gap-1 tap", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: "w-3.5 h-3.5" }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: exportCsv, disabled: !events2.length, className: "px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[11px] font-medium flex items-center gap-1 tap", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-3.5 h-3.5" }),
             "CSV"
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-3 gap-2 text-center", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-2.5 bg-brand text-white", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] opacity-80", children: "\u0E44\u0E1F\u0E25\u0E4C\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xl font-display font-semibold", children: agg.total })
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-3 gap-3 text-center", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-4 bg-white border border-brand-mist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-3xl font-semibold text-brand-navy leading-none", children: agg.total }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-sub mt-1.5", children: "\u0E44\u0E1F\u0E25\u0E4C\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-2.5 bg-brand-mist text-brand-ink", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] opacity-70", children: "\u0E40\u0E1B\u0E47\u0E19 PDF" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xl font-display font-semibold", children: agg.pdf })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-4 bg-white border border-brand-mist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-3xl font-semibold text-brand-navy leading-none", children: agg.pdf }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-sub mt-1.5", children: "\u0E40\u0E1B\u0E47\u0E19 PDF" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-2.5 bg-accent-soft text-accent-deep", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] opacity-80", children: "\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xl font-display font-semibold", children: users.length })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-4 bg-white border border-brand-mist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-3xl font-semibold text-brand-navy leading-none", children: users.length }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-sub mt-1.5", children: "\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19" })
         ] })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-2", children: ["program", "quotation", "booking", "runsheet"].map((dk) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl border border-brand-mist px-3 py-2 flex items-center justify-between", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[11px] text-slate-600", children: DK_LABEL[dk] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-sm font-display font-semibold text-brand", children: agg.byType[dk] || 0 })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[11px] text-sub", children: DK_LABEL[dk] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-sm font-semibold text-brand", children: agg.byType[dk] || 0 })
       ] }, dk)) }),
       agg.months.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5", children: "\u0E44\u0E1F\u0E25\u0E4C\u0E15\u0E48\u0E2D\u0E40\u0E14\u0E37\u0E2D\u0E19" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-medium text-sub mb-1.5", children: "\u0E44\u0E1F\u0E25\u0E4C\u0E15\u0E48\u0E2D\u0E40\u0E14\u0E37\u0E2D\u0E19" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex items-end gap-1.5 h-24 border-b border-brand-mist pb-0", children: agg.months.slice(-12).map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex-1 flex flex-col items-center justify-end gap-1", title: `${m}: ${agg.byMonth[m]}`, children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[9px] text-brand font-semibold", children: agg.byMonth[m] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "w-full rounded-t bg-brand/80", style: { height: `${Math.round(agg.byMonth[m] / maxM * 76)}px` } }),
@@ -32912,53 +32966,53 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         ] }, m)) })
       ] }),
       topCourse.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5", children: "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23/\u0E27\u0E34\u0E0A\u0E32 \u0E17\u0E35\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E48\u0E2D\u0E22" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-medium text-sub mb-1.5", children: "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23/\u0E27\u0E34\u0E0A\u0E32 \u0E17\u0E35\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E48\u0E2D\u0E22" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "space-y-1", children: topCourse.map(([co, n]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] w-20 shrink-0 text-slate-600 truncate", title: co, children: co }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] w-20 shrink-0 text-sub truncate", title: co, children: co }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex-1 h-3 rounded bg-brand-mist overflow-hidden", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "h-full bg-brand/70", style: { width: `${Math.round(n / topCourse[0][1] * 100)}%` } }) }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] w-6 text-right font-semibold text-brand", children: n })
         ] }, co)) })
       ] }),
       users.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-medium text-sub mb-1.5 flex items-center gap-1", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Users, { className: "w-3.5 h-3.5" }),
           "\u0E41\u0E22\u0E01\u0E15\u0E32\u0E21\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49"
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex flex-wrap gap-1.5", children: users.map(([u, n]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "px-2 py-1 rounded-lg bg-slate-50 border border-brand-mist text-[10px]", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand-ink", children: u }),
           " ",
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-500", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-sub", children: [
             "\xB7 ",
             n
           ] })
         ] }, u)) })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-medium text-sub mb-1.5 flex items-center gap-1", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(History, { className: "w-3.5 h-3.5" }),
           "\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14"
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "border border-brand-mist rounded-xl overflow-hidden max-h-72 overflow-y-auto", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "w-full text-[10px]", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { className: "bg-brand-mist/60 text-slate-600 sticky top-0", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E40\u0E27\u0E25\u0E32" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E23\u0E2B\u0E31\u0E2A/\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-right px-2 py-1.5 font-display font-medium", children: "\u0E23\u0E32\u0E04\u0E32" })
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { className: "bg-brand-mist/60 text-sub sticky top-0", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-medium", children: "\u0E40\u0E27\u0E25\u0E32" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-medium", children: "\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-medium", children: "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-medium", children: "\u0E23\u0E2B\u0E31\u0E2A/\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-right px-2 py-1.5 font-medium", children: "\u0E23\u0E32\u0E04\u0E32" })
           ] }) }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
             events2.slice(0, 80).map((e) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { className: "border-t border-brand-mist/70", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-slate-500 whitespace-nowrap", children: (e.ts || "").slice(0, 16).replace("T", " ") }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-sub whitespace-nowrap", children: (e.ts || "").slice(0, 16).replace("T", " ") }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-slate-700 truncate max-w-[90px]", title: e.byName || e.by, children: e.byName || e.by || "\u2014" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "px-2 py-1", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-brand", children: DK_LABEL[e.docKind] || e.docKind || "\u2014" }),
                 e.action === "pdf" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ml-1 text-accent-deep font-semibold", children: "PDF" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "px-2 py-1 text-slate-600 truncate max-w-[150px]", title: `${e.docCode} \xB7 ${e.school}`, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "px-2 py-1 text-sub truncate max-w-[150px]", title: `${e.docCode} \xB7 ${e.school}`, children: [
                 e.docCode,
                 e.school ? ` \xB7 ${e.school}` : ""
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-right text-slate-600 whitespace-nowrap", children: e.specialPrice ? money(e.specialPrice) : "\u2014" })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-right text-sub whitespace-nowrap", children: e.specialPrice ? money(e.specialPrice) : "\u2014" })
             ] }, e.id)),
             !events2.length && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tr", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { colSpan: 5, className: "px-2 py-6 text-center text-slate-400", children: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34 \u2014 \u0E40\u0E21\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E21\u0E40\u0E23\u0E34\u0E48\u0E21\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E30\u0E21\u0E32\u0E41\u0E2A\u0E14\u0E07\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48" }) })
           ] })
@@ -33045,7 +33099,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "border p-1", children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: k.titleTh }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("br", {}),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-[11px] text-slate-500", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-[11px] text-sub", children: [
               k.dur,
               " \xB7 ",
               c.dates
@@ -33110,7 +33164,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(H2, { children: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(OL, { items: [c.nights > 0 ? `\u0E2B\u0E49\u0E2D\u0E07\u0E1E\u0E31\u0E01 ${c.nights} \u0E04\u0E37\u0E19` : "\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2B\u0E49\u0E2D\u0E07\u0E1E\u0E31\u0E01 (\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A)", `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E2B\u0E25\u0E31\u0E01 ${m.b + m.l + m.d} \u0E21\u0E37\u0E49\u0E2D (\u0E40\u0E0A\u0E49\u0E32 ${m.b} \u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 ${m.l} \u0E40\u0E22\u0E47\u0E19 ${m.d})`, `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 ${m.s} \u0E21\u0E37\u0E49\u0E2D`, "\u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E40\u0E2A\u0E35\u0E22\u0E07 \u0E42\u0E1B\u0E23\u0E40\u0E08\u0E01\u0E40\u0E15\u0E2D\u0E23\u0E4C", "\u0E2B\u0E49\u0E2D\u0E07\u0E1E\u0E31\u0E01\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 + \u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E40\u0E01\u0E47\u0E1A\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C"] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-slate-500 mt-2", children: "\u0E44\u0E21\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E23\u0E32\u0E04\u0E32\u0E02\u0E32\u0E22/\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E09\u0E1A\u0E31\u0E1A\u0E19\u0E35\u0E49" })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] text-sub mt-2", children: "\u0E44\u0E21\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E23\u0E32\u0E04\u0E32\u0E02\u0E32\u0E22/\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E09\u0E1A\u0E31\u0E1A\u0E19\u0E35\u0E49" })
       ] });
     }
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[13px] leading-relaxed", children: [
@@ -33162,7 +33216,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         d.day
       ] }),
       d.items.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-2 text-[11px] border-b border-slate-100 py-1", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-bold text-slate-500 w-24 shrink-0", children: r.time }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-bold text-sub w-24 shrink-0", children: r.time }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "flex-1", children: [
           r.title,
           r.sub?.map((s, j) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "block text-slate-400", children: s }, j))

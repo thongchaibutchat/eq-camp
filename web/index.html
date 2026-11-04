@@ -5,15 +5,18 @@
 if (typeof tailwind !== 'undefined') tailwind.config = {
   theme: { extend: {
     colors: {
-      brand: { ink: '#0C2A41', navy: '#0E3A5C', DEFAULT: '#155D90', sky: '#0B82C4', mist: '#E7EEF4' },
-      accent: { DEFAULT: '#E07B2E', deep: '#C4641B', soft: '#FBEAD9' },
-      paper: '#ECF0F4'
+      // โทนเดียว: กรมท่า (navy) + เทา Apple — สีเดียวทั้งระบบ
+      brand: { ink: '#1D1D1F', navy: '#0C2A41', DEFAULT: '#0C2A41', sky: '#0C2A41', mist: '#E5E5EA' },
+      sub: '#6E6E73',
+      accent: { DEFAULT: '#C4641B', deep: '#A5530F', soft: '#F5EEE6' }, // ส้ม — ใช้เฉพาะปุ่มหลัก/สถานะ
+      paper: '#F5F5F7'
     },
     fontFamily: {
       sans: ['Sarabun', 'Noto Sans Thai', 'system-ui', 'sans-serif'],
       display: ['Kanit', 'Sarabun', 'system-ui', 'sans-serif']
     },
-    boxShadow: { card: '0 1px 2px rgba(14,58,92,.06), 0 1px 3px rgba(14,58,92,.05)', lift: '0 6px 20px -8px rgba(14,58,92,.35)' }
+    boxShadow: { card: '0 1px 2px rgba(0,0,0,.04)', lift: '0 2px 10px rgba(0,0,0,.07)' },
+    borderRadius: { xl: '12px', '2xl': '12px' }
   } }
 };
 </script>
@@ -23,14 +26,12 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root { color-scheme: light; }
-  body { background: #ECF0F4; font-family: 'Sarabun','Noto Sans Thai',system-ui,sans-serif; }
+  body { background: #F5F5F7; color: #1D1D1F; font-family: 'Sarabun','Noto Sans Thai',system-ui,sans-serif; -webkit-font-smoothing: antialiased; }
   .font-display { font-family: 'Kanit','Sarabun',system-ui,sans-serif; }
-  /* หัวกระดาษทำงาน: ลายเส้นวงโคจรจาง ๆ ให้รู้สึกเป็นแบรนด์ EQ ไม่ใช่แถบดำทั่วไป */
-  .brandbar { background:
-      radial-gradient(120% 140% at 88% -20%, rgba(224,123,46,.22), transparent 55%),
-      linear-gradient(103deg, #0C2A41 0%, #0E3A5C 46%, #155D90 100%); }
-  .step-rail::-webkit-scrollbar, .tabrail::-webkit-scrollbar { height: 6px; }
-  .step-rail::-webkit-scrollbar-thumb, .tabrail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
-  @media (prefers-reduced-motion: no-preference) { .tap { transition: transform .12s ease, background-color .15s ease, border-color .15s ease, color .15s ease; } .tap:active { transform: translateY(1px); } }
+  /* แถบหัวเว็บ: สีกรมท่าเรียบ สีเดียว ไม่มี gradient/เงาจัด */
+  .brandbar { background: #0C2A41; }
+  .tabrail::-webkit-scrollbar { height: 5px; }
+  .tabrail::-webkit-scrollbar-thumb { background: #D1D1D6; border-radius: 999px; }
+  @media (prefers-reduced-motion: no-preference) { .tap { transition: background-color .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease; } .tap:active { opacity: .85; } }
 </style>
 </head><body><div id="root"></div><script src="./bundle.js"></script></body></html>

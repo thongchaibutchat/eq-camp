@@ -1,6 +1,6 @@
 import {
   Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType,
-  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign, Header, Footer
+  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign, Header, Footer, PageNumber
 } from 'docx';
 import { LETTERHEADS, regionOf, Region } from './letterheads-data';
 export { LETTERHEADS, regionOf } from './letterheads-data';
@@ -693,7 +693,7 @@ export const money = (n: number) => Math.round(Number.isFinite(n) ? n : 0).toLoc
 
 /* ===================== DOCX HELPERS ===================== */
 const FONT = { ascii: FONT_NAME, hAnsi: FONT_NAME, cs: FONT_NAME, eastAsia: FONT_NAME };
-const BLUE = '155D90', SKY = '087FC2', W = 9400;
+const BLUE = '155D90', SKY = '087FC2', NAVY = '0C2A41', W = 9400;
 type RO = { b?: boolean; sz?: number; color?: string; strike?: boolean; i?: boolean };
 // ล้างอักขระที่ XML 1.0 ไม่รองรับ (NUL/control chars ที่มักติดมาจากการ copy) — กันไฟล์ .docx เสีย/เปิดไม่ได้
 // อักขระที่อนุญาต: \t \n \r และ 0x20 ขึ้นไป (ยกเว้น noncharacters)
@@ -711,9 +711,10 @@ const numbered = (a: string[]) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 
 const dashed = (a: string[], keep = false) => a.map((x, i) => P(`-\t${x}`, { indent: 0.9, hang: 0.9, after: 1, keep: keep && i < a.length - 1 }));
 const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const LB = { style: BorderStyle.SINGLE, size: 4, color: 'CBD5E1' };
-const cell = (kids: Paragraph[], w: number, o: { fill?: string; border?: 'none' | 'line' | 'box'; span?: number } = {}) => {
+const cell = (kids: Paragraph[], w: number, o: { fill?: string; border?: 'none' | 'line' | 'box' | 'navy'; span?: number } = {}) => {
   const bx = { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' };
-  const bd = o.border === 'box' ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === 'line' ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
+  const nv = { style: BorderStyle.SINGLE, size: 16, color: NAVY };
+  const bd = o.border === 'navy' ? { top: nv, bottom: nv, left: nv, right: nv } : o.border === 'box' ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === 'line' ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
   return new TableCell({ children: kids, width: { size: w, type: WidthType.DXA }, borders: bd, columnSpan: o.span, verticalAlign: VerticalAlign.TOP,
     shading: o.fill ? { type: ShadingType.CLEAR, fill: o.fill, color: 'auto' } : undefined, margins: { top: 50, bottom: 50, left: 100, right: 100 } });
 };
@@ -742,12 +743,35 @@ const scheduleBlock = (c: Camp, plan: Plan, k: ReturnType<typeof compose>, extra
   P('หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { color: '334155', before: 8, after: 0 })
 ];
 // แถบราคา: จัดกึ่งกลาง เรียบร้อย — ราคาปกติขีดฆ่า (เทา), ราคาพิเศษ "สีแดง" ตัวเข้มเด่น (ไม่พึ่งขีดฆ่าอย่างเดียว)
+// แถบราคา: กล่องขอบหนาโทนกรมท่า (ไม่ใช่กล่องชมพู) — ราคาปกติขีดฆ่า(เทา) · ราคาพิเศษเด่น
 const priceBanner = (c: Camp) => tbl([new TableRow({ cantSplit: true, children: [cell([P([
-  R('ราคาปกติ ', { sz: 18, color: '334155' }),
-  R(`${money(c.normalPrice)} บ./ท่าน`, { sz: 18, color: '94A3B8', strike: true }),
-  R('   ลดเหลือเพียง ', { sz: 18, color: '334155' }),
-  R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 22, color: 'DC2626' })
-], { al: CTR, after: 0 })], W, { fill: 'FEF2F2', border: 'box' })] })], [W]);
+  R('ราคาปกติ ', { sz: 18, color: '3A3A3C' }),
+  R(`${money(c.normalPrice)} บ./ท่าน`, { sz: 18, color: '8E8E93', strike: true }),
+  R('    ลดเหลือเพียง ', { sz: 18, color: '3A3A3C' }),
+  R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 22, color: 'C4641B' })
+], { al: CTR, after: 0 })], W, { border: 'navy' })] })], [W]);
+// ตารางงบประมาณ (เส้นบาง) ลำดับ | รายการ — แทน bullet
+const budgetTable = (items: string[]) => tbl([
+  new TableRow({ tableHeader: true, children: [cell([P('ลำดับ', { b: true, color: 'FFFFFF', al: CTR, after: 0 })], 1100, { fill: NAVY, border: 'box' }), cell([P('รายการ', { b: true, color: 'FFFFFF', after: 0 })], W - 1100, { fill: NAVY, border: 'box' })] }),
+  ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: 'box' }), cell([P(x, { after: 0 })], W - 1100, { border: 'box' })] }))
+], [1100, W - 1100]);
+// ช่องลงนามท้ายเอกสาร (ผู้จัดทำ / ผู้อนุมัติ)
+const signatureBlock = (): Table => {
+  const col = (role: string) => cell([
+    P('', { after: 0, before: 360 }),
+    P('(..............................................)', { al: CTR, after: 0 }),
+    P(role, { b: true, al: CTR, color: NAVY, after: 0 }),
+    P('วันที่ ......./......./.......', { al: CTR, color: '48484A', sz: 15, after: 0 })
+  ], W / 2, { border: 'none' });
+  return tbl([new TableRow({ cantSplit: true, children: [col('ผู้จัดทำ / ฝ่ายขาย'), col('ผู้อนุมัติ')] })], [W / 2, W / 2]);
+};
+// ส่วนราคา + งบประมาณ + ลงนาม : ขึ้นหน้าใหม่เสมอ (pageBreakBefore ที่หัวข้อ)
+const priceBudgetSection = (c: Camp, k: ReturnType<typeof compose>): (Paragraph | Table)[] => [
+  P('ราคาและรายละเอียดงบประมาณ', { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 6, pb: true, keep: true }),
+  priceBanner(c), P('', { after: 4 }), budgetTable(k.budget),
+  P('หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม', { color: '48484A', before: 4, after: 0 }),
+  signatureBlock()
+];
 // ขนาดจริงของภาพจาก header (PNG/JPEG) — ใช้คงสัดส่วนภาพ ไม่ให้ภาพบีบ/ยืด
 const imgSize = (d: Uint8Array): { w: number; h: number } | null => {
   if (d[0] === 0x89 && d[1] === 0x50) return { w: (d[16] << 24) | (d[17] << 16) | (d[18] << 8) | d[19], h: (d[20] << 24) | (d[21] << 16) | (d[22] << 8) | d[23] };
@@ -771,13 +795,14 @@ const fitBox = (d: Uint8Array) => {
   if (h > BOX_H) { h = BOX_H; w = Math.round(s.w * BOX_H / s.h); }
   return { width: w, height: h };
 };
-// กริดภาพ 2 คอลัมน์ ติดกันเป็นระเบียบ — ไม่มีเส้นกรอบ ไม่มีคำบรรยายใต้ภาพ, ภาพคงสัดส่วนขนาดสม่ำเสมอ (6–8 รูป)
+// กริดภาพ 2 คอลัมน์ (6–8 รูป) — มีกรอบ + หมายเลข + คำบรรยายใต้รูป (ตามสเปกเอกสารราชการ)
 const photoGrid = (imgs: Img[], fallbackN: number, label = 'ภาพกิจกรรม') => {
-  const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, (_, i) => ({ caption: `${label} (${i + 1})` } as Img))).slice(0, 8);
+  const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, () => ({ caption: '' } as Img))).slice(0, 8);
   const rows: TableRow[] = [];
-  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); return cell([
-    im.data ? new Paragraph({ alignment: CTR, keepNext: kp, spacing: { before: 30, after: 30 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] })
-      : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 80, after: 80, keep: kp })], W / 2, { border: 'none' }); }) })); }
+  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; const n = i + j + 1; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); const cap = im.caption && im.caption.trim() && !im.caption.includes('...') ? im.caption : `${label}ที่ ${n}`; return cell([
+    im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] })
+      : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 70, after: 70, keep: true }),
+    new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R(`${n}  `, { b: true, sz: 13, color: BLUE }), R(cap, { sz: 13, color: '48484A' })] })], W / 2, { border: 'box' }); }) })); }
   return tbl(rows, [W / 2, W / 2]);
 };
 // ภาพประกอบ STEAM (คอลลาจ) — ใช้ซ้ำได้ทุกเอกสารของค่าย STEAM
@@ -820,8 +845,12 @@ const brandHeader = (r: Region): Header => {
 };
 const letterheadFooter = (r: Region): Footer => {
   const lh = LETTERHEADS[r];
-  return new Footer({ children: [new Paragraph({ alignment: CTR, spacing: { before: 40 },
-    children: [new ImageRun({ type: 'png', data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
+  const pn = (child: any) => new TextRun({ children: [child], font: FONT, size: 28, sizeComplexScript: 28, color: '8E8E93' });
+  const pnTxt = (t: string) => new TextRun({ text: t, font: FONT, size: 28, sizeComplexScript: 28, color: '8E8E93' });
+  return new Footer({ children: [
+    new Paragraph({ alignment: CTR, spacing: { after: 20 }, children: [pnTxt('หน้า '), pn(PageNumber.CURRENT), pnTxt(' / '), pn(PageNumber.TOTAL_PAGES)] }),
+    new Paragraph({ alignment: CTR, spacing: { before: 0 },
+      children: [new ImageRun({ type: 'png', data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
 };
 
 /* ===================== 4 DOCUMENT BUILDERS ===================== */
@@ -834,8 +863,8 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       H('วัตถุประสงค์การเรียนรู้'), ...numbered(k.objectives), P('', { after: 2 }),
       infoRows([['จำนวน', [k.p1, k.p2]], ['วิทยากร', [`${k.staff} คน`]], ['ระยะเวลาอบรม', [k.dur]]]),
       H('กิจกรรมเชิงบูรณาการ'), ...numbered(k.acts), H('บูรณาการการเรียน (integration instruction)'), ...numbered(k.integ),
-      ...scheduleBlock(c, plan, k, false, true), P('', { after: 4 }), priceBanner(c), P('', { after: 2 }),
-      H('รายละเอียดงบประมาณมีดังนี้'), ...dashed(k.budget, true),
+      ...scheduleBlock(c, plan, k, false, true),
+      ...priceBudgetSection(c, k),
       ...photoSection(c, { venue: true })];
   } else if (kind === 'quotation') {
     const cols = [700, 4300, 1100, 1600, 1700];
