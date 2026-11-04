@@ -542,9 +542,15 @@ export function compose(c: Camp, plan: Plan) {
     'เพื่อจัดกระบวนการเรียนรู้ให้ผู้เรียนได้เกิดเจตคติที่ดีต่อการเรียน และเอาใจใส่ในการเรียน เกิดพฤติกรรมในการรักการเรียนรู้ ใฝ่ฝึกฝนตนเองอยู่เสมออย่างเต็มที่',
     'เพื่อจัดกระบวนการเรียนรู้ให้ผู้เรียนเกิดกระบวนการเรียนรู้ที่สร้างสรรค์อย่างมีความสุข ทั้งสุขภาพกายและสุขภาพจิตที่ดี ได้เรียนรู้ร่วมกันจากการปฏิบัติจริง ด้วยความหลากหลายและสร้างองค์ความรู้ใหม่ได้ในศตวรรษที่ 21'
   ];
-  // กิจกรรมเชิงบูรณาการ: 4–5 ข้อ (กิจกรรมหลักไม่ซ้ำสูงสุด 4 + AAR ปิดท้าย) เพื่อให้พอดีหน้าแรก
-  const uniqNames = Array.from(new Set(sel.map(a => a.title.replace(/\s*\(ต่อยอด\)\s*$/, ''))));
-  const acts: string[] = uniqNames.slice(0, 4);
+  // กิจกรรมเชิงบูรณาการ: ยึด "กิจกรรมของหลักสูตร" ที่เลือกไว้เป็นหลักเสมอ (ไม่ใช่แค่ที่ลงตาราง)
+  // เรียงกิจกรรมหลัก/ภาคค่ำก่อน (พื้นฐานหลักสูตร) แล้วจับคู่ 2 รายการ/บรรทัด → ~5 บรรทัด (คล้ายต้นฉบับ, พอดีหน้าแรก)
+  const ORD: Record<string, number> = { core: 0, night: 1, opening: 2, recreation: 3, closing: 4 };
+  const selForActs = pool.filter(a => c.activityIds.includes(a.id)).length
+    ? pool.filter(a => c.activityIds.includes(a.id)) : sel;
+  const ordered = [...selForActs].sort((a, b) => (ORD[a.kind] ?? 9) - (ORD[b.kind] ?? 9));
+  const uniqNames = Array.from(new Set(ordered.map(a => a.title.replace(/\s*\(ต่อยอด\)\s*$/, '')))).slice(0, 8);
+  const acts: string[] = [];
+  for (let i = 0; i < uniqNames.length; i += 2) acts.push(uniqNames.slice(i, i + 2).join('  /  '));
   acts.push('กิจกรรมทดสอบหลังการเรียนรู้ (After Action Review : AAR)');
   // บูรณาการการเรียน: 5–7 ข้อ (ตัดให้ไม่เกิน 7 เพื่อให้อยู่ในหน้าแรก)
   const integ = ['บูรณาการคุณลักษณะที่พึงประสงค์ในการเรียนรู้ในศตวรรษที่ 21', 'บูรณาการโดยใช้โครงการในทางกิจกรรมค่ายเป็นลักษณะภารกิจในระหว่างกิจกรรม', ...S.extra,
