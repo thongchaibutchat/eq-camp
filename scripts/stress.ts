@@ -1,6 +1,6 @@
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, coursePhotos, subjectPool, Camp, DocKind, COURSES } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, coursePhotos, subjectPool, Camp, DocKind, COURSES } from '../src/eqcamp-core';
 
 const OUT = '/tmp/stress'; fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const kinds: DocKind[] = ['program', 'quotation', 'booking', 'runsheet'];
@@ -45,7 +45,7 @@ let fail = 0, ok = 0;
         const plan = buildSchedule(cfg.camp);
         // ตรวจ: ทุกวันต้องมีอย่างน้อย 1 แถว (ตารางว่าง = docx พัง)
         for (const d of plan.days) if (!d.items.length) throw new Error(`day ${d.day} has 0 rows`);
-        const buf = await Packer.toBuffer(buildDoc(kind, cfg.camp, plan));
+        const buf = Buffer.from(await packDocx(buildDoc(kind, cfg.camp, plan)));
         if (!buf || buf.length < 500) throw new Error('buffer too small');
         if (!(buf[0]===0x50 && buf[1]===0x4b)) throw new Error('not a zip (PK)');
         fs.writeFileSync(`${OUT}/${fn}`, buf);

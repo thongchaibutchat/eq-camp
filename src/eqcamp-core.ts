@@ -16,6 +16,9 @@ import { STEAM_GALLERY } from './steam-gallery-data';
 export { STEAM_GALLERY } from './steam-gallery-data';
 import { BRAND } from './brand-data';
 import { FULL_HEADERS } from './letterhead-full-data';
+import { FONT_NAME, FONT_REG_B64, FONT_BOLD_B64 } from './font-data';
+import JSZip from 'jszip';
+import { Packer } from 'docx';
 export { BRAND } from './brand-data';
 export type Subject = 'math' | 'steam' | 'english' | 'ai' | 'chinese' | 'leadership';
 export type DocKind = 'program' | 'quotation' | 'booking' | 'runsheet';
@@ -689,7 +692,7 @@ export const isReady = (checks: { ok: boolean; soft?: boolean }[]) => checks.eve
 export const money = (n: number) => Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-US');
 
 /* ===================== DOCX HELPERS ===================== */
-const FONT = { ascii: 'TH SarabunPSK', hAnsi: 'TH SarabunPSK', cs: 'TH SarabunPSK', eastAsia: 'TH SarabunPSK' };
+const FONT = { ascii: FONT_NAME, hAnsi: FONT_NAME, cs: FONT_NAME, eastAsia: FONT_NAME };
 const BLUE = '155D90', SKY = '087FC2', W = 9400;
 type RO = { b?: boolean; sz?: number; color?: string; strike?: boolean; i?: boolean };
 // ล้างอักขระที่ XML 1.0 ไม่รองรับ (NUL/control chars ที่มักติดมาจากการ copy) — กันไฟล์ .docx เสีย/เปิดไม่ได้
@@ -882,3 +885,48 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
     }] });
 }
 export const fileName = (kind: DocKind, c: Camp) => `${c.docCode.replace(/[^\w-]+/g, '_')}_${{ program: 'โปรแกรม', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Rundown_INTERNAL' }[kind]}_${c.school.replace(/\s+/g, '')}.docx`;
+
+
+/* ===================== PACK + EMBED FONT =====================
+ * ฝังฟอนต์ TH Sarabun New (regular+bold) ลงไฟล์ .docx — เครื่องที่ไม่ได้ติดตั้งฟอนต์จะไม่ถูกแทนด้วย
+ * Leelawadee/Tahoma (ตัวหนา-ใหญ่ทั้งเอกสาร). ใช้ obfuscation มาตรฐาน ECMA-376 (XOR 32 ไบต์แรกกับ GUID กลับลำดับ)
+ * ใช้ packDocx() แทน Packer.toBuffer/toBlob ทุกที่ */
+const b64ToBytes = (b64: string): Uint8Array => {
+  if (typeof atob === 'function') { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+  return new Uint8Array((globalThis as any).Buffer.from(b64, 'base64'));
+};
+const obfuscate = (font: Uint8Array, guid: string): Uint8Array => {
+  const hex = guid.replace(/[{}-]/g, ''); const key: number[] = [];
+  for (let i = 0; i < 16; i++) key.push(parseInt(hex.substr(i * 2, 2), 16));
+  key.reverse(); const out = new Uint8Array(font);
+  for (let i = 0; i < 32; i++) out[i] ^= key[i % 16];
+  return out;
+};
+export async function packDocx(doc: Document): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(await Packer.toBase64String(doc), { base64: true });
+  const gR = '{5A1E2C3B-7D4F-4E21-9B6A-1C2D3E4F5A61}', gB = '{6B2F3D4C-8E5A-4F32-AC7B-2D3E4F5A6B72}';
+  zip.file('word/fonts/font1.odttf', obfuscate(b64ToBytes(FONT_REG_B64), gR));
+  zip.file('word/fonts/font2.odttf', obfuscate(b64ToBytes(FONT_BOLD_B64), gB));
+  zip.file('word/_rels/fontTable.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rIdF1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font1.odttf"/>' +
+    '<Relationship Id="rIdF2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font2.odttf"/></Relationships>');
+  const ft = await zip.file('word/fontTable.xml')!.async('string');
+  const fontEl = `<w:font w:name="${FONT_NAME}"><w:charset w:val="DE"/><w:family w:val="swiss"/><w:pitch w:val="variable"/>` +
+    `<w:embedRegular r:id="rIdF1" w:fontKey="${gR}"/><w:embedBold r:id="rIdF2" w:fontKey="${gB}"/></w:font>`;
+  zip.file('word/fontTable.xml', ft.replace(/<w:fonts([^>]*?)\/>$/, '<w:fonts$1>' + fontEl + '</w:fonts>').replace(/<\/w:fonts>$/, (m) => ft.endsWith('/>') ? m : fontEl + m));
+  let ct = await zip.file('[Content_Types].xml')!.async('string');
+  if (!ct.includes('Extension="odttf"')) ct = ct.replace('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">', '$&<Default ContentType="application/vnd.openxmlformats-officedocument.obfuscatedFont" Extension="odttf"/>');
+  if (!ct.includes('/word/fontTable.xml')) ct = ct.replace('</Types>', '<Override ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml" PartName="/word/fontTable.xml"/></Types>');
+  zip.file('[Content_Types].xml', ct);
+  // docx-js ไม่ได้อ้าง fontTable จาก document → Word จะไม่เห็นฟอนต์ที่ฝัง; เพิ่ม relationship ให้
+  let dr = await zip.file('word/_rels/document.xml.rels')!.async('string');
+  if (!dr.includes('fontTable.xml')) dr = dr.replace('</Relationships>', '<Relationship Id="rIdFontTbl" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/></Relationships>');
+  zip.file('word/_rels/document.xml.rels', dr);
+  let st = await zip.file('word/settings.xml')!.async('string');
+  if (!st.includes('embedTrueTypeFonts')) st = /<w:displayBackgroundShape\/>/.test(st) ? st.replace(/<w:displayBackgroundShape\/>/, '$&<w:embedTrueTypeFonts/><w:saveSubsetFonts/>') : st.replace(/(<w:settings[^>]*>)/, '$1<w:embedTrueTypeFonts/><w:saveSubsetFonts/>');
+  zip.file('word/settings.xml', st);
+  return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+}
+// @font-face สำหรับ PDF/พรีวิวในเบราว์เซอร์ — ฟอนต์เดียวกับที่ฝังใน Word
+export const FONT_FACE_CSS = `@font-face{font-family:'EQSarabun';font-weight:400;src:url(data:font/ttf;base64,${FONT_REG_B64}) format('truetype')}` +
+  `@font-face{font-family:'EQSarabun';font-weight:700;src:url(data:font/ttf;base64,${FONT_BOLD_B64}) format('truetype')}`;

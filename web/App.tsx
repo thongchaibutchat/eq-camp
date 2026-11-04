@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -213,13 +213,8 @@ export default function App() {
 
   const toBlob = async (doc: ReturnType<typeof buildDoc>): Promise<Blob> => {
     const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    try { return await Packer.toBlob(doc); }
-    catch {
-      const b64 = await Packer.toBase64String(doc);
-      const bin = atob(b64); const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return new Blob([bytes], { type: MIME });
-    }
+    try { return new Blob([await packDocx(doc)], { type: MIME }); } // ฝังฟอนต์ TH Sarabun New
+    catch { return await Packer.toBlob(doc); }
   };
   const anchorDownload = (blob: Blob, name: string) => {
     const url = URL.createObjectURL(blob);
@@ -281,21 +276,22 @@ export default function App() {
   };
   // บันทึก PDF (เอกสารโปรแกรมค่าย) — สร้างไฟล์ PDF จริงในเบราว์เซอร์ (html2canvas + jsPDF)
   // แล้วเซฟผ่าน downloads capability เดียวกับ Word → ทำงานได้ในกล่อง sandbox ของ claude.ai
-  const PDF_STYLE = `<style>
-.eqpdf{width:760px;padding:10px 8px 24px;background:#fff;color:#111;font-family:'Sarabun','TH SarabunPSK',sans-serif;font-size:14px;line-height:1.5}
-.eqpdf .hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #155D90;padding-bottom:6px}
-.eqpdf .hdr img{width:58px;height:auto}.eqpdf .b-name{font-weight:700;color:#155D90}.eqpdf .b-addr{font-size:12px;color:#334155}
-.eqpdf .b-contact{margin-left:auto;text-align:right;font-size:11px;color:#334155}
-.eqpdf .code{text-align:right;font-weight:700;color:#155D90;margin-top:6px}
-.eqpdf h1{text-align:center;color:#0F3D63;font-size:20px;margin:4px 0 0}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;margin:0}
-.eqpdf .ref{text-align:center;color:#64748B;font-size:12px;margin:2px 0 8px}
-.eqpdf h2{color:#155D90;font-size:16px;margin:10px 0 4px}.eqpdf ol,.eqpdf ul{margin:4px 0;padding-left:22px}.eqpdf li{margin:2px 0}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:6px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:120px}
-.eqpdf .day{background:#155D90;color:#fff;font-weight:700;padding:4px 8px;margin-top:8px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{border-bottom:1px solid #cbd5e1;padding:4px 8px;vertical-align:top}.eqpdf table.sched td.t{width:150px}
-.eqpdf .sub{color:#334155;font-size:13px;padding-left:10px}
-.eqpdf .price{text-align:center;background:#F0F9FF;border:1px solid #bae6fd;padding:8px;margin:8px 0;font-weight:700;font-size:16px}
-.eqpdf .price .old{color:#DC2626;text-decoration:line-through}.eqpdf .price .new{color:#15803D;font-size:18px}</style>`;
+  // ฟอนต์/ขนาดตรงกับ Word: TH Sarabun New ฝังในหน้า (ไม่พึ่งฟอนต์เครื่อง) · เนื้อหาตัวปกติ · ตัวหนาเฉพาะหัวข้อหลัก
+  const PDF_STYLE = `<style>${FONT_FACE_CSS}
+.eqpdf{width:760px;padding:6px 10px 24px;background:#fff;color:#111;font-family:'EQSarabun',sans-serif;font-size:21px;line-height:1.32;font-weight:400}
+.eqpdf b{font-weight:700}
+.eqpdf .code{text-align:right;font-weight:700;color:#155D90;margin-top:4px}
+.eqpdf h1{text-align:center;color:#0F3D63;font-size:28px;font-weight:700;margin:2px 0 0;line-height:1.25}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;font-size:24px;margin:0}
+.eqpdf .ref{text-align:center;color:#64748B;font-size:18px;margin:0 0 4px}
+.eqpdf h2{color:#155D90;font-size:23px;font-weight:700;margin:8px 0 2px}
+.eqpdf .li{display:flex;margin:0 0 1px 0}.eqpdf .li .n{flex:0 0 34px;padding-left:8px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:1px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:150px}
+.eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
+.eqpdf .day{font-weight:700;text-decoration:underline;margin-top:8px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:1px 6px;vertical-align:top}.eqpdf table.sched td.t{width:170px;white-space:nowrap}
+.eqpdf .sub{color:#222;padding-left:0}
+.eqpdf .price{text-align:center;border:1px solid #94a3b8;padding:6px;margin:8px 0}
+.eqpdf .price .old{color:#DC2626;text-decoration:line-through}.eqpdf .price .new{color:#15803D;font-weight:700}</style>`;
   const printPDF = async () => {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
     if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
@@ -303,7 +299,8 @@ export default function App() {
     try {
       const plan = buildSchedule(camp); const kk = compose(camp, plan);
       const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
-      const ol = (arr: string[]) => '<ol>' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ol>';
+      const ol = (arr: string[]) => arr.map((x, i) => `<div class="li"><span class="n">${i + 1}.</span><span class="x">${esc(x)}</span></div>`).join('');
+      const ul = (arr: string[]) => arr.map(x => `<div class="li"><span class="n">-</span><span class="x">${esc(x)}</span></div>`).join('');
       const has = (s?: string) => !!(s && s.trim() && !s.includes('...'));
       const lh = letterheadFor(camp);
       const brandHdr = `<img src="data:image/png;base64,${lh.b64}" style="width:100%;display:block;margin-bottom:10px">`;
@@ -318,15 +315,16 @@ export default function App() {
       const schedRows = plan.days.map(d => `<div class="day">วันที่ ${d.day}</div><table class="sched">` +
         d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>').join('');
       const schedPage = PDF_STYLE + brandHdr +
-        `<h1>กำหนดการ</h1><div style="text-align:center"><b>${esc(kk.nameTh)}</b> <span class="en">${esc(kk.titleEn)}</span>` +
-        (has(camp.school) ? '<br><b>' + esc(camp.school) + '</b>' : '') + (has(camp.dates) ? '<br><b>' + esc(camp.dates) + '</b>' : '') + (has(camp.venue) ? '<br><b>ณ ' + esc(camp.venue) + '</b>' : '') + '</div>' +
+        `<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` +
+        (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>' +
         schedRows +
         `<div class="price">ราคาปกติ <span class="old">${money(camp.normalPrice)}</span> ลดเหลือเพียง <span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
-        `<h2>รายละเอียดงบประมาณ</h2><ul>${kk.budget.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+        `<h2>รายละเอียดงบประมาณ</h2>${ul(kk.budget)}`;
       const renderCanvas = async (inner: string) => {
         const w = document.createElement('div'); w.className = 'eqpdf';
         w.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
         w.innerHTML = inner; document.body.appendChild(w);
+        try { const fs = (document as any).fonts; await Promise.all([fs?.load?.("21px EQSarabun"), fs?.load?.("bold 21px EQSarabun")]); await fs?.ready; } catch {}
         await new Promise(r => setTimeout(r, 250)); // ให้ฟอนต์/ภาพโหลด
         const c = await h2c(w, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
         document.body.removeChild(w); return c;
@@ -339,7 +337,8 @@ export default function App() {
         if (!first) pdf.addPage();
         let left = imgH, pos = 0;
         pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH); left -= pdfH;
-        while (left > 1) { pos -= pdfH; pdf.addPage(); pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH); left -= pdfH; }
+        // เผื่อ 12 มม. (ช่องว่าง/ขอบล่าง) ไม่ให้ overflow เล็กน้อยดันเป็นหน้าว่างเปล่าเพิ่ม
+        while (left > 12) { pos -= pdfH; pdf.addPage(); pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH); left -= pdfH; }
       };
       addCanvas(await renderCanvas(cover), true);
       addCanvas(await renderCanvas(schedPage), false);

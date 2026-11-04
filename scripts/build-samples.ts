@@ -3,7 +3,7 @@
 import { Packer } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
+import { packDocx,
   buildDoc, fromPreset, blankCamp, defaultActs, parseBrief, DocKind, Camp,
   buildSchedule, coursePhotos, subjectPool
 } from '../src/eqcamp-core';
@@ -11,7 +11,7 @@ import {
 const OUT = path.resolve(process.cwd(), 'samples');
 
 async function write(name: string, kind: DocKind, camp: Camp) {
-  fs.writeFileSync(path.join(OUT, name), await Packer.toBuffer(buildDoc(kind, camp)));
+  fs.writeFileSync(path.join(OUT, name), Buffer.from(await packDocx(buildDoc(kind, camp))));
   console.log('  ✓', name);
 }
 
