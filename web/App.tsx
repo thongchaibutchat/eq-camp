@@ -279,58 +279,79 @@ export default function App() {
     } catch (e) { flash('สร้างชุดไฟล์ผิดพลาด: ' + (e as Error).message, false); }
     setBusy(false);
   };
-  // บันทึก PDF (เอกสารโปรแกรมค่าย) — พิมพ์ผ่าน iframe ในหน้า แล้วผู้ใช้เลือก "Save as PDF"
-  const printPDF = () => {
+  // บันทึก PDF (เอกสารโปรแกรมค่าย) — สร้างไฟล์ PDF จริงในเบราว์เซอร์ (html2canvas + jsPDF)
+  // แล้วเซฟผ่าน downloads capability เดียวกับ Word → ทำงานได้ในกล่อง sandbox ของ claude.ai
+  const PDF_STYLE = `<style>
+.eqpdf{width:760px;padding:10px 8px 24px;background:#fff;color:#111;font-family:'Sarabun','TH SarabunPSK',sans-serif;font-size:14px;line-height:1.5}
+.eqpdf .hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #155D90;padding-bottom:6px}
+.eqpdf .hdr img{width:58px;height:auto}.eqpdf .b-name{font-weight:700;color:#155D90}.eqpdf .b-addr{font-size:12px;color:#334155}
+.eqpdf .b-contact{margin-left:auto;text-align:right;font-size:11px;color:#334155}
+.eqpdf .code{text-align:right;font-weight:700;color:#155D90;margin-top:6px}
+.eqpdf h1{text-align:center;color:#0F3D63;font-size:20px;margin:4px 0 0}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;margin:0}
+.eqpdf .ref{text-align:center;color:#64748B;font-size:12px;margin:2px 0 8px}
+.eqpdf h2{color:#155D90;font-size:16px;margin:10px 0 4px}.eqpdf ol,.eqpdf ul{margin:4px 0;padding-left:22px}.eqpdf li{margin:2px 0}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:6px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:120px}
+.eqpdf .day{background:#155D90;color:#fff;font-weight:700;padding:4px 8px;margin-top:8px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{border-bottom:1px solid #cbd5e1;padding:4px 8px;vertical-align:top}.eqpdf table.sched td.t{width:150px;font-weight:700}
+.eqpdf .sub{color:#334155;font-size:13px;padding-left:10px}
+.eqpdf .price{text-align:center;background:#F0F9FF;border:1px solid #bae6fd;padding:8px;margin:8px 0;font-weight:700;font-size:16px}
+.eqpdf .price .old{color:#DC2626;text-decoration:line-through}.eqpdf .price .new{color:#15803D;font-size:18px}</style>`;
+  const printPDF = async () => {
+    const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
+    if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
+    setBusy(true);
     try {
       const plan = buildSchedule(camp); const kk = compose(camp, plan);
       const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
       const ol = (arr: string[]) => '<ol>' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ol>';
-      const sched = plan.days.map(d => `<div class="day">วันที่ ${d.day}</div><table class="sched">` +
-        d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td><b>${esc(r.title)}</b>${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>').join('');
       const has = (s?: string) => !!(s && s.trim() && !s.includes('...'));
-      const html = `<!doctype html><html lang="th"><head><meta charset="utf8">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
-<style>@page{size:A4;margin:14mm 12mm}*{font-family:'Sarabun','TH SarabunPSK',sans-serif;box-sizing:border-box}
-body{color:#111;font-size:14px;line-height:1.5;margin:0}
-.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #155D90;padding-bottom:6px}
-.hdr img{width:58px;height:auto}.b-name{font-weight:700;color:#155D90}.b-addr{font-size:12px;color:#334155}
-.b-contact{margin-left:auto;text-align:right;font-size:11px;color:#334155}
-.code{text-align:right;font-weight:700;color:#155D90;margin-top:6px}
-h1{text-align:center;color:#0F3D63;font-size:20px;margin:4px 0 0}.en{text-align:center;color:#087FC2;font-weight:700;margin:0}
-.ref{text-align:center;color:#64748B;font-size:12px;margin:2px 0 8px}
-h2{color:#155D90;font-size:16px;margin:10px 0 4px}ol,ul{margin:4px 0;padding-left:22px}li{margin:2px 0}
-table.info{width:100%;border-collapse:collapse;margin:6px 0}table.info td{vertical-align:top;padding:2px 4px}table.info td.k{color:#155D90;font-weight:700;width:120px}
-.pagebreak{page-break-before:always}
-.day{background:#155D90;color:#fff;font-weight:700;padding:4px 8px;margin-top:8px}
-table.sched{width:100%;border-collapse:collapse}table.sched td{border-bottom:1px solid #cbd5e1;padding:4px 8px;vertical-align:top}table.sched td.t{width:150px;font-weight:700}
-.sub{color:#334155;font-size:13px;padding-left:10px}
-.price{text-align:center;background:#F0F9FF;border:1px solid #bae6fd;padding:8px;margin:8px 0;font-weight:700;font-size:16px}
-.price .old{color:#DC2626;text-decoration:line-through}.price .new{color:#15803D;font-size:18px}</style></head><body>
-<div class="hdr"><img src="data:image/png;base64,${BRAND.logoB64}"><div><div class="b-name">${esc(BRAND.name)}</div><div class="b-addr">${esc(BRAND.address)}</div></div><div class="b-contact">โทร. ${esc(BRAND.phone)}<br>${esc(BRAND.web)}<br>${esc(BRAND.email)}</div></div>
-<div class="code">${esc(camp.docCode)}</div>
-<h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>
-${camp.courseCode ? `<div class="ref">รหัสหลักสูตรอ้างอิง ${esc(camp.courseCode)}</div>` : ''}
-<h2>วัตถุประสงค์การเรียนรู้</h2>${ol(kk.objectives)}
-<table class="info"><tr><td class="k">จำนวน</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">วิทยากร</td><td>${esc(kk.staff)} คน</td></tr><tr><td class="k">ระยะเวลาอบรม</td><td>${esc(kk.dur)}</td></tr></table>
-<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}
-<h2>บูรณาการการเรียน (integration instruction)</h2>${ol(kk.integ)}
-<div class="pagebreak"></div>
-<h1>กำหนดการ</h1><div style="text-align:center"><b>${esc(kk.nameTh)}</b> <span class="en">${esc(kk.titleEn)}</span>${has(camp.school) ? '<br><b>' + esc(camp.school) + '</b>' : ''}${has(camp.dates) ? '<br><b>' + esc(camp.dates) + '</b>' : ''}${has(camp.venue) ? '<br><b>ณ ' + esc(camp.venue) + '</b>' : ''}</div>
-${sched}
-<div class="price">ราคาปกติ <span class="old">${money(camp.normalPrice)}</span> ลดเหลือเพียง <span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>
-<h2>รายละเอียดงบประมาณ</h2><ul>${kk.budget.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
-</body></html>`;
-      const f = document.createElement('iframe');
-      f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-      document.body.appendChild(f);
-      const doc = f.contentWindow!.document; doc.open(); doc.write(html); doc.close();
-      flash('เปิดหน้าต่างพิมพ์ PDF — เลือกปลายทางเป็น "Save as PDF" / "บันทึกเป็น PDF"');
-      setTimeout(() => {
-        try { f.contentWindow!.focus(); f.contentWindow!.print(); }
-        catch { flash('หน้านี้พิมพ์ PDF ไม่ได้ — ดาวน์โหลด Word แล้วสั่ง Save as PDF แทน', false); }
-        setTimeout(() => f.remove(), 2000);
-      }, 850);
+      const brandHdr = `<div class="hdr"><img src="data:image/png;base64,${BRAND.logoB64}"><div><div class="b-name">${esc(BRAND.name)}</div><div class="b-addr">${esc(BRAND.address)}</div></div><div class="b-contact">โทร. ${esc(BRAND.phone)}<br>${esc(BRAND.web)}<br>${esc(BRAND.email)}</div></div>`;
+      // หน้า 1 (ปก + วัตถุประสงค์ + กิจกรรม + บูรณาการ)
+      const cover = PDF_STYLE + brandHdr +
+        `<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>` +
+        (camp.courseCode ? `<div class="ref">รหัสหลักสูตรอ้างอิง ${esc(camp.courseCode)}</div>` : '') +
+        `<h2>วัตถุประสงค์การเรียนรู้</h2>${ol(kk.objectives)}` +
+        `<table class="info"><tr><td class="k">จำนวน</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">วิทยากร</td><td>${esc(kk.staff)} คน</td></tr><tr><td class="k">ระยะเวลาอบรม</td><td>${esc(kk.dur)}</td></tr></table>` +
+        `<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}<h2>บูรณาการการเรียน (integration instruction)</h2>${ol(kk.integ)}`;
+      // หน้ากำหนดการ
+      const schedRows = plan.days.map(d => `<div class="day">วันที่ ${d.day}</div><table class="sched">` +
+        d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td><b>${esc(r.title)}</b>${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>').join('');
+      const schedPage = PDF_STYLE + brandHdr +
+        `<h1>กำหนดการ</h1><div style="text-align:center"><b>${esc(kk.nameTh)}</b> <span class="en">${esc(kk.titleEn)}</span>` +
+        (has(camp.school) ? '<br><b>' + esc(camp.school) + '</b>' : '') + (has(camp.dates) ? '<br><b>' + esc(camp.dates) + '</b>' : '') + (has(camp.venue) ? '<br><b>ณ ' + esc(camp.venue) + '</b>' : '') + '</div>' +
+        schedRows +
+        `<div class="price">ราคาปกติ <span class="old">${money(camp.normalPrice)}</span> ลดเหลือเพียง <span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
+        `<h2>รายละเอียดงบประมาณ</h2><ul>${kk.budget.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+      const renderCanvas = async (inner: string) => {
+        const w = document.createElement('div'); w.className = 'eqpdf';
+        w.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
+        w.innerHTML = inner; document.body.appendChild(w);
+        await new Promise(r => setTimeout(r, 250)); // ให้ฟอนต์/ภาพโหลด
+        const c = await h2c(w, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+        document.body.removeChild(w); return c;
+      };
+      const pdf = new jsNS.jsPDF('p', 'mm', 'a4');
+      const pdfW = 210, pdfH = 297;
+      const addCanvas = (canvas: any, first: boolean) => {
+        const imgW = pdfW, imgH = canvas.height * pdfW / canvas.width;
+        const img = canvas.toDataURL('image/jpeg', 0.92);
+        if (!first) pdf.addPage();
+        let left = imgH, pos = 0;
+        pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH); left -= pdfH;
+        while (left > 1) { pos -= pdfH; pdf.addPage(); pdf.addImage(img, 'JPEG', 0, pos, imgW, imgH); left -= pdfH; }
+      };
+      addCanvas(await renderCanvas(cover), true);
+      addCanvas(await renderCanvas(schedPage), false);
+      const blob: Blob = pdf.output('blob');
+      const name = fileName('program', camp).replace(/\.docx$/, '.pdf');
+      const cl = (window as any).claude;
+      const downloads = cl && typeof cl.use === 'function' ? await cl.use('downloads').catch(() => null) : null;
+      if (downloads) {
+        try { await downloads.save({ filename: name, data: blob }); flash('บันทึก PDF เรียบร้อย'); }
+        catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); flash('ดาวน์โหลด PDF แล้ว'); } }
+      } else { anchorDownload(blob, name); flash('ดาวน์โหลด PDF แล้ว'); }
     } catch (e) { flash('สร้าง PDF ไม่สำเร็จ: ' + (e as Error).message, false); }
+    setBusy(false);
   };
 
   const TABS = [
