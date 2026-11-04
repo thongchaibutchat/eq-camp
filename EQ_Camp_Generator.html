@@ -31428,7 +31428,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       body = [
         code(c.docCode),
         ...title(k.titleTh, k.titleEn),
-        ...c.courseCode ? [P(`\u0E23\u0E2B\u0E31\u0E2A\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07 ${c.courseCode}`, { sz: 13, color: "64748B", al: CTR, after: 6 })] : [],
+        P("", { after: 4 }),
         H("\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49"),
         ...numbered(k.objectives),
         P("", { after: 2 }),
@@ -32032,24 +32032,23 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       setBusy(false);
     };
     const PDF_STYLE = `<style>${FONT_FACE_CSS}
-.eqpdf{width:760px;padding:6px 10px 24px;background:#fff;color:#111;font-family:'EQSarabun',sans-serif;font-size:21px;line-height:1.32;font-weight:400}
+.eqpdf{width:760px;background:#fff;color:#111;font-family:'EQSarabun',sans-serif;font-size:20px;line-height:1.22;font-weight:400}
 .eqpdf b{font-weight:700}
-.eqpdf .code{text-align:right;font-weight:700;color:#155D90;margin-top:4px}
-.eqpdf h1{text-align:center;color:#0F3D63;font-size:28px;font-weight:700;margin:2px 0 0;line-height:1.25}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;font-size:24px;margin:0}
-.eqpdf .ref{text-align:center;color:#64748B;font-size:18px;margin:0 0 4px}
-.eqpdf h2{color:#155D90;font-size:23px;font-weight:700;margin:8px 0 2px}
-.eqpdf .li{display:flex;margin:0 0 1px 0}.eqpdf .li .n{flex:0 0 34px;padding-left:8px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:1px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:150px}
-.eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
-.eqpdf .day{font-weight:700;text-decoration:underline;margin-top:8px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:1px 6px;vertical-align:top}.eqpdf table.sched td.t{width:170px;white-space:nowrap}
-.eqpdf .sub{color:#222;padding-left:0}
-.eqpdf .note{color:#334155;margin:8px 0 2px}
-.eqpdf .price{text-align:center;border:1px solid #fca5a5;background:#FEF2F2;padding:7px;margin:6px 0 2px}
+.eqpdf .code{text-align:right;font-weight:700;color:#155D90}
+.eqpdf h1{text-align:center;color:#0F3D63;font-size:27px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#087FC2;font-weight:700;font-size:23px;margin:0}
+.eqpdf h2{color:#155D90;font-size:22px;font-weight:700;margin:7px 0 2px}
+.eqpdf .li{display:flex;margin:0 0 2px 0}.eqpdf .li .n{flex:0 0 32px;padding-left:8px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:3px 0}.eqpdf table.info td{vertical-align:top;padding:1px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:150px}
+.eqpdf .sh{text-align:center;font-weight:700;line-height:1.28}
+.eqpdf .day{font-weight:700;text-decoration:underline;color:#0F3D63;margin:0 0 2px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:0 6px;vertical-align:top;line-height:1.3}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#1f2937}
+.eqpdf .sub{color:#334155}
+.eqpdf .note{color:#334155;margin:2px 0}
+.eqpdf .price{text-align:center;border:1px solid #fca5a5;background:#FEF2F2;padding:7px;border-radius:4px}
 .eqpdf .price .lbl{color:#334155;font-size:20px}.eqpdf .price .old{color:#94a3b8;text-decoration:line-through;font-size:20px}.eqpdf .price .new{color:#DC2626;font-weight:700;font-size:26px}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0F3D63;font-size:25px;margin:2px 0 8px}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0F3D63;font-size:25px;margin:0 0 8px}
 .eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
-.eqpdf .pgrid img{width:48.6%;aspect-ratio:4/3;object-fit:cover;border-radius:5px;display:block}</style>`;
+.eqpdf .pgrid img{width:48.6%;aspect-ratio:var(--a,4/3);object-fit:cover;border-radius:5px;display:block}</style>`;
     const printPDF = async () => {
       const jsNS = window.jspdf;
       const h2c = window.html2canvas;
@@ -32066,63 +32065,80 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         const ul = (arr) => arr.map((x) => `<div class="li"><span class="n">-</span><span class="x">${esc(x)}</span></div>`).join("");
         const has = (s) => !!(s && s.trim() && !s.includes("..."));
         const lh = letterheadFor(camp);
-        const brandHdr = `<img src="data:image/png;base64,${lh.b64}" style="width:100%;display:block;margin-bottom:10px">`;
-        const cover = PDF_STYLE + brandHdr + `<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>` + (camp.courseCode ? `<div class="ref">\u0E23\u0E2B\u0E31\u0E2A\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E2D\u0E49\u0E32\u0E07\u0E2D\u0E34\u0E07 ${esc(camp.courseCode)}</div>` : "") + `<h2>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49</h2>${ol(kk.objectives)}<table class="info"><tr><td class="k">\u0E08\u0E33\u0E19\u0E27\u0E19</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23</td><td>${esc(kk.staff)} \u0E04\u0E19</td></tr><tr><td class="k">\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21</td><td>${esc(kk.dur)}</td></tr></table><h2>\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23</h2>${ol(kk.acts)}<h2>\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)</h2>${ol(kk.integ)}`;
-        const schedRows = plan2.days.map((d) => `<div class="day">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}</div><table class="sched">` + d.items.map((r) => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map((s) => `<div class="sub">${esc(s)}</div>`).join("")}</td></tr>`).join("") + "</table>").join("");
-        const schedPage = PDF_STYLE + brandHdr + `<div class="sh">\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` + (has(camp.school) ? "<br>" + esc(camp.school) : "") + (has(camp.dates) ? "<br>" + esc(camp.dates) : "") + (has(camp.venue) ? "<br>\u0E13 " + esc(camp.venue) : "") + "</div>" + schedRows + `<div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div><h2>\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49</h2>${ul(kk.budget)}`;
         const renderCanvas = async (inner) => {
           const w = document.createElement("div");
           w.className = "eqpdf";
           w.style.cssText = "position:fixed;left:-10000px;top:0;z-index:-1;";
-          w.innerHTML = inner;
+          w.innerHTML = PDF_STYLE + inner;
           document.body.appendChild(w);
           try {
             const fs = document.fonts;
-            await Promise.all([fs?.load?.("21px EQSarabun"), fs?.load?.("bold 21px EQSarabun")]);
+            await Promise.all([fs?.load?.("20px EQSarabun"), fs?.load?.("bold 20px EQSarabun")]);
             await fs?.ready;
           } catch {
           }
-          await new Promise((r) => setTimeout(r, 250));
+          await new Promise((r) => setTimeout(r, 120));
           const c = await h2c(w, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false });
           document.body.removeChild(w);
           return c;
         };
         const pdf = new jsNS.jsPDF("p", "mm", "a4");
-        const pdfW = 210, pdfH = 297;
-        const addCanvas = (canvas, first) => {
-          const imgW = pdfW, imgH = canvas.height * pdfW / canvas.width;
-          const img = canvas.toDataURL("image/jpeg", 0.92);
-          if (!first) pdf.addPage();
-          let left = imgH, pos = 0;
-          pdf.addImage(img, "JPEG", 0, pos, imgW, imgH);
-          left -= pdfH;
-          while (left > 12) {
-            pos -= pdfH;
-            pdf.addPage();
-            pdf.addImage(img, "JPEG", 0, pos, imgW, imgH);
-            left -= pdfH;
-          }
+        const pageW = 210, pageH = 297, M = 9;
+        const contentW = pageW - 2 * M;
+        const lhData = "data:image/png;base64," + lh.b64;
+        const lhH = contentW * (lh.h / lh.w);
+        const topGap = 7, botGap = 6, bottomM = 12;
+        const contentTop = topGap + lhH + botGap;
+        const drawHead = () => {
+          pdf.addImage(lhData, "PNG", M, topGap, contentW, lhH, "eqlh", "FAST");
         };
-        addCanvas(await renderCanvas(cover), true);
-        addCanvas(await renderCanvas(schedPage), false);
+        let y = contentTop;
+        drawHead();
+        const newPage = () => {
+          pdf.addPage();
+          drawHead();
+          y = contentTop;
+        };
+        const place = async (inner, opts = {}) => {
+          const canvas = await renderCanvas(inner);
+          const h = contentW * (canvas.height / canvas.width);
+          const atTop = y <= contentTop + 0.5;
+          if ((opts.newpage || y + h > pageH - bottomM) && !atTop) newPage();
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", M, y, contentW, h);
+          y += h + (opts.gap ?? 3);
+        };
+        await place(`<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 4 });
+        await place(`<h2>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49</h2>${ol(kk.objectives)}<table class="info"><tr><td class="k">\u0E08\u0E33\u0E19\u0E27\u0E19</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23</td><td>${esc(kk.staff)} \u0E04\u0E19</td></tr><tr><td class="k">\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21</td><td>${esc(kk.dur)}</td></tr></table>`);
+        await place(`<h2>\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23</h2>${ol(kk.acts)}`);
+        await place(`<h2>\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)</h2>${ol(kk.integ)}`);
+        await place(`<div class="sh">\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` + (has(camp.school) ? "<br>" + esc(camp.school) : "") + (has(camp.dates) ? "<br>" + esc(camp.dates) : "") + (has(camp.venue) ? "<br>\u0E13 " + esc(camp.venue) : "") + "</div>", { newpage: true, gap: 5 });
+        for (const d of plan2.days) {
+          await place(`<div class="day">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}</div><table class="sched">` + d.items.map((r) => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map((s) => `<div class="sub">${esc(s)}</div>`).join("")}</td></tr>`).join("") + "</table>", { gap: 5 });
+        }
+        await place(`<div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div>`, { gap: 4 });
+        await place(`<h2>\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49</h2>${ul(kk.budget)}`);
         const u8b64 = (u) => {
           let s = "";
           for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
           return btoa(s);
         };
         const imgT = (b64, mime) => `<img src="data:${mime};base64,${b64}">`;
-        const grid = (srcs) => `<div class="pgrid">${srcs.slice(0, 8).join("")}</div>`;
+        const grid = (srcs) => {
+          const n = Math.min(srcs.length, 8);
+          const a = n > 4 ? "16/9" : "4/3";
+          return `<div class="pgrid" style="--a:${a}">${srcs.slice(0, 8).join("")}</div>`;
+        };
         const withData = camp.actImgs.filter((a) => a.data);
         let actSrcs = [];
         if (withData.length) actSrcs = withData.map((a) => imgT(u8b64(a.data), a.data[0] === 137 ? "image/png" : "image/jpeg"));
         else if (hasCoursePhotos(camp.courseCode)) actSrcs = COURSE_PHOTOS[camp.courseCode].map((p) => imgT(p.b64, "image/jpeg"));
-        if (actSrcs.length) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + `<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>${grid(actSrcs)}`), false);
+        if (actSrcs.length) await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>${grid(actSrcs)}`, { newpage: true });
         const venueData = camp.venueImgs.filter((a) => a.data);
         if (venueData.length) {
           const vSrcs = venueData.map((a) => imgT(u8b64(a.data), a.data[0] === 137 ? "image/png" : "image/jpeg"));
-          addCanvas(await renderCanvas(PDF_STYLE + brandHdr + `<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${esc(camp.venue || "")}</div>${grid(vSrcs)}`), false);
+          await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${esc(camp.venue || "")}</div>${grid(vSrcs)}`, { newpage: true });
         }
-        if (isSteamProgram(camp)) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + `<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM</div><div style="text-align:center"><img style="width:88%;border-radius:5px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`), false);
+        if (isSteamProgram(camp)) await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM</div><div style="text-align:center"><img style="width:88%;border-radius:5px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
         const blob = pdf.output("blob");
         const name = fileName("program", camp).replace(/\.docx$/, ".pdf");
         const cl = window.claude;
