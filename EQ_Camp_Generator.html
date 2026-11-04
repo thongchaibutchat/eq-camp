@@ -29758,6 +29758,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     return Component;
   };
 
+  // node_modules/lucide-react/dist/esm/icons/bar-chart-3.js
+  init_shim();
+  var BarChart3 = createLucideIcon("BarChart3", [
+    ["path", { d: "M3 3v18h18", key: "1s2lah" }],
+    ["path", { d: "M18 17V9", key: "2bz60n" }],
+    ["path", { d: "M13 17V5", key: "1frdt8" }],
+    ["path", { d: "M8 17v-3", key: "17ska0" }]
+  ]);
+
   // node_modules/lucide-react/dist/esm/icons/book-open.js
   init_shim();
   var BookOpen = createLucideIcon("BookOpen", [
@@ -29827,6 +29836,14 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ["path", { d: "M16 17H8", key: "z1uh3a" }]
   ]);
 
+  // node_modules/lucide-react/dist/esm/icons/history.js
+  init_shim();
+  var History = createLucideIcon("History", [
+    ["path", { d: "M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8", key: "1357e3" }],
+    ["path", { d: "M3 3v5h5", key: "1xhq8a" }],
+    ["path", { d: "M12 7v5l4 2", key: "1fdv2h" }]
+  ]);
+
   // node_modules/lucide-react/dist/esm/icons/image.js
   init_shim();
   var Image = createLucideIcon("Image", [
@@ -29861,6 +29878,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var Plus = createLucideIcon("Plus", [
     ["path", { d: "M5 12h14", key: "1ays0h" }],
     ["path", { d: "M12 5v14", key: "s699le" }]
+  ]);
+
+  // node_modules/lucide-react/dist/esm/icons/refresh-cw.js
+  init_shim();
+  var RefreshCw = createLucideIcon("RefreshCw", [
+    ["path", { d: "M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8", key: "v9h5vc" }],
+    ["path", { d: "M21 3v5h-5", key: "1q7to0" }],
+    ["path", { d: "M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16", key: "3uifl3" }],
+    ["path", { d: "M8 16H3v5", key: "1cv678" }]
   ]);
 
   // node_modules/lucide-react/dist/esm/icons/sparkles.js
@@ -29901,6 +29927,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ],
     ["path", { d: "M12 9v4", key: "juzpu7" }],
     ["path", { d: "M12 17h.01", key: "p32p05" }]
+  ]);
+
+  // node_modules/lucide-react/dist/esm/icons/users.js
+  init_shim();
+  var Users = createLucideIcon("Users", [
+    ["path", { d: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", key: "1yyitq" }],
+    ["circle", { cx: "9", cy: "7", r: "4", key: "nufk8" }],
+    ["path", { d: "M22 21v-2a4 4 0 0 0-3-3.87", key: "kshegd" }],
+    ["path", { d: "M16 3.13a4 4 0 0 1 0 7.75", key: "1da9ce" }]
   ]);
 
   // node_modules/lucide-react/dist/esm/icons/wand-sparkles.js
@@ -31614,6 +31649,67 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const fileInput = (0, import_react3.useRef)(null);
     const aiReq = (0, import_react3.useRef)(0);
     const [busy, setBusy] = (0, import_react3.useState)(false);
+    const useCap = async (name) => {
+      const cl = window.claude;
+      return cl && typeof cl.use === "function" ? await cl.use(name).catch(() => null) : null;
+    };
+    const whoRef = (0, import_react3.useRef)(null);
+    const whoami = async () => {
+      if (whoRef.current) return whoRef.current;
+      let by = "", byName = "";
+      try {
+        const u = await useCap("user");
+        if (u) {
+          const me = await u.me?.();
+          by = me?.id || await u.id?.() || "";
+          byName = me?.name || "";
+        }
+      } catch {
+      }
+      whoRef.current = { by, byName };
+      return whoRef.current;
+    };
+    const logEvent = async (action, c, dk) => {
+      try {
+        const db = await useCap("db");
+        if (!db) return;
+        const who = await whoami();
+        await db.collection("events").add({
+          ts: (/* @__PURE__ */ new Date()).toISOString(),
+          action,
+          docKind: dk || "",
+          docCode: c.docCode || "",
+          school: c.school || "",
+          courseCode: c.courseCode || "",
+          subject: c.subject || "",
+          durationMode: c.durationMode || "",
+          days: c.days || 0,
+          nights: c.nights || 0,
+          students: c.students || 0,
+          teachers: c.teachers || 0,
+          normalPrice: c.normalPrice || 0,
+          specialPrice: c.specialPrice || 0,
+          province: c.province || "",
+          region: c.region || "",
+          by: who.by,
+          byName: who.byName
+        });
+      } catch {
+      }
+    };
+    const saveText = async (filename, text, mime) => {
+      const blob = new Blob(["\uFEFF" + text], { type: mime });
+      const downloads = await useCap("downloads");
+      if (downloads) {
+        try {
+          await downloads.save({ filename, data: blob });
+          return;
+        } catch (e) {
+          if (e?.code === "declined") return;
+        }
+      }
+      anchorDownload(blob, filename);
+    };
     const plan = (0, import_react3.useMemo)(() => buildSchedule(camp), [camp]);
     const k = (0, import_react3.useMemo)(() => compose(camp, plan), [camp, plan]);
     const checks = (0, import_react3.useMemo)(() => check(camp, plan), [camp, plan]);
@@ -31874,17 +31970,24 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           if (downloads) {
             try {
               await downloads.save({ filename: name, data: blob });
+              logEvent("word", camp, dk);
               flash(`\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 "${label}" (.docx) \u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22`);
             } catch (e) {
               if (e && e.code === "declined") flash("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E1F\u0E25\u0E4C", false);
               else {
                 anchorDownload(blob, name);
+                logEvent("word", camp, dk);
                 flash(`\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 "${label}" (.docx) \u0E41\u0E25\u0E49\u0E27`);
               }
             }
             setBusy(false);
             return;
           }
+          anchorDownload(blob, name);
+          flash("\u0E16\u0E49\u0E32\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E21\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 \u0E43\u0E2B\u0E49\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49 claude.ai \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u201C\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u201D \u0E15\u0E2D\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E02\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E1F\u0E25\u0E4C", false);
+          logEvent("word", camp, dk);
+          setBusy(false);
+          return;
         }
         anchorDownload(blob, name);
         flash(`\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 "${label}" (.docx) \u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08`);
@@ -31908,14 +32011,17 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
             try {
               await downloads.save({ filename: name, data: blob });
               done++;
+              logEvent("word", camp, dk);
             } catch (e) {
               if (e?.code === "declined") continue;
               anchorDownload(blob, name);
               done++;
+              logEvent("word", camp, dk);
             }
           } else {
             anchorDownload(blob, name);
             done++;
+            logEvent("word", camp, dk);
             await new Promise((r) => setTimeout(r, 400));
           }
         }
@@ -32024,16 +32130,19 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         if (downloads) {
           try {
             await downloads.save({ filename: name, data: blob });
+            logEvent("pdf", camp, "program");
             flash("\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF \u0E40\u0E23\u0E35\u0E22\u0E1A\u0E23\u0E49\u0E2D\u0E22");
           } catch (e) {
             if (e?.code === "declined") flash("\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E01\u0E32\u0E23\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF", false);
             else {
               anchorDownload(blob, name);
+              logEvent("pdf", camp, "program");
               flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27");
             }
           }
         } else {
           anchorDownload(blob, name);
+          logEvent("pdf", camp, "program");
           flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27");
         }
       } catch (e) {
@@ -32048,7 +32157,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       { id: "activities", label: "3. \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", icon: Layers },
       { id: "schedule", label: `4. \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23 (${camp.days} \u0E27\u0E31\u0E19)`, icon: Calendar },
       { id: "price", label: "5. \u0E23\u0E32\u0E04\u0E32 & \u0E07\u0E1A", icon: Calculator },
-      { id: "images", label: `6. \u0E20\u0E32\u0E1E (${camp.actImgs.length}+${camp.venueImgs.length})`, icon: Image }
+      { id: "images", label: `6. \u0E20\u0E32\u0E1E (${camp.actImgs.length}+${camp.venueImgs.length})`, icon: Image },
+      { id: "stats", label: "\u0E2A\u0E16\u0E34\u0E15\u0E34 / \u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34", icon: BarChart3 }
     ];
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "min-h-screen bg-paper text-brand-ink pb-20", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("header", { className: "sticky top-0 z-30 brandbar text-white shadow-lift", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3", children: [
@@ -32528,7 +32638,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     !camp[group].length && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "col-span-2 text-[11px] text-slate-400 py-3 text-center", children: '\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E \u2014 \u0E01\u0E14 "\u0E40\u0E15\u0E34\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E15\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 \u0E2B\u0E23\u0E37\u0E2D "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07"' })
                   ] })
                 ] }, group))
-              ] })
+              ] }),
+              tab === "stats" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(StatsPanel, { useCap, saveText })
             ] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "lg:col-span-7 space-y-4", children: [
@@ -32651,6 +32762,192 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `rounded-xl py-2 ${c}`, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] font-semibold opacity-70", children: label }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-sm font-extrabold", children: value })
+    ] });
+  }
+  var DK_LABEL = { program: "\u0E42\u0E1B\u0E23\u0E41\u0E01\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22", quotation: "\u0E43\u0E1A\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32", booking: "\u0E02\u0E2D\u0E23\u0E32\u0E04\u0E32\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21", runsheet: "Run-down" };
+  function StatsPanel({ useCap, saveText }) {
+    const [state2, setState] = (0, import_react3.useState)("loading");
+    const [events2, setEvents] = (0, import_react3.useState)([]);
+    const [tick, setTick] = (0, import_react3.useState)(0);
+    (0, import_react3.useEffect)(() => {
+      let unsub = null, alive = true;
+      const timer = setTimeout(() => {
+        if (alive && state2 === "loading") setState("nodb");
+      }, 1e4);
+      (async () => {
+        const db = await useCap("db");
+        if (!alive) return;
+        if (!db) {
+          setState("nodb");
+          return;
+        }
+        try {
+          unsub = db.collection("events").orderBy("ts", "desc").limit(1e3).onSnapshot(
+            (snap) => {
+              if (!alive) return;
+              setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() || {} })));
+              setState("ok");
+              clearTimeout(timer);
+            },
+            () => {
+              if (alive) setState("nodb");
+            }
+          );
+        } catch {
+          setState("nodb");
+        }
+      })();
+      return () => {
+        alive = false;
+        clearTimeout(timer);
+        if (unsub) unsub();
+      };
+    }, [tick]);
+    const agg = (0, import_react3.useMemo)(() => {
+      const byType = {}, byMonth = {}, byUser = {}, byCourse = {};
+      let pdf = 0;
+      for (const e of events2) {
+        const dk = e.docKind || (e.action === "pdf" ? "program" : "other");
+        byType[dk] = (byType[dk] || 0) + 1;
+        if (e.action === "pdf") pdf++;
+        const m = (e.ts || "").slice(0, 7);
+        if (m) byMonth[m] = (byMonth[m] || 0) + 1;
+        const who = e.byName || e.by || "\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38";
+        byUser[who] = (byUser[who] || 0) + 1;
+        const co = e.courseCode || e.subject || "\u2014";
+        byCourse[co] = (byCourse[co] || 0) + 1;
+      }
+      const months = Object.keys(byMonth).sort();
+      return { total: events2.length, pdf, byType, byMonth, months, byUser, byCourse };
+    }, [events2]);
+    const exportCsv = () => {
+      const cols = ["ts", "action", "docKind", "docCode", "school", "courseCode", "subject", "durationMode", "days", "nights", "students", "teachers", "normalPrice", "specialPrice", "province", "region", "byName", "by"];
+      const esc = (v) => {
+        const s = String(v ?? "");
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      const rows = [cols.join(","), ...events2.map((e) => cols.map((c) => esc(e[c])).join(","))];
+      saveText(`EQ_Camp_log_${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.csv`, rows.join("\n"), "text/csv");
+    };
+    if (state2 === "loading") return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "py-10 text-center text-xs text-slate-400 flex items-center justify-center gap-2", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: "w-4 h-4 animate-spin" }),
+      "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u2026"
+    ] });
+    if (state2 === "nodb") return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-3", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "\u0E2A\u0E16\u0E34\u0E15\u0E34 / \u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed", children: [
+        "\u0E23\u0E30\u0E1A\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2A\u0E16\u0E34\u0E15\u0E34\u0E17\u0E33\u0E07\u0E32\u0E19\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E40\u0E1B\u0E34\u0E14\u0E25\u0E34\u0E07\u0E01\u0E4C\u0E19\u0E35\u0E49\u0E1A\u0E19 ",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: "claude.ai" }),
+        " \u0E41\u0E25\u0E30 ",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { children: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49\u0E14\u0E49\u0E27\u0E22\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E17\u0E35\u0E21" }),
+        " \u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19",
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("br", {}),
+        "\u0E16\u0E49\u0E32\u0E40\u0E1B\u0E34\u0E14\u0E08\u0E32\u0E01\u0E44\u0E1F\u0E25\u0E4C\u0E43\u0E19\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07 (\u0E14\u0E31\u0E1A\u0E40\u0E1A\u0E34\u0E25\u0E04\u0E25\u0E34\u0E01) \u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49 \u0E08\u0E30\u0E22\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E14\u0E49\u0E15\u0E32\u0E21\u0E1B\u0E01\u0E15\u0E34 \u0E41\u0E15\u0E48\u0E08\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => {
+        setState("loading");
+        setTick((t) => t + 1);
+      }, className: "px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-display font-medium flex items-center gap-1 tap", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: "w-3.5 h-3.5" }),
+        "\u0E25\u0E2D\u0E07\u0E43\u0E2B\u0E21\u0E48"
+      ] })
+    ] });
+    const maxM = Math.max(1, ...agg.months.map((m) => agg.byMonth[m]));
+    const topCourse = Object.entries(agg.byCourse).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const users = Object.entries(agg.byUser).sort((a, b) => b[1] - a[1]);
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-4", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-start justify-between gap-2", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "\u0E2A\u0E16\u0E34\u0E15\u0E34 / \u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E01\u0E32\u0E23\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C", sub: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E17\u0E35\u0E21\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C (\u0E40\u0E01\u0E47\u0E1A\u0E1A\u0E19\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E17\u0E35\u0E21 \u0E15\u0E23\u0E27\u0E08\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07\u0E44\u0E14\u0E49)" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-1.5 shrink-0", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+            setState("loading");
+            setTick((t) => t + 1);
+          }, title: "\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A", className: "px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[11px] font-display font-medium flex items-center gap-1 tap", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(RefreshCw, { className: "w-3.5 h-3.5" }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: exportCsv, disabled: !events2.length, className: "px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[11px] font-display font-medium flex items-center gap-1 tap", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-3.5 h-3.5" }),
+            "CSV"
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-3 gap-2 text-center", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-2.5 bg-brand text-white", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] opacity-80", children: "\u0E44\u0E1F\u0E25\u0E4C\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xl font-display font-semibold", children: agg.total })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-2.5 bg-brand-mist text-brand-ink", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] opacity-70", children: "\u0E40\u0E1B\u0E47\u0E19 PDF" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xl font-display font-semibold", children: agg.pdf })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl py-2.5 bg-accent-soft text-accent-deep", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[10px] opacity-80", children: "\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xl font-display font-semibold", children: users.length })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-2", children: ["program", "quotation", "booking", "runsheet"].map((dk) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "rounded-xl border border-brand-mist px-3 py-2 flex items-center justify-between", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[11px] text-slate-600", children: DK_LABEL[dk] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-sm font-display font-semibold text-brand", children: agg.byType[dk] || 0 })
+      ] }, dk)) }),
+      agg.months.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5", children: "\u0E44\u0E1F\u0E25\u0E4C\u0E15\u0E48\u0E2D\u0E40\u0E14\u0E37\u0E2D\u0E19" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex items-end gap-1.5 h-24 border-b border-brand-mist pb-0", children: agg.months.slice(-12).map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex-1 flex flex-col items-center justify-end gap-1", title: `${m}: ${agg.byMonth[m]}`, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[9px] text-brand font-semibold", children: agg.byMonth[m] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "w-full rounded-t bg-brand/80", style: { height: `${Math.round(agg.byMonth[m] / maxM * 76)}px` } }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[8px] text-slate-400 whitespace-nowrap", children: m.slice(2) })
+        ] }, m)) })
+      ] }),
+      topCourse.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5", children: "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23/\u0E27\u0E34\u0E0A\u0E32 \u0E17\u0E35\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1A\u0E48\u0E2D\u0E22" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "space-y-1", children: topCourse.map(([co, n]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] w-20 shrink-0 text-slate-600 truncate", title: co, children: co }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex-1 h-3 rounded bg-brand-mist overflow-hidden", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "h-full bg-brand/70", style: { width: `${Math.round(n / topCourse[0][1] * 100)}%` } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] w-6 text-right font-semibold text-brand", children: n })
+        ] }, co)) })
+      ] }),
+      users.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Users, { className: "w-3.5 h-3.5" }),
+          "\u0E41\u0E22\u0E01\u0E15\u0E32\u0E21\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex flex-wrap gap-1.5", children: users.map(([u, n]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "px-2 py-1 rounded-lg bg-slate-50 border border-brand-mist text-[10px]", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand-ink", children: u }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-500", children: [
+            "\xB7 ",
+            n
+          ] })
+        ] }, u)) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(History, { className: "w-3.5 h-3.5" }),
+          "\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "border border-brand-mist rounded-xl overflow-hidden max-h-72 overflow-y-auto", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "w-full text-[10px]", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { className: "bg-brand-mist/60 text-slate-600 sticky top-0", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E40\u0E27\u0E25\u0E32" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-left px-2 py-1.5 font-display font-medium", children: "\u0E23\u0E2B\u0E31\u0E2A/\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "text-right px-2 py-1.5 font-display font-medium", children: "\u0E23\u0E32\u0E04\u0E32" })
+          ] }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
+            events2.slice(0, 80).map((e) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { className: "border-t border-brand-mist/70", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-slate-500 whitespace-nowrap", children: (e.ts || "").slice(0, 16).replace("T", " ") }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-slate-700 truncate max-w-[90px]", title: e.byName || e.by, children: e.byName || e.by || "\u2014" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "px-2 py-1", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-brand", children: DK_LABEL[e.docKind] || e.docKind || "\u2014" }),
+                e.action === "pdf" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "ml-1 text-accent-deep font-semibold", children: "PDF" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "px-2 py-1 text-slate-600 truncate max-w-[150px]", title: `${e.docCode} \xB7 ${e.school}`, children: [
+                e.docCode,
+                e.school ? ` \xB7 ${e.school}` : ""
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { className: "px-2 py-1 text-right text-slate-600 whitespace-nowrap", children: e.specialPrice ? money(e.specialPrice) : "\u2014" })
+            ] }, e.id)),
+            !events2.length && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tr", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { colSpan: 5, className: "px-2 py-6 text-center text-slate-400", children: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1B\u0E23\u0E30\u0E27\u0E31\u0E15\u0E34 \u2014 \u0E40\u0E21\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E21\u0E40\u0E23\u0E34\u0E48\u0E21\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E30\u0E21\u0E32\u0E41\u0E2A\u0E14\u0E07\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48" }) })
+          ] })
+        ] }) })
+      ] })
     ] });
   }
   function Preview({ kind, camp, plan, k, total, cost, profit, margin }) {
@@ -32975,6 +33272,14 @@ lucide-react/dist/esm/createLucideIcon.js:
    * See the LICENSE file in the root directory of this source tree.
    *)
 
+lucide-react/dist/esm/icons/bar-chart-3.js:
+  (**
+   * @license lucide-react v0.400.0 - ISC
+   *
+   * This source code is licensed under the ISC license.
+   * See the LICENSE file in the root directory of this source tree.
+   *)
+
 lucide-react/dist/esm/icons/book-open.js:
   (**
    * @license lucide-react v0.400.0 - ISC
@@ -33039,6 +33344,14 @@ lucide-react/dist/esm/icons/file-text.js:
    * See the LICENSE file in the root directory of this source tree.
    *)
 
+lucide-react/dist/esm/icons/history.js:
+  (**
+   * @license lucide-react v0.400.0 - ISC
+   *
+   * This source code is licensed under the ISC license.
+   * See the LICENSE file in the root directory of this source tree.
+   *)
+
 lucide-react/dist/esm/icons/image.js:
   (**
    * @license lucide-react v0.400.0 - ISC
@@ -33071,6 +33384,14 @@ lucide-react/dist/esm/icons/plus.js:
    * See the LICENSE file in the root directory of this source tree.
    *)
 
+lucide-react/dist/esm/icons/refresh-cw.js:
+  (**
+   * @license lucide-react v0.400.0 - ISC
+   *
+   * This source code is licensed under the ISC license.
+   * See the LICENSE file in the root directory of this source tree.
+   *)
+
 lucide-react/dist/esm/icons/sparkles.js:
   (**
    * @license lucide-react v0.400.0 - ISC
@@ -33088,6 +33409,14 @@ lucide-react/dist/esm/icons/trash-2.js:
    *)
 
 lucide-react/dist/esm/icons/triangle-alert.js:
+  (**
+   * @license lucide-react v0.400.0 - ISC
+   *
+   * This source code is licensed under the ISC license.
+   * See the LICENSE file in the root directory of this source tree.
+   *)
+
+lucide-react/dist/esm/icons/users.js:
   (**
    * @license lucide-react v0.400.0 - ISC
    *

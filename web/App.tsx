@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
-  CheckCircle2, AlertTriangle, Lock, BookOpen, Layers, ChevronRight, Wand2, Eye
+  CheckCircle2, AlertTriangle, Lock, BookOpen, Layers, ChevronRight, Wand2, Eye,
+  BarChart3, History, RefreshCw, Users
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
@@ -42,7 +43,7 @@ export default function App() {
   const [camp, setCamp] = useState<Camp>(() => initial?.camp ?? fromPreset('pl0109'));
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
-  const [tab, setTab] = useState<'brief' | 'db' | 'header' | 'activities' | 'schedule' | 'price' | 'images'>('brief');
+  const [tab, setTab] = useState<'brief' | 'db' | 'header' | 'activities' | 'schedule' | 'price' | 'images' | 'stats'>('brief');
   const [brief, setBrief] = useState(initial?.brief ?? 'PL 0109/2569 โรงเรียนอำนาจเจริญ ม.1-2 จำนวน 72 คน ครู 6 คน ค่ายคณิตศาสตร์ Math Camp 3 วัน 2 คืน วันที่ 18 – 20 พฤศจิกายน 2569 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท ราคาปกติ 4,590 ลดเหลือเพียง 3,290 บ./ท่าน');
   const [banner, setBanner] = useState<{ t: string; ok: boolean } | null>(null);
   const [dbSel, setDbSel] = useState<string>(() => (initial?.camp?.courseCode) || COURSES[0].code);
@@ -53,6 +54,42 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
+
+  // ---- บันทึกสถิติการสร้างไฟล์ (db capability) — เก็บทุกครั้งที่เซฟไฟล์สำเร็จ เพื่อตรวจย้อนหลัง/ดูสถิติ ----
+  const useCap = async (name: string): Promise<any> => {
+    const cl = (window as any).claude;
+    return cl && typeof cl.use === 'function' ? await cl.use(name).catch(() => null) : null;
+  };
+  // อ่านตัวตนผู้ใช้ (เก็บ id + ชื่อ snapshot สำหรับ audit) — ไม่พังถ้าไม่มี user capability
+  const whoRef = useRef<{ by: string; byName: string } | null>(null);
+  const whoami = async () => {
+    if (whoRef.current) return whoRef.current;
+    let by = '', byName = '';
+    try { const u = await useCap('user'); if (u) { const me = await u.me?.(); by = (me?.id) || (await u.id?.()) || ''; byName = (me?.name) || ''; } } catch {}
+    whoRef.current = { by, byName }; return whoRef.current;
+  };
+  const logEvent = async (action: string, c: Camp, dk?: DocKind) => {
+    try {
+      const db = await useCap('db'); if (!db) return;          // เงียบ ๆ ถ้าเปิดนอก claude.ai / ไม่ได้ลงชื่อเข้าใช้
+      const who = await whoami();
+      await db.collection('events').add({
+        ts: new Date().toISOString(), action, docKind: dk || '',
+        docCode: c.docCode || '', school: c.school || '', courseCode: c.courseCode || '', subject: c.subject || '',
+        durationMode: c.durationMode || '', days: c.days || 0, nights: c.nights || 0,
+        students: c.students || 0, teachers: c.teachers || 0,
+        normalPrice: c.normalPrice || 0, specialPrice: c.specialPrice || 0,
+        province: c.province || '', region: (c.region || '') as string,
+        by: who.by, byName: who.byName
+      });
+    } catch {/* อย่าให้การบันทึกสถิติทำให้ดาวน์โหลดพัง */}
+  };
+  // ส่งออกไฟล์ข้อความ (CSV) ผ่านช่องทางเดียวกับ Word/PDF
+  const saveText = async (filename: string, text: string, mime: string) => {
+    const blob = new Blob(['﻿' + text], { type: mime });
+    const downloads = await useCap('downloads');
+    if (downloads) { try { await downloads.save({ filename, data: blob }); return; } catch (e: any) { if (e?.code === 'declined') return; } }
+    anchorDownload(blob, filename);
+  };
 
   const plan = useMemo(() => buildSchedule(camp), [camp]);
   const k = useMemo(() => compose(camp, plan), [camp, plan]);
@@ -240,13 +277,17 @@ export default function App() {
       if (cl && typeof cl.use === 'function') {
         const downloads = await cl.use('downloads').catch(() => null);
         if (downloads) {
-          try { await downloads.save({ filename: name, data: blob }); flash(`บันทึก "${label}" (.docx) เรียบร้อย`); }
+          try { await downloads.save({ filename: name, data: blob }); logEvent('word', camp, dk); flash(`บันทึก "${label}" (.docx) เรียบร้อย`); }
           catch (e: any) {
             if (e && e.code === 'declined') flash('ยกเลิกการบันทึกไฟล์', false);
-            else { anchorDownload(blob, name); flash(`ดาวน์โหลด "${label}" (.docx) แล้ว`); }
+            else { anchorDownload(blob, name); logEvent('word', camp, dk); flash(`ดาวน์โหลด "${label}" (.docx) แล้ว`); }
           }
           setBusy(false); return;
         }
+        // อยู่บน claude.ai แต่ยังไม่ได้สิทธิ์บันทึก → แจ้งให้ชัด (กันทีมงงว่าเซฟไม่ได้)
+        anchorDownload(blob, name);
+        flash('ถ้าไฟล์ไม่เริ่มดาวน์โหลด ให้ลงชื่อเข้าใช้ claude.ai แล้วกด “อนุญาต” ตอนระบบขอบันทึกไฟล์', false);
+        logEvent('word', camp, dk); setBusy(false); return;
       }
       // เปิดจากไฟล์ standalone / เบราว์เซอร์ปกติ
       anchorDownload(blob, name);
@@ -266,9 +307,9 @@ export default function App() {
         const blob = await toBlob(buildDoc(dk, camp, sched, k2));
         const name = fileName(dk, camp);
         if (downloads) {
-          try { await downloads.save({ filename: name, data: blob }); done++; }
-          catch (e: any) { if (e?.code === 'declined') continue; anchorDownload(blob, name); done++; }
-        } else { anchorDownload(blob, name); done++; await new Promise(r => setTimeout(r, 400)); }
+          try { await downloads.save({ filename: name, data: blob }); done++; logEvent('word', camp, dk); }
+          catch (e: any) { if (e?.code === 'declined') continue; anchorDownload(blob, name); done++; logEvent('word', camp, dk); }
+        } else { anchorDownload(blob, name); done++; logEvent('word', camp, dk); await new Promise(r => setTimeout(r, 400)); }
       }
       flash(`สร้างครบชุด ${done}/4 ไฟล์แล้ว (โปรแกรม · ใบเสนอราคา · ขอราคาโรงแรม · Run-down ภายใน)`);
     } catch (e) { flash('สร้างชุดไฟล์ผิดพลาด: ' + (e as Error).message, false); }
@@ -370,9 +411,9 @@ export default function App() {
       const cl = (window as any).claude;
       const downloads = cl && typeof cl.use === 'function' ? await cl.use('downloads').catch(() => null) : null;
       if (downloads) {
-        try { await downloads.save({ filename: name, data: blob }); flash('บันทึก PDF เรียบร้อย'); }
-        catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); flash('ดาวน์โหลด PDF แล้ว'); } }
-      } else { anchorDownload(blob, name); flash('ดาวน์โหลด PDF แล้ว'); }
+        try { await downloads.save({ filename: name, data: blob }); logEvent('pdf', camp, 'program'); flash('บันทึก PDF เรียบร้อย'); }
+        catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว'); } }
+      } else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว'); }
     } catch (e) { flash('สร้าง PDF ไม่สำเร็จ: ' + (e as Error).message, false); }
     setBusy(false);
   };
@@ -384,7 +425,8 @@ export default function App() {
     { id: 'activities', label: '3. กิจกรรม', icon: Layers },
     { id: 'schedule', label: `4. กำหนดการ (${camp.days} วัน)`, icon: Calendar },
     { id: 'price', label: '5. ราคา & งบ', icon: Calculator },
-    { id: 'images', label: `6. ภาพ (${camp.actImgs.length}+${camp.venueImgs.length})`, icon: ImageIcon }
+    { id: 'images', label: `6. ภาพ (${camp.actImgs.length}+${camp.venueImgs.length})`, icon: ImageIcon },
+    { id: 'stats', label: 'สถิติ / ประวัติ', icon: BarChart3 }
   ] as const;
 
   return (
@@ -766,6 +808,8 @@ export default function App() {
                   ))}
                 </div>
               )}
+
+              {tab === 'stats' && <StatsPanel useCap={useCap} saveText={saveText} />}
             </div>
           </div>
 
@@ -865,6 +909,155 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
 function Stat({ label, value, tone }: { label: string; value: string; tone: 'sky' | 'slate' | 'emerald' | 'amber' | 'rose' }) {
   const c = { sky: 'bg-sky-50 text-sky-800', slate: 'bg-slate-50 text-slate-700', emerald: 'bg-emerald-50 text-emerald-800', amber: 'bg-amber-50 text-amber-800', rose: 'bg-rose-50 text-rose-800' }[tone];
   return <div className={`rounded-xl py-2 ${c}`}><div className="text-[10px] font-semibold opacity-70">{label}</div><div className="text-sm font-extrabold">{value}</div></div>;
+}
+
+// ===== สถิติ/ประวัติการสร้างไฟล์ (อ่านจาก db capability) =====
+type Ev = Record<string, any> & { id: string };
+const DK_LABEL: Record<string, string> = { program: 'โปรแกรมค่าย', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Run-down' };
+function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>; saveText: (f: string, t: string, m: string) => void }) {
+  const [state, setState] = useState<'loading' | 'ok' | 'nodb'>('loading');
+  const [events, setEvents] = useState<Ev[]>([]);
+  const [tick, setTick] = useState(0); // บังคับ resubscribe เมื่อกดรีเฟรช
+  useEffect(() => {
+    let unsub: (() => void) | null = null, alive = true;
+    const timer = setTimeout(() => { if (alive && state === 'loading') setState('nodb'); }, 10000);
+    (async () => {
+      const db = await useCap('db');
+      if (!alive) return;
+      if (!db) { setState('nodb'); return; }
+      try {
+        unsub = db.collection('events').orderBy('ts', 'desc').limit(1000).onSnapshot(
+          (snap: any) => { if (!alive) return; setEvents(snap.docs.map((d: any) => ({ id: d.id, ...(d.data() || {}) }))); setState('ok'); clearTimeout(timer); },
+          () => { if (alive) setState('nodb'); }
+        );
+      } catch { setState('nodb'); }
+    })();
+    return () => { alive = false; clearTimeout(timer); if (unsub) unsub(); };
+  }, [tick]);
+
+  const agg = useMemo(() => {
+    const byType: Record<string, number> = {}, byMonth: Record<string, number> = {}, byUser: Record<string, number> = {}, byCourse: Record<string, number> = {};
+    let pdf = 0;
+    for (const e of events) {
+      const dk = e.docKind || (e.action === 'pdf' ? 'program' : 'other');
+      byType[dk] = (byType[dk] || 0) + 1;
+      if (e.action === 'pdf') pdf++;
+      const m = (e.ts || '').slice(0, 7); if (m) byMonth[m] = (byMonth[m] || 0) + 1;
+      const who = e.byName || e.by || 'ไม่ระบุ'; byUser[who] = (byUser[who] || 0) + 1;
+      const co = e.courseCode || e.subject || '—'; byCourse[co] = (byCourse[co] || 0) + 1;
+    }
+    const months = Object.keys(byMonth).sort();
+    return { total: events.length, pdf, byType, byMonth, months, byUser, byCourse };
+  }, [events]);
+
+  const exportCsv = () => {
+    const cols = ['ts', 'action', 'docKind', 'docCode', 'school', 'courseCode', 'subject', 'durationMode', 'days', 'nights', 'students', 'teachers', 'normalPrice', 'specialPrice', 'province', 'region', 'byName', 'by'];
+    const esc = (v: any) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const rows = [cols.join(','), ...events.map(e => cols.map(c => esc(e[c])).join(','))];
+    saveText(`EQ_Camp_log_${new Date().toISOString().slice(0, 10)}.csv`, rows.join('\n'), 'text/csv');
+  };
+
+  if (state === 'loading') return <div className="py-10 text-center text-xs text-slate-400 flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />กำลังโหลดประวัติการสร้างไฟล์…</div>;
+  if (state === 'nodb') return (
+    <div className="space-y-3">
+      <SectionTitle title="สถิติ / ประวัติการสร้างไฟล์" />
+      <div className="text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
+        ระบบบันทึกสถิติทำงานเมื่อเปิดลิงก์นี้บน <b>claude.ai</b> และ <b>ลงชื่อเข้าใช้ด้วยบัญชีทีม</b> เท่านั้น<br />
+        ถ้าเปิดจากไฟล์ในเครื่อง (ดับเบิลคลิก) หรือยังไม่ได้ลงชื่อเข้าใช้ จะยังสร้างไฟล์ได้ตามปกติ แต่จะไม่บันทึกประวัติ
+      </div>
+      <button onClick={() => { setState('loading'); setTick(t => t + 1); }} className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-display font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" />ลองใหม่</button>
+    </div>
+  );
+  const maxM = Math.max(1, ...agg.months.map(m => agg.byMonth[m]));
+  const topCourse = Object.entries(agg.byCourse).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const users = Object.entries(agg.byUser).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-2">
+        <SectionTitle title="สถิติ / ประวัติการสร้างไฟล์" sub="บันทึกอัตโนมัติทุกครั้งที่ทีมสร้างไฟล์ (เก็บบนบัญชีทีม ตรวจย้อนหลังได้)" />
+        <div className="flex gap-1.5 shrink-0">
+          <button onClick={() => { setState('loading'); setTick(t => t + 1); }} title="รีเฟรช" className="px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[11px] font-display font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" /></button>
+          <button onClick={exportCsv} disabled={!events.length} className="px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[11px] font-display font-medium flex items-center gap-1 tap"><Download className="w-3.5 h-3.5" />CSV</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-xl py-2.5 bg-brand text-white"><div className="text-[10px] opacity-80">ไฟล์ทั้งหมด</div><div className="text-xl font-display font-semibold">{agg.total}</div></div>
+        <div className="rounded-xl py-2.5 bg-brand-mist text-brand-ink"><div className="text-[10px] opacity-70">เป็น PDF</div><div className="text-xl font-display font-semibold">{agg.pdf}</div></div>
+        <div className="rounded-xl py-2.5 bg-accent-soft text-accent-deep"><div className="text-[10px] opacity-80">ผู้ใช้งาน</div><div className="text-xl font-display font-semibold">{users.length}</div></div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {(['program', 'quotation', 'booking', 'runsheet'] as const).map(dk => (
+          <div key={dk} className="rounded-xl border border-brand-mist px-3 py-2 flex items-center justify-between">
+            <span className="text-[11px] text-slate-600">{DK_LABEL[dk]}</span><span className="text-sm font-display font-semibold text-brand">{agg.byType[dk] || 0}</span>
+          </div>
+        ))}
+      </div>
+
+      {agg.months.length > 0 && (
+        <div>
+          <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5">ไฟล์ต่อเดือน</div>
+          <div className="flex items-end gap-1.5 h-24 border-b border-brand-mist pb-0">
+            {agg.months.slice(-12).map(m => (
+              <div key={m} className="flex-1 flex flex-col items-center justify-end gap-1" title={`${m}: ${agg.byMonth[m]}`}>
+                <span className="text-[9px] text-brand font-semibold">{agg.byMonth[m]}</span>
+                <div className="w-full rounded-t bg-brand/80" style={{ height: `${Math.round((agg.byMonth[m] / maxM) * 76)}px` }} />
+                <span className="text-[8px] text-slate-400 whitespace-nowrap">{m.slice(2)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {topCourse.length > 0 && (
+        <div>
+          <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5">หลักสูตร/วิชา ที่สร้างบ่อย</div>
+          <div className="space-y-1">
+            {topCourse.map(([co, n]) => (
+              <div key={co} className="flex items-center gap-2"><span className="text-[10px] w-20 shrink-0 text-slate-600 truncate" title={co}>{co}</span>
+                <div className="flex-1 h-3 rounded bg-brand-mist overflow-hidden"><div className="h-full bg-brand/70" style={{ width: `${Math.round((n / topCourse[0][1]) * 100)}%` }} /></div>
+                <span className="text-[10px] w-6 text-right font-semibold text-brand">{n}</span></div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {users.length > 0 && (
+        <div>
+          <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1"><Users className="w-3.5 h-3.5" />แยกตามผู้ใช้</div>
+          <div className="flex flex-wrap gap-1.5">
+            {users.map(([u, n]) => <span key={u} className="px-2 py-1 rounded-lg bg-slate-50 border border-brand-mist text-[10px]"><b className="text-brand-ink">{u}</b> <span className="text-slate-500">· {n}</span></span>)}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="text-[11px] font-display font-medium text-slate-600 mb-1.5 flex items-center gap-1"><History className="w-3.5 h-3.5" />ประวัติล่าสุด</div>
+        <div className="border border-brand-mist rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+          <table className="w-full text-[10px]">
+            <thead className="bg-brand-mist/60 text-slate-600 sticky top-0"><tr>
+              <th className="text-left px-2 py-1.5 font-display font-medium">เวลา</th><th className="text-left px-2 py-1.5 font-display font-medium">ผู้ใช้</th>
+              <th className="text-left px-2 py-1.5 font-display font-medium">เอกสาร</th><th className="text-left px-2 py-1.5 font-display font-medium">รหัส/โรงเรียน</th>
+              <th className="text-right px-2 py-1.5 font-display font-medium">ราคา</th>
+            </tr></thead>
+            <tbody>
+              {events.slice(0, 80).map(e => (
+                <tr key={e.id} className="border-t border-brand-mist/70">
+                  <td className="px-2 py-1 text-slate-500 whitespace-nowrap">{(e.ts || '').slice(0, 16).replace('T', ' ')}</td>
+                  <td className="px-2 py-1 text-slate-700 truncate max-w-[90px]" title={e.byName || e.by}>{e.byName || e.by || '—'}</td>
+                  <td className="px-2 py-1"><span className="text-brand">{DK_LABEL[e.docKind] || e.docKind || '—'}</span>{e.action === 'pdf' && <span className="ml-1 text-accent-deep font-semibold">PDF</span>}</td>
+                  <td className="px-2 py-1 text-slate-600 truncate max-w-[150px]" title={`${e.docCode} · ${e.school}`}>{e.docCode}{e.school ? ` · ${e.school}` : ''}</td>
+                  <td className="px-2 py-1 text-right text-slate-600 whitespace-nowrap">{e.specialPrice ? money(e.specialPrice) : '—'}</td>
+                </tr>
+              ))}
+              {!events.length && <tr><td colSpan={5} className="px-2 py-6 text-center text-slate-400">ยังไม่มีประวัติ — เมื่อทีมเริ่มสร้างไฟล์ รายการจะมาแสดงที่นี่</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
