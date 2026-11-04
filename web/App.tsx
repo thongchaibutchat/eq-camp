@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -170,7 +170,7 @@ export default function App() {
   // ดึงภาพกิจกรรมจริงของหลักสูตรจากคลังทีม (ฝังลงไฟล์ทันที) — เฉพาะหลักสูตรที่มีภาพแล้ว
   const pullCoursePhotos = () => {
     const photos = coursePhotos(camp.courseCode, 4);
-    if (!photos.length) { flash('หลักสูตรนี้ยังไม่มีภาพจริงในคลังทีม (มีเฉพาะ STEAM/อังกฤษในชุดนี้) — อัปโหลดเองหรือให้ทีมเพิ่มใน Drive', false); return; }
+    if (!photos.length) { flash('หลักสูตรนี้ยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — อัปโหลดเองหรือให้ทีมเพิ่มใน Drive', false); return; }
     set({ actImgs: photos });
     flash(`ดึงภาพจริง ${photos.length} รูปจากคลังทีมมาฝังแล้ว ⚠ สถานะลิขสิทธิ์เผยแพร่ยังรอทีมรับรองก่อนส่งลูกค้า`);
   };
@@ -292,7 +292,7 @@ export default function App() {
 .eqpdf h2{color:#155D90;font-size:16px;margin:10px 0 4px}.eqpdf ol,.eqpdf ul{margin:4px 0;padding-left:22px}.eqpdf li{margin:2px 0}
 .eqpdf table.info{width:100%;border-collapse:collapse;margin:6px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#155D90;font-weight:700;width:120px}
 .eqpdf .day{background:#155D90;color:#fff;font-weight:700;padding:4px 8px;margin-top:8px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{border-bottom:1px solid #cbd5e1;padding:4px 8px;vertical-align:top}.eqpdf table.sched td.t{width:150px;font-weight:700}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{border-bottom:1px solid #cbd5e1;padding:4px 8px;vertical-align:top}.eqpdf table.sched td.t{width:150px}
 .eqpdf .sub{color:#334155;font-size:13px;padding-left:10px}
 .eqpdf .price{text-align:center;background:#F0F9FF;border:1px solid #bae6fd;padding:8px;margin:8px 0;font-weight:700;font-size:16px}
 .eqpdf .price .old{color:#DC2626;text-decoration:line-through}.eqpdf .price .new{color:#15803D;font-size:18px}</style>`;
@@ -305,7 +305,8 @@ export default function App() {
       const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
       const ol = (arr: string[]) => '<ol>' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ol>';
       const has = (s?: string) => !!(s && s.trim() && !s.includes('...'));
-      const brandHdr = `<div class="hdr"><img src="data:image/png;base64,${BRAND.logoB64}"><div><div class="b-name">${esc(BRAND.name)}</div><div class="b-addr">${esc(BRAND.address)}</div></div><div class="b-contact">โทร. ${esc(BRAND.phone)}<br>${esc(BRAND.web)}<br>${esc(BRAND.email)}</div></div>`;
+      const lh = letterheadFor(camp);
+      const brandHdr = `<img src="data:image/png;base64,${lh.b64}" style="width:100%;display:block;margin-bottom:10px">`;
       // หน้า 1 (ปก + วัตถุประสงค์ + กิจกรรม + บูรณาการ)
       const cover = PDF_STYLE + brandHdr +
         `<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>` +
@@ -315,7 +316,7 @@ export default function App() {
         `<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}<h2>บูรณาการการเรียน (integration instruction)</h2>${ol(kk.integ)}`;
       // หน้ากำหนดการ
       const schedRows = plan.days.map(d => `<div class="day">วันที่ ${d.day}</div><table class="sched">` +
-        d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td><b>${esc(r.title)}</b>${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>').join('');
+        d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>').join('');
       const schedPage = PDF_STYLE + brandHdr +
         `<h1>กำหนดการ</h1><div style="text-align:center"><b>${esc(kk.nameTh)}</b> <span class="en">${esc(kk.titleEn)}</span>` +
         (has(camp.school) ? '<br><b>' + esc(camp.school) + '</b>' : '') + (has(camp.dates) ? '<br><b>' + esc(camp.dates) + '</b>' : '') + (has(camp.venue) ? '<br><b>ณ ' + esc(camp.venue) + '</b>' : '') + '</div>' +
@@ -349,8 +350,8 @@ export default function App() {
       const withData = camp.actImgs.filter(a => a.data);
       if (withData.length) photos = withData.slice(0, 6).map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg')).join('');
       else if (hasCoursePhotos(camp.courseCode)) photos = COURSE_PHOTOS[camp.courseCode].slice(0, 6).map((p: any) => imgT(p.b64, 'image/jpeg')).join('');
-      let photoInner = photos ? `<h1>ภาพกิจกรรมค่าย</h1><div style="display:flex;flex-wrap:wrap;justify-content:center">${photos}</div>` : '';
-      if (camp.subject === 'steam') photoInner += `<h1 style="margin-top:14px">ภาพกิจกรรมค่าย STEAM</h1><div style="text-align:center"><img style="width:74%" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`;
+      let photoInner = photos ? `<h1>ภาพกิจกรรมค่าย${esc(courseShortTh(camp))}</h1><div style="display:flex;flex-wrap:wrap;justify-content:center">${photos}</div>` : '';
+      if (isSteamProgram(camp)) photoInner += `<h1 style="margin-top:14px">ภาพกิจกรรมค่าย STEAM</h1><div style="text-align:center"><img style="width:74%" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`;
       if (photoInner) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + photoInner), false);
       const blob: Blob = pdf.output('blob');
       const name = fileName('program', camp).replace(/\.docx$/, '.pdf');
@@ -725,7 +726,7 @@ export default function App() {
                     </button>
                     <button onClick={autoFillImages} className="px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-800 text-white text-[11px] font-bold flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" />เติมช่องภาพตามบรีฟ</button>
                   </div>
-                  <div className="text-[10px] text-slate-500">{hasCoursePhotos(camp.courseCode) ? 'หลักสูตรนี้มีภาพกิจกรรมจริงของทีมในคลัง — กดปุ่มเขียวเพื่อฝังลงไฟล์ทันที' : 'หลักสูตรที่เลือกยังไม่มีภาพจริงในคลังทีม (ชุดนี้มีเฉพาะ STEAM/อังกฤษ) — ใช้ "เติมช่องภาพตามบรีฟ" แล้วอัปโหลดภาพที่มีสิทธิ์เอง'}</div>
+                  <div className="text-[10px] text-slate-500">{hasCoursePhotos(camp.courseCode) ? 'หลักสูตรนี้มีภาพกิจกรรมจริงของทีมในคลัง — กดปุ่มเขียวเพื่อฝังลงไฟล์ทันที' : 'หลักสูตรที่เลือกยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — ใช้ "เติมช่องภาพตามบรีฟ" แล้วอัปโหลดภาพที่มีสิทธิ์เอง'}</div>
                   <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">⚠ ภาพจากคลังทีมยังรอทีมรับรองสิทธิ์เผยแพร่ก่อนส่งลูกค้า · ภาพที่พักให้ใช้สื่อทางการของโรงแรม เพื่อความถูกต้องของลิขสิทธิ์ในเอกสารขาย</div>
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
