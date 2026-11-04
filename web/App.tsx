@@ -324,30 +324,27 @@ export default function App() {
 .eqpdf b{font-weight:700}
 .eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
 .eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
-.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:8px 0 3px;border-bottom:1.5px solid #0C2A41;padding-bottom:2px}
-.eqpdf .li{display:flex;margin:0 0 3px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
+.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:10px 0 4px}
+.eqpdf .li{display:flex;margin:0 0 4px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:3px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
 .eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
-.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 10px}
-.eqpdf .day{font-weight:700;color:#fff;background:#0C2A41;padding:3px 10px;border-radius:3px;margin:0 0 3px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:2px 8px;vertical-align:top;line-height:1.35;border-bottom:1px solid #E5E5EA}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
+.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 12px}
+.eqpdf .day{font-weight:700;color:#0C2A41;font-size:19px;margin:0 0 4px;letter-spacing:.3px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:4px 8px;vertical-align:top;line-height:1.35}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
 .eqpdf .sub{color:#48484a}
-.eqpdf .note{color:#48484a;margin:3px 0}
-.eqpdf .price{text-align:center;border:2px solid #0C2A41;background:#fff;padding:10px;border-radius:5px;margin:2px 0 10px}
+.eqpdf .note{color:#48484a;margin:4px 0}
+.eqpdf .price{text-align:center;border:1.5px solid #0C2A41;background:#fff;padding:11px;border-radius:6px;margin:4px 0 14px}
 .eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;text-decoration:line-through;font-size:18px}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
-.eqpdf table.bud{width:100%;border-collapse:collapse;margin:2px 0}
-.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:4px 8px;text-align:left;font-size:17px}
-.eqpdf table.bud td{border:1px solid #d6dbe0;padding:4px 8px;vertical-align:top}.eqpdf table.bud td.no{width:44px;text-align:center;color:#48484a}
-.eqpdf .sign{display:flex;gap:40px;margin-top:26px;text-align:center}.eqpdf .sign>div{flex:1}
-.eqpdf .sign .ln{border-bottom:1px dotted #1D1D1F;height:30px;margin-bottom:4px}
-.eqpdf .sign .rl{font-weight:700;color:#0C2A41}.eqpdf .sign .dt{color:#48484a;font-size:16px;margin-top:4px}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 10px}
-.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.eqpdf .pcell{width:47.5%}
-.eqpdf .pcell .pf{position:relative;border:1px solid #cbd0d6;border-radius:4px;overflow:hidden}
+.eqpdf table.bud{width:100%;border-collapse:collapse;margin:4px 0}
+.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:17px}
+.eqpdf table.bud td{padding:5px 10px;vertical-align:top;border-bottom:1px solid #ECECEF}.eqpdf table.bud td.no{width:44px;text-align:center;color:#8e8e93}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 12px}
+.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.eqpdf .pcell{width:47%}
+.eqpdf .pcell .pf{position:relative;border-radius:5px;overflow:hidden}
 .eqpdf .pcell img{width:100%;aspect-ratio:var(--a,4/3);object-fit:cover;display:block}
-.eqpdf .pcell .num{position:absolute;top:5px;left:5px;background:rgba(12,42,65,.88);color:#fff;font-size:14px;font-weight:700;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.eqpdf .pcell .cap{text-align:center;font-size:15px;color:#48484a;margin-top:2px;line-height:1.2}</style>`;
+.eqpdf .pcell .num{position:absolute;top:6px;left:6px;background:rgba(12,42,65,.82);color:#fff;font-size:13px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.eqpdf .pcell .cap{text-align:center;font-size:14px;color:#6E6E73;margin-top:4px;line-height:1.2}</style>`;
   const printPDF = async () => {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
     if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
@@ -416,9 +413,7 @@ export default function App() {
         `<div class="sech">ราคาและรายละเอียดงบประมาณ</div>` +
         `<div class="price"><span class="lbl">ราคาปกติ </span><span class="old">${money(camp.normalPrice)} บ./ท่าน</span><span class="lbl">&nbsp;&nbsp; ลดเหลือเพียง </span><span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
         `<table class="bud"><thead><tr><th style="width:44px">ลำดับ</th><th>รายการ</th></tr></thead><tbody>${budRows}</tbody></table>` +
-        `<div class="note">หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม</div>` +
-        `<div class="sign"><div><div class="ln"></div><div class="rl">ผู้จัดทำ / ฝ่ายขาย</div><div class="dt">วันที่ ......./......./.......</div></div>` +
-        `<div><div class="ln"></div><div class="rl">ผู้อนุมัติ</div><div class="dt">วันที่ ......./......./.......</div></div></div>`,
+        `<div class="note">หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม</div>`,
         { newpage: true });
 
       // ---- ภาพประกอบ 6–8 รูป: กริด 2 คอลัมน์ มีกรอบ + หมายเลข + คำบรรยายใต้รูป · แต่ละชุดขึ้นหน้าใหม่ ----

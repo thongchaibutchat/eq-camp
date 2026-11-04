@@ -31287,7 +31287,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var LB = { style: BorderStyle.SINGLE, size: 4, color: "CBD5E1" };
   var cell = (kids, w, o = {}) => {
     const bx = { style: BorderStyle.SINGLE, size: 6, color: "94A3B8" };
-    const nv = { style: BorderStyle.SINGLE, size: 16, color: NAVY };
+    const nv = { style: BorderStyle.SINGLE, size: 8, color: NAVY };
     const bd = o.border === "navy" ? { top: nv, bottom: nv, left: nv, right: nv } : o.border === "box" ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === "line" ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
     return new TableCell({
       children: kids,
@@ -31308,9 +31308,9 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     return tbl([...head, ...d.items.map((r, i) => {
       const k = i < n - 1;
       return new TableRow({ cantSplit: true, children: [
-        cell([P(r.time, { sz: 15.5, after: 0, keep: k })], cols[0], { border: "line" }),
-        cell([P(r.title, { sz: 15.5, after: 0, keep: k }), ...(r.sub || []).map((s) => P(s, { sz: 15, indent: 0.5, after: 0, color: "334155", keep: k }))], cols[1], { border: "line" }),
-        ...extra ? [cell([P("", { after: 0, keep: k })], cols[2], { border: "line" })] : []
+        cell([P(r.time, { sz: 15.5, after: 0, keep: k })], cols[0], { border: "none" }),
+        cell([P(r.title, { sz: 15.5, after: 0, keep: k }), ...(r.sub || []).map((s) => P(s, { sz: 15, indent: 0.5, after: 0, color: "334155", keep: k }))], cols[1], { border: "none" }),
+        ...extra ? [cell([P("", { after: 0, keep: k })], cols[2], { border: "none" })] : []
       ] });
     })], cols);
   };
@@ -31332,25 +31332,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     R2(`${money(c.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { b: true, sz: 22, color: "C4641B" })
   ], { al: CTR, after: 0 })], W, { border: "navy" })] })], [W]);
   var budgetTable = (items) => tbl([
-    new TableRow({ tableHeader: true, children: [cell([P("\u0E25\u0E33\u0E14\u0E31\u0E1A", { b: true, color: "FFFFFF", al: CTR, after: 0 })], 1100, { fill: NAVY, border: "box" }), cell([P("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", { b: true, color: "FFFFFF", after: 0 })], W - 1100, { fill: NAVY, border: "box" })] }),
-    ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: "box" }), cell([P(x, { after: 0 })], W - 1100, { border: "box" })] }))
+    new TableRow({ tableHeader: true, children: [cell([P("\u0E25\u0E33\u0E14\u0E31\u0E1A", { b: true, color: "FFFFFF", al: CTR, after: 0 })], 1100, { fill: NAVY, border: "none" }), cell([P("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", { b: true, color: "FFFFFF", after: 0 })], W - 1100, { fill: NAVY, border: "none" })] }),
+    ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: "line" }), cell([P(x, { after: 0 })], W - 1100, { border: "line" })] }))
   ], [1100, W - 1100]);
-  var signatureBlock = () => {
-    const col = (role) => cell([
-      P("", { after: 0, before: 360 }),
-      P("(..............................................)", { al: CTR, after: 0 }),
-      P(role, { b: true, al: CTR, color: NAVY, after: 0 }),
-      P("\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ......./......./.......", { al: CTR, color: "48484A", sz: 15, after: 0 })
-    ], W / 2, { border: "none" });
-    return tbl([new TableRow({ cantSplit: true, children: [col("\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E17\u0E33 / \u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22"), col("\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34")] })], [W / 2, W / 2]);
-  };
   var priceBudgetSection = (c, k) => [
-    P("\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 6, pb: true, keep: true }),
+    P("\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 8, pb: true, keep: true }),
     priceBanner(c),
-    P("", { after: 4 }),
+    P("", { after: 6 }),
     budgetTable(k.budget),
-    P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", { color: "48484A", before: 4, after: 0 }),
-    signatureBlock()
+    P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", { color: "48484A", before: 6, after: 0 })
   ];
   var imgSize = (d) => {
     if (d[0] === 137 && d[1] === 80) return { w: d[16] << 24 | d[17] << 16 | d[18] << 8 | d[19], h: d[20] << 24 | d[21] << 16 | d[22] << 8 | d[23] };
@@ -31393,7 +31383,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         return cell([
           im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] }) : P("\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E20\u0E32\u0E1E", { al: CTR, color: "94A3B8", before: 70, after: 70, keep: true }),
           new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R2(`${n}  `, { b: true, sz: 13, color: BLUE }), R2(cap, { sz: 13, color: "48484A" })] })
-        ], W / 2, { border: "box" });
+        ], W / 2, { border: "none" });
       }) }));
     }
     return tbl(rows, [W / 2, W / 2]);
@@ -32064,30 +32054,27 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
 .eqpdf b{font-weight:700}
 .eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
 .eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
-.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:8px 0 3px;border-bottom:1.5px solid #0C2A41;padding-bottom:2px}
-.eqpdf .li{display:flex;margin:0 0 3px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:2px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
+.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:10px 0 4px}
+.eqpdf .li{display:flex;margin:0 0 4px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:3px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
 .eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
-.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 10px}
-.eqpdf .day{font-weight:700;color:#fff;background:#0C2A41;padding:3px 10px;border-radius:3px;margin:0 0 3px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:2px 8px;vertical-align:top;line-height:1.35;border-bottom:1px solid #E5E5EA}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
+.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 12px}
+.eqpdf .day{font-weight:700;color:#0C2A41;font-size:19px;margin:0 0 4px;letter-spacing:.3px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:4px 8px;vertical-align:top;line-height:1.35}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
 .eqpdf .sub{color:#48484a}
-.eqpdf .note{color:#48484a;margin:3px 0}
-.eqpdf .price{text-align:center;border:2px solid #0C2A41;background:#fff;padding:10px;border-radius:5px;margin:2px 0 10px}
+.eqpdf .note{color:#48484a;margin:4px 0}
+.eqpdf .price{text-align:center;border:1.5px solid #0C2A41;background:#fff;padding:11px;border-radius:6px;margin:4px 0 14px}
 .eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;text-decoration:line-through;font-size:18px}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
-.eqpdf table.bud{width:100%;border-collapse:collapse;margin:2px 0}
-.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:4px 8px;text-align:left;font-size:17px}
-.eqpdf table.bud td{border:1px solid #d6dbe0;padding:4px 8px;vertical-align:top}.eqpdf table.bud td.no{width:44px;text-align:center;color:#48484a}
-.eqpdf .sign{display:flex;gap:40px;margin-top:26px;text-align:center}.eqpdf .sign>div{flex:1}
-.eqpdf .sign .ln{border-bottom:1px dotted #1D1D1F;height:30px;margin-bottom:4px}
-.eqpdf .sign .rl{font-weight:700;color:#0C2A41}.eqpdf .sign .dt{color:#48484a;font-size:16px;margin-top:4px}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 10px}
-.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.eqpdf .pcell{width:47.5%}
-.eqpdf .pcell .pf{position:relative;border:1px solid #cbd0d6;border-radius:4px;overflow:hidden}
+.eqpdf table.bud{width:100%;border-collapse:collapse;margin:4px 0}
+.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:17px}
+.eqpdf table.bud td{padding:5px 10px;vertical-align:top;border-bottom:1px solid #ECECEF}.eqpdf table.bud td.no{width:44px;text-align:center;color:#8e8e93}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 12px}
+.eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.eqpdf .pcell{width:47%}
+.eqpdf .pcell .pf{position:relative;border-radius:5px;overflow:hidden}
 .eqpdf .pcell img{width:100%;aspect-ratio:var(--a,4/3);object-fit:cover;display:block}
-.eqpdf .pcell .num{position:absolute;top:5px;left:5px;background:rgba(12,42,65,.88);color:#fff;font-size:14px;font-weight:700;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.eqpdf .pcell .cap{text-align:center;font-size:15px;color:#48484a;margin-top:2px;line-height:1.2}</style>`;
+.eqpdf .pcell .num{position:absolute;top:6px;left:6px;background:rgba(12,42,65,.82);color:#fff;font-size:13px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.eqpdf .pcell .cap{text-align:center;font-size:14px;color:#6E6E73;margin-top:4px;line-height:1.2}</style>`;
     const printPDF = async () => {
       const jsNS = window.jspdf;
       const h2c = window.html2canvas;
@@ -32162,7 +32149,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         await place(`<div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div>`);
         const budRows = kk.budget.map((x, i) => `<tr><td class="no">${i + 1}</td><td>${esc(x)}</td></tr>`).join("");
         await place(
-          `<div class="sech">\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div><table class="bud"><thead><tr><th style="width:44px">\u0E25\u0E33\u0E14\u0E31\u0E1A</th><th>\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</th></tr></thead><tbody>${budRows}</tbody></table><div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div><div class="sign"><div><div class="ln"></div><div class="rl">\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E17\u0E33 / \u0E1D\u0E48\u0E32\u0E22\u0E02\u0E32\u0E22</div><div class="dt">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ......./......./.......</div></div><div><div class="ln"></div><div class="rl">\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34</div><div class="dt">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ......./......./.......</div></div></div>`,
+          `<div class="sech">\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div><table class="bud"><thead><tr><th style="width:44px">\u0E25\u0E33\u0E14\u0E31\u0E1A</th><th>\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</th></tr></thead><tbody>${budRows}</tbody></table><div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>`,
           { newpage: true }
         );
         const u8b64 = (u) => {

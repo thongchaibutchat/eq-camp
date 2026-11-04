@@ -713,7 +713,7 @@ const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const LB = { style: BorderStyle.SINGLE, size: 4, color: 'CBD5E1' };
 const cell = (kids: Paragraph[], w: number, o: { fill?: string; border?: 'none' | 'line' | 'box' | 'navy'; span?: number } = {}) => {
   const bx = { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' };
-  const nv = { style: BorderStyle.SINGLE, size: 16, color: NAVY };
+  const nv = { style: BorderStyle.SINGLE, size: 8, color: NAVY };
   const bd = o.border === 'navy' ? { top: nv, bottom: nv, left: nv, right: nv } : o.border === 'box' ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === 'line' ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
   return new TableCell({ children: kids, width: { size: w, type: WidthType.DXA }, borders: bd, columnSpan: o.span, verticalAlign: VerticalAlign.TOP,
     shading: o.fill ? { type: ShadingType.CLEAR, fill: o.fill, color: 'auto' } : undefined, margins: { top: 50, bottom: 50, left: 100, right: 100 } });
@@ -727,9 +727,9 @@ const scheduleTable = (d: Day, extra?: boolean, banner?: string) => {
   const n = d.items.length;
   const head = banner ? [new TableRow({ cantSplit: true, children: [cell([P(banner, { b: true, sz: 17, color: 'FFFFFF', after: 0, keep: true })], W, { fill: BLUE, span: cols.length })] })] : [];
   return tbl([...head, ...d.items.map((r, i) => { const k = i < n - 1; return new TableRow({ cantSplit: true, children: [
-    cell([P(r.time, { sz: 15.5, after: 0, keep: k })], cols[0], { border: 'line' }),
-    cell([P(r.title, { sz: 15.5, after: 0, keep: k }), ...(r.sub || []).map(s => P(s, { sz: 15, indent: 0.5, after: 0, color: '334155', keep: k }))], cols[1], { border: 'line' }),
-    ...(extra ? [cell([P('', { after: 0, keep: k })], cols[2], { border: 'line' })] : [])] }); })], cols);
+    cell([P(r.time, { sz: 15.5, after: 0, keep: k })], cols[0], { border: 'none' }),
+    cell([P(r.title, { sz: 15.5, after: 0, keep: k }), ...(r.sub || []).map(s => P(s, { sz: 15, indent: 0.5, after: 0, color: '334155', keep: k }))], cols[1], { border: 'none' }),
+    ...(extra ? [cell([P('', { after: 0, keep: k })], cols[2], { border: 'none' })] : [])] }); })], cols);
 };
 // หน้ากำหนดการ: 1.กำหนดการ 2.ชื่อหลักสูตร(ไทย/อังกฤษ) 3.โรงเรียน 4.วันที่(ถ้ามี) 5.สถานที่(ถ้ามี)
 const hasVal = (s?: string) => !!(s && s.trim() && !s.includes('...'));
@@ -750,27 +750,16 @@ const priceBanner = (c: Camp) => tbl([new TableRow({ cantSplit: true, children: 
   R('    ลดเหลือเพียง ', { sz: 18, color: '3A3A3C' }),
   R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 22, color: 'C4641B' })
 ], { al: CTR, after: 0 })], W, { border: 'navy' })] })], [W]);
-// ตารางงบประมาณ (เส้นบาง) ลำดับ | รายการ — แทน bullet
+// ตารางงบประมาณ — หัวแถบกรมท่า + เส้นคั่นแถวแนวนอนบาง ๆ เท่านั้น (ไม่มีเส้นตั้ง/กรอบ)
 const budgetTable = (items: string[]) => tbl([
-  new TableRow({ tableHeader: true, children: [cell([P('ลำดับ', { b: true, color: 'FFFFFF', al: CTR, after: 0 })], 1100, { fill: NAVY, border: 'box' }), cell([P('รายการ', { b: true, color: 'FFFFFF', after: 0 })], W - 1100, { fill: NAVY, border: 'box' })] }),
-  ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: 'box' }), cell([P(x, { after: 0 })], W - 1100, { border: 'box' })] }))
+  new TableRow({ tableHeader: true, children: [cell([P('ลำดับ', { b: true, color: 'FFFFFF', al: CTR, after: 0 })], 1100, { fill: NAVY, border: 'none' }), cell([P('รายการ', { b: true, color: 'FFFFFF', after: 0 })], W - 1100, { fill: NAVY, border: 'none' })] }),
+  ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: 'line' }), cell([P(x, { after: 0 })], W - 1100, { border: 'line' })] }))
 ], [1100, W - 1100]);
-// ช่องลงนามท้ายเอกสาร (ผู้จัดทำ / ผู้อนุมัติ)
-const signatureBlock = (): Table => {
-  const col = (role: string) => cell([
-    P('', { after: 0, before: 360 }),
-    P('(..............................................)', { al: CTR, after: 0 }),
-    P(role, { b: true, al: CTR, color: NAVY, after: 0 }),
-    P('วันที่ ......./......./.......', { al: CTR, color: '48484A', sz: 15, after: 0 })
-  ], W / 2, { border: 'none' });
-  return tbl([new TableRow({ cantSplit: true, children: [col('ผู้จัดทำ / ฝ่ายขาย'), col('ผู้อนุมัติ')] })], [W / 2, W / 2]);
-};
-// ส่วนราคา + งบประมาณ + ลงนาม : ขึ้นหน้าใหม่เสมอ (pageBreakBefore ที่หัวข้อ)
+// ส่วนราคา + งบประมาณ : ขึ้นหน้าใหม่เสมอ (pageBreakBefore ที่หัวข้อ) — ไม่มีช่องลงนาม
 const priceBudgetSection = (c: Camp, k: ReturnType<typeof compose>): (Paragraph | Table)[] => [
-  P('ราคาและรายละเอียดงบประมาณ', { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 6, pb: true, keep: true }),
-  priceBanner(c), P('', { after: 4 }), budgetTable(k.budget),
-  P('หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม', { color: '48484A', before: 4, after: 0 }),
-  signatureBlock()
+  P('ราคาและรายละเอียดงบประมาณ', { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 8, pb: true, keep: true }),
+  priceBanner(c), P('', { after: 6 }), budgetTable(k.budget),
+  P('หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม', { color: '48484A', before: 6, after: 0 })
 ];
 // ขนาดจริงของภาพจาก header (PNG/JPEG) — ใช้คงสัดส่วนภาพ ไม่ให้ภาพบีบ/ยืด
 const imgSize = (d: Uint8Array): { w: number; h: number } | null => {
@@ -802,7 +791,7 @@ const photoGrid = (imgs: Img[], fallbackN: number, label = 'ภาพกิจ�
   for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; const n = i + j + 1; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); const cap = im.caption && im.caption.trim() && !im.caption.includes('...') ? im.caption : `${label}ที่ ${n}`; return cell([
     im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] })
       : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 70, after: 70, keep: true }),
-    new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R(`${n}  `, { b: true, sz: 13, color: BLUE }), R(cap, { sz: 13, color: '48484A' })] })], W / 2, { border: 'box' }); }) })); }
+    new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R(`${n}  `, { b: true, sz: 13, color: BLUE }), R(cap, { sz: 13, color: '48484A' })] })], W / 2, { border: 'none' }); }) })); }
   return tbl(rows, [W / 2, W / 2]);
 };
 // ภาพประกอบ STEAM (คอลลาจ) — ใช้ซ้ำได้ทุกเอกสารของค่าย STEAM
