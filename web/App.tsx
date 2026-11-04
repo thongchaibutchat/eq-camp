@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND
+  blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -342,6 +342,16 @@ export default function App() {
       };
       addCanvas(await renderCanvas(cover), true);
       addCanvas(await renderCanvas(schedPage), false);
+      // ภาพประกอบในไฟล์ PDF ด้วย (ภาพจริงที่อัปโหลด / ภาพหลักสูตร + ภาพ STEAM ถ้าเป็นค่าย STEAM)
+      const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
+      const imgT = (b64: string, mime: string) => `<img style="width:48%;margin:1%;border:1px solid #cbd5e1;border-radius:4px" src="data:${mime};base64,${b64}">`;
+      let photos = '';
+      const withData = camp.actImgs.filter(a => a.data);
+      if (withData.length) photos = withData.slice(0, 6).map(a => imgT(u8b64(a.data!), a.data![0] === 0x89 ? 'image/png' : 'image/jpeg')).join('');
+      else if (hasCoursePhotos(camp.courseCode)) photos = COURSE_PHOTOS[camp.courseCode].slice(0, 6).map((p: any) => imgT(p.b64, 'image/jpeg')).join('');
+      let photoInner = photos ? `<h1>ภาพกิจกรรมค่าย</h1><div style="display:flex;flex-wrap:wrap;justify-content:center">${photos}</div>` : '';
+      if (camp.subject === 'steam') photoInner += `<h1 style="margin-top:14px">ภาพกิจกรรมค่าย STEAM</h1><div style="text-align:center"><img style="width:74%" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`;
+      if (photoInner) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + photoInner), false);
       const blob: Blob = pdf.output('blob');
       const name = fileName('program', camp).replace(/\.docx$/, '.pdf');
       const cl = (window as any).claude;

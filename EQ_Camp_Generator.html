@@ -28726,7 +28726,7 @@
   };
   var P = (t, o = {}) => new Paragraph({
     alignment: o.al,
-    spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 312 },
+    spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 300 },
     indent: o.indent !== void 0 ? { left: o.indent * 567, hanging: (o.hang || 0) * 567 } : void 0,
     keepNext: o.keep,
     children: typeof t === "string" ? [R2(t, o)] : t
@@ -28734,9 +28734,10 @@
   var CTR = AlignmentType.CENTER;
   var RGT = AlignmentType.RIGHT;
   var code = (t) => P(t, { b: true, color: BLUE, al: RGT });
-  var title = (th, en, sz = 20) => [P(th, { b: true, sz, color: "0F3D63", al: CTR, after: 0 }), ...en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 8 })] : []];
-  var H = (t) => P(t, { b: true, sz: 17, color: BLUE, before: 8, after: 3, keep: true });
+  var title = (th, en, sz = 20) => [P(th, { b: true, sz, color: "0F3D63", al: CTR, after: 0 }), ...en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 4 })] : []];
+  var H = (t) => P(t, { b: true, sz: 17, color: BLUE, before: 6, after: 2, keep: true });
   var numbered = (a) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
+  var numberedBold = (a) => a.map((x, i) => P([R2(`${i + 1}. `, { b: true }), R2(x, { b: true, color: "0F3D63" })], { indent: 0.9, hang: 0.9, after: 1 }));
   var dashed = (a) => a.map((x) => P(`-	${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
   var NB = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   var LB = { style: BorderStyle.SINGLE, size: 4, color: "CBD5E1" };
@@ -28787,6 +28788,18 @@
       ], W / 2, { border: "box" });
     }) }));
     return tbl(rows, [W / 2, W / 2]);
+  };
+  var steamGalleryPara = () => new Paragraph({ alignment: CTR, spacing: { before: 40 }, children: [new ImageRun({ type: "jpg", data: b64bytes(STEAM_GALLERY.b64), transformation: { width: Math.min(520, CONTENT_W_PX), height: Math.round(Math.min(520, CONTENT_W_PX) * STEAM_GALLERY.h / STEAM_GALLERY.w) } })] });
+  var photoSection = (c, opts = {}) => {
+    const acts = c.actImgs.length ? c.actImgs : coursePhotos(c.courseCode, 2);
+    const out = [new Paragraph({ children: [new PageBreak()] }), ...title("\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22"), photoGrid(acts, 2)];
+    if (opts.venue) {
+      out.push(P("", { after: 6 }), ...title(`\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${c.venue || ""}`.trim()), photoGrid(c.venueImgs, 2));
+    }
+    if (c.subject === "steam") {
+      out.push(new Paragraph({ children: [new PageBreak()] }), ...title("\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM"), steamGalleryPara());
+    }
+    return out;
   };
   var sign = (l, who) => cell([P("", { after: 18 }), P("\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D ....................................................", { al: CTR, after: 0 }), P(`( ${who} )`, { al: CTR, after: 0 }), P(l, { al: CTR, after: 0 })], W / 2);
   var thDate = () => {
@@ -28846,7 +28859,7 @@
         P("", { after: 2 }),
         infoRows([["\u0E08\u0E33\u0E19\u0E27\u0E19", [k.p1, k.p2]], ["\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23", [`${k.staff} \u0E04\u0E19`]], ["\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21", [k.dur]]]),
         H("\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23"),
-        ...numbered(k.acts),
+        ...numberedBold(k.acts),
         H("\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)"),
         ...numbered(k.integ),
         new Paragraph({ children: [new PageBreak()] }),
@@ -28856,18 +28869,7 @@
         P("", { after: 2 }),
         H("\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49"),
         ...dashed(k.budget),
-        new Paragraph({ children: [new PageBreak()] }),
-        ...title("\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
-        photoGrid(c.actImgs, 2),
-        P("", { after: 8 }),
-        ...title(`\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${c.venue}`),
-        photoGrid(c.venueImgs, 2),
-        // ค่าย STEM/STEAM — วางภาพเซ็ตกิจกรรมค่าย STEAM ไว้หน้าสุดท้ายเสมอ (ตามมาตรฐานทีม)
-        ...c.subject === "steam" ? [
-          new Paragraph({ children: [new PageBreak()] }),
-          ...title("\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM"),
-          new Paragraph({ alignment: CTR, spacing: { before: 40 }, children: [new ImageRun({ type: "jpg", data: b64bytes(STEAM_GALLERY.b64), transformation: { width: Math.min(560, CONTENT_W_PX), height: Math.round(Math.min(560, CONTENT_W_PX) * STEAM_GALLERY.h / STEAM_GALLERY.w) } })] })
-        ] : []
+        ...photoSection(c, { venue: true })
       ];
     } else if (kind === "quotation") {
       const cols = [700, 4300, 1100, 1600, 1700];
@@ -28895,7 +28897,8 @@
         H("\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02"),
         ...numbered([`\u0E23\u0E32\u0E04\u0E32\u0E19\u0E35\u0E49\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E20\u0E32\u0E22\u0E43\u0E19 ${c.validDays} \u0E27\u0E31\u0E19 \u0E19\u0E31\u0E1A\u0E08\u0E32\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32`, c.payTerms, "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21 \u0E42\u0E14\u0E22\u0E44\u0E21\u0E48\u0E01\u0E23\u0E30\u0E17\u0E1A\u0E40\u0E19\u0E37\u0E49\u0E2D\u0E2B\u0E32\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49"]),
         P("", { after: 6 }),
-        tbl([new TableRow({ children: [sign("\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32", c.contactName), sign("\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / \u0E15\u0E31\u0E27\u0E41\u0E17\u0E19\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19", `\u0E1C\u0E39\u0E49\u0E2D\u0E33\u0E19\u0E27\u0E22\u0E01\u0E32\u0E23${c.school}`)] })], [W / 2, W / 2])
+        tbl([new TableRow({ children: [sign("\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32", c.contactName), sign("\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / \u0E15\u0E31\u0E27\u0E41\u0E17\u0E19\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19", `\u0E1C\u0E39\u0E49\u0E2D\u0E33\u0E19\u0E27\u0E22\u0E01\u0E32\u0E23${c.school}`)] })], [W / 2, W / 2]),
+        ...photoSection(c)
       ];
     } else if (kind === "booking") {
       const supplier = c.supplierNote || VENUES.find((x) => x.name === c.venue)?.note || "";
@@ -28926,7 +28929,8 @@
         ...plan.days.flatMap((d) => [P(`\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}`, { b: true, after: 0 }), ...d.items.filter((r) => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title)).map((r) => P(`${r.time}  ${r.title}`, { sz: 14, indent: 1, after: 0 }))]),
         P("\u0E08\u0E36\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E21\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E42\u0E1B\u0E23\u0E14\u0E1E\u0E34\u0E08\u0E32\u0E23\u0E13\u0E32\u0E41\u0E25\u0E30\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A \u0E02\u0E2D\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E2A\u0E39\u0E07", { before: 8, indent: 1 }),
         P("", { after: 6 }),
-        tbl([new TableRow({ children: [cell([P("")], W / 2), sign("\u0E1C\u0E39\u0E49\u0E1B\u0E23\u0E30\u0E2A\u0E32\u0E19\u0E07\u0E32\u0E19 EQ Camp", c.contactName)] })], [W / 2, W / 2])
+        tbl([new TableRow({ children: [cell([P("")], W / 2), sign("\u0E1C\u0E39\u0E49\u0E1B\u0E23\u0E30\u0E2A\u0E32\u0E19\u0E07\u0E32\u0E19 EQ Camp", c.contactName)] })], [W / 2, W / 2]),
+        ...photoSection(c, { venue: true })
       ];
     } else {
       body = [
@@ -28939,7 +28943,8 @@
           P(`\u0E0B\u0E31\u0E1E\u0E1E\u0E25\u0E32\u0E22\u0E40\u0E2D\u0E2D\u0E23\u0E4C/\u0E1C\u0E39\u0E49\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D: ${c.supplierNote || (VENUES.find((v) => v.name === c.venue)?.note ?? "-")}`, { sz: 14, after: 0 })
         ], W, { fill: "FFFBEB", border: "box" })] })], [W]),
         P("", { after: 4 }),
-        ...scheduleBlock(c, plan, k, true)
+        ...scheduleBlock(c, plan, k, true),
+        ...photoSection(c)
       ];
     }
     const region = c.region || regionOf(c.province);
@@ -29407,6 +29412,19 @@
         };
         addCanvas(await renderCanvas(cover), true);
         addCanvas(await renderCanvas(schedPage), false);
+        const u8b64 = (u) => {
+          let s = "";
+          for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+          return btoa(s);
+        };
+        const imgT = (b64, mime) => `<img style="width:48%;margin:1%;border:1px solid #cbd5e1;border-radius:4px" src="data:${mime};base64,${b64}">`;
+        let photos = "";
+        const withData = camp.actImgs.filter((a) => a.data);
+        if (withData.length) photos = withData.slice(0, 6).map((a) => imgT(u8b64(a.data), a.data[0] === 137 ? "image/png" : "image/jpeg")).join("");
+        else if (hasCoursePhotos(camp.courseCode)) photos = COURSE_PHOTOS[camp.courseCode].slice(0, 6).map((p) => imgT(p.b64, "image/jpeg")).join("");
+        let photoInner = photos ? `<h1>\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22</h1><div style="display:flex;flex-wrap:wrap;justify-content:center">${photos}</div>` : "";
+        if (camp.subject === "steam") photoInner += `<h1 style="margin-top:14px">\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22 STEAM</h1><div style="text-align:center"><img style="width:74%" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`;
+        if (photoInner) addCanvas(await renderCanvas(PDF_STYLE + brandHdr + photoInner), false);
         const blob = pdf.output("blob");
         const name = fileName("program", camp).replace(/\.docx$/, ".pdf");
         const cl = window.claude;

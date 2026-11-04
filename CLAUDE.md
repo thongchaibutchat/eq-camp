@@ -50,6 +50,8 @@ branch → commit → PR เข้า main; ก่อนเริ่ม `git pul
 - **Day Camp (ไป-กลับ จัดที่โรงเรียน)**: แพทเทิร์นตายตัว 08.30–16.00 (ลงทะเบียน→เปิด→พื้นฐาน STEM 5STEPs+EDP→ว่าง→STEAM Mission EP.1→กลางวัน→EP.2→ว่าง→สรุป+AAR) ไม่มีเดินทาง/พักค้าง — ดู branch `durationMode==='day'` ใน buildSchedule
 - **หน้าแรกเอกสารโปรแกรม**: พอดีหน้าเดียว — กิจกรรมเชิงบูรณาการ ยึด "กิจกรรมของหลักสูตรที่เลือก" เป็นหลัก (เรียง core/night ก่อน) จับคู่ 2/บรรทัด สูงสุด 8 กิจกรรม → ~4 บรรทัด + AAR (คล้ายต้นฉบับ ไม่ตัดจนหมด); บูรณาการการเรียน 5–7 ข้อ
 - **ภาพเซ็ต STEAM หน้าสุดท้าย**: `src/steam-gallery-data.ts` (STEAM_GALLERY) — ค่าย subject='steam' วางคอลลาจหน้าสุดท้ายเสมอ
+- **ภาพประกอบในทุกไฟล์**: helper `photoSection(c,{venue?})` ต่อท้ายทั้ง 4 เอกสาร (program/quotation/booking/runsheet) + ใน PDF — ใช้ actImgs ถ้ามี ไม่งั้น coursePhotos(courseCode) + STEAM gallery ถ้าเป็น steam
+- **จัดวางมืออาชีพ (ส่งราชการ)**: line spacing 300 (กระชับ ไม่ยืด), หัวข้อ H() before6/after2, กิจกรรมเชิงบูรณาการใช้ `numberedBold()` (ตัวเข้มสีน้ำเงินเข้ม ให้เด่น), ฟอนต์ TH SarabunPSK ทั้งเอกสาร
 - คลังกิจกรรม: **seed จาก Google Drive MASTER จริงแล้ว** — `src/eqcamp-data.ts` = 14 หลักสูตร (รหัส PL จริง) + 267 กิจกรรม (รหัส ref-) ทุกรายการสถานะ "รอตรวจ" (draft) ติดธงเตือนในเว็บ
 - เลือกได้ 2 ทาง: (ก) หลักสูตรจริง (courseCode = PL xxx จริง) ดึงกิจกรรมเฉพาะธีม + วัตถุประสงค์จริง 2 ข้อ (ข) วิชา (subject) ใช้ชุดมาตรฐานเดิม
 - subject families: math/steam/english/ai/chinese/leadership
