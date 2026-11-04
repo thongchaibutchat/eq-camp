@@ -1,9 +1,38 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EQ Camp — ระบบสร้างเอกสารกระบวนการขาย</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+if (typeof tailwind !== 'undefined') tailwind.config = {
+  theme: { extend: {
+    colors: {
+      brand: { ink: '#0C2A41', navy: '#0E3A5C', DEFAULT: '#155D90', sky: '#0B82C4', mist: '#E7EEF4' },
+      accent: { DEFAULT: '#E07B2E', deep: '#C4641B', soft: '#FBEAD9' },
+      paper: '#ECF0F4'
+    },
+    fontFamily: {
+      sans: ['Sarabun', 'Noto Sans Thai', 'system-ui', 'sans-serif'],
+      display: ['Kanit', 'Sarabun', 'system-ui', 'sans-serif']
+    },
+    boxShadow: { card: '0 1px 2px rgba(14,58,92,.06), 0 1px 3px rgba(14,58,92,.05)', lift: '0 6px 20px -8px rgba(14,58,92,.35)' }
+  } }
+};
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: light; }
+  body { background: #ECF0F4; font-family: 'Sarabun','Noto Sans Thai',system-ui,sans-serif; }
+  .font-display { font-family: 'Kanit','Sarabun',system-ui,sans-serif; }
+  /* หัวกระดาษทำงาน: ลายเส้นวงโคจรจาง ๆ ให้รู้สึกเป็นแบรนด์ EQ ไม่ใช่แถบดำทั่วไป */
+  .brandbar { background:
+      radial-gradient(120% 140% at 88% -20%, rgba(224,123,46,.22), transparent 55%),
+      linear-gradient(103deg, #0C2A41 0%, #0E3A5C 46%, #155D90 100%); }
+  .step-rail::-webkit-scrollbar, .tabrail::-webkit-scrollbar { height: 6px; }
+  .step-rail::-webkit-scrollbar-thumb, .tabrail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+  @media (prefers-reduced-motion: no-preference) { .tap { transition: transform .12s ease, background-color .15s ease, border-color .15s ease, color .15s ease; } .tap:active { transform: translateY(1px); } }
+</style>
 </head><body><div id="root"></div><script>
 "use strict";
 (() => {
@@ -32021,13 +32050,16 @@
       { id: "price", label: "5. \u0E23\u0E32\u0E04\u0E32 & \u0E07\u0E1A", icon: Calculator },
       { id: "images", label: `6. \u0E20\u0E32\u0E1E (${camp.actImgs.length}+${camp.venueImgs.length})`, icon: Image }
     ];
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "min-h-screen bg-slate-100 text-slate-900 pb-20", style: { fontFamily: "'Sarabun','Noto Sans Thai',system-ui,sans-serif" }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("header", { className: "sticky top-0 z-30 bg-slate-900 text-white shadow-lg", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "min-h-screen bg-paper text-brand-ink pb-20", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("header", { className: "sticky top-0 z-30 brandbar text-white shadow-lift", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "w-10 h-10 rounded-xl bg-sky-500 grid place-items-center font-black", children: "EQ" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "w-11 h-11 rounded-2xl bg-white/10 ring-1 ring-white/25 grid place-items-center font-display font-semibold text-[15px] text-sky-50 tracking-tight", children: "EQ" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", { className: "font-extrabold text-sm sm:text-base leading-tight", children: "EQ CAMP \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E01\u0E23\u0E30\u0E1A\u0E27\u0E19\u0E01\u0E32\u0E23\u0E02\u0E32\u0E22\u0E04\u0E48\u0E32\u0E22\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[11px] text-slate-400", children: "\u0E1A\u0E23\u0E35\u0E1F \u2192 \u0E40\u0E25\u0E37\u0E2D\u0E01/\u0E23\u0E30\u0E1A\u0E38\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14 \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C Word \u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19 (PL xxxx/2569) \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E19\u0E2D\u0E43\u0E19 30 \u0E19\u0E32\u0E17\u0E35" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h1", { className: "font-display font-semibold text-[15px] sm:text-lg leading-tight tracking-tight", children: [
+              "\u0E23\u0E30\u0E1A\u0E1A\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E04\u0E48\u0E32\u0E22\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23 ",
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-sky-200/90 font-normal", children: "EQ Camp" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[11px] text-sky-100/70", children: "\u0E1A\u0E23\u0E35\u0E1F \u2192 \u0E23\u0E30\u0E1A\u0E38\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E17\u0E35\u0E25\u0E30\u0E02\u0E31\u0E49\u0E19 \u2192 \u0E44\u0E14\u0E49\u0E44\u0E1F\u0E25\u0E4C Word/PDF \u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19 (PL xxxx/2569) \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E19\u0E2D\u0E43\u0E19 30 \u0E19\u0E32\u0E17\u0E35" })
           ] })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-2", children: [
@@ -32036,10 +32068,10 @@
             {
               onClick: () => download(kind),
               disabled: busy,
-              className: "px-4 py-2 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
+              className: "tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-xs font-display font-semibold shadow-lift flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-4 h-4" }),
-                busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07..." : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label}`
+                busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u2026" : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label}`
               ]
             }
           ),
@@ -32049,7 +32081,7 @@
               onClick: downloadAll,
               disabled: busy,
               title: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E31\u0E49\u0E07 4 \u0E44\u0E1F\u0E25\u0E4C\u0E14\u0E49\u0E27\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19",
-              className: "px-3 py-2 rounded-xl bg-sky-600 enabled:hover:bg-sky-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
+              className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-display font-medium flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Layers, { className: "w-4 h-4" }),
                 "\u0E04\u0E23\u0E1A\u0E0A\u0E38\u0E14 4 \u0E44\u0E1F\u0E25\u0E4C"
@@ -32061,8 +32093,8 @@
             {
               onClick: printPDF,
               disabled: busy,
-              title: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E42\u0E1B\u0E23\u0E41\u0E01\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22\u0E40\u0E1B\u0E47\u0E19 PDF (\u0E1C\u0E48\u0E32\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E1E\u0E34\u0E21\u0E1E\u0E4C)",
-              className: "px-3 py-2 rounded-xl bg-rose-600 enabled:hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-extrabold shadow flex items-center gap-1.5",
+              title: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E42\u0E1B\u0E23\u0E41\u0E01\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22\u0E40\u0E1B\u0E47\u0E19 PDF",
+              className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-xs font-display font-medium flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FileText, { className: "w-4 h-4" }),
                 "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF"
@@ -32104,15 +32136,15 @@
               "button",
               {
                 onClick: () => setKind(d.id),
-                className: `text-left p-3 rounded-xl border transition ${on ? "bg-sky-700 text-white border-sky-700 shadow" : "bg-slate-50 border-slate-200 hover:border-sky-400"}`,
+                className: `tap text-left p-3 rounded-xl border ${on ? "bg-brand-navy text-white border-brand-navy shadow-lift" : "bg-white border-brand-mist hover:border-brand/60"}`,
                 children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-1.5 mb-1", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon2, { className: "w-4 h-4" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] font-bold opacity-80", children: d.stage }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon2, { className: `w-4 h-4 ${on ? "text-accent" : "text-brand"}` }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "text-[10px] font-display font-medium opacity-80", children: d.stage }),
                     d.internal && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Lock, { className: "w-3 h-3 ml-auto" })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-extrabold leading-tight", children: d.label }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `text-[10px] mt-1 leading-snug ${on ? "text-sky-100" : "text-slate-500"}`, children: d.desc })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-display font-semibold leading-tight", children: d.label }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `text-[10px] mt-1 leading-snug ${on ? "text-sky-100/80" : "text-slate-500"}`, children: d.desc })
                 ]
               },
               d.id
@@ -32121,16 +32153,16 @@
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-1 lg:grid-cols-12 gap-5 items-start", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "lg:col-span-5 space-y-4", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "bg-white rounded-2xl border border-slate-300 p-2 shadow-sm flex gap-1.5 overflow-x-auto", children: TABS.map((t) => {
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "tabrail bg-white rounded-2xl border border-brand-mist p-2 shadow-card flex gap-1.5 overflow-x-auto", children: TABS.map((t) => {
               const Icon2 = t.icon;
               const on = tab === t.id;
               return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
                 "button",
                 {
                   onClick: () => setTab(t.id),
-                  className: `px-3 py-2 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 border ${on ? "bg-sky-700 text-white border-sky-700" : "bg-slate-50 text-slate-700 border-slate-200"}`,
+                  className: `tap px-3 py-2 rounded-xl text-[11px] font-display font-medium whitespace-nowrap flex items-center gap-1 border ${on ? "bg-brand text-white border-brand" : "bg-white text-slate-600 border-brand-mist hover:border-brand/50"}`,
                   children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon2, { className: "w-3.5 h-3.5" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Icon2, { className: `w-3.5 h-3.5 ${on ? "text-sky-50" : "text-brand/70"}` }),
                     t.label
                   ]
                 },
@@ -32141,22 +32173,22 @@
               tab === "brief" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "space-y-4", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SectionTitle, { title: "1. \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E35\u0E1F\u0E2D\u0E2D\u0E19\u0E44\u0E25\u0E19\u0E4C \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E44\u0E1F\u0E25\u0E4C\u0E08\u0E23\u0E34\u0E07", sub: "\u0E27\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E14\u0E36\u0E07 \u0E23\u0E2B\u0E31\u0E2A PL / \u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19 / \u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E19 / \u0E27\u0E34\u0E0A\u0E32 / \u0E27\u0E31\u0E19-\u0E04\u0E37\u0E19 / \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 / \u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48 / \u0E23\u0E32\u0E04\u0E32 \u0E40\u0E02\u0E49\u0E32\u0E41\u0E1A\u0E1A\u0E1F\u0E2D\u0E23\u0E4C\u0E21\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("textarea", { rows: 5, value: brief, onChange: (e) => setBrief(e.target.value), className: "w-full p-3 rounded-xl border border-slate-300 text-xs" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => aiExtract("new"), disabled: busy, className: "w-full py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-sky-600 hover:from-violet-500 hover:to-sky-500 disabled:opacity-50 text-white font-extrabold text-xs shadow flex items-center justify-center gap-1.5", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => aiExtract("new"), disabled: busy, className: "w-full py-2.5 rounded-xl bg-gradient-to-r from-brand-navy to-brand-sky hover:from-brand-ink hover:to-brand disabled:opacity-50 text-white font-display font-semibold text-xs shadow-lift flex items-center justify-center gap-1.5 tap", children: [
                   "\u{1F916} ",
                   busy ? "AI \u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25..." : "\u0E43\u0E2B\u0E49 AI \u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E32\u0E01\u0E1A\u0E23\u0E35\u0E1F (\u0E41\u0E21\u0E48\u0E19\u0E01\u0E31\u0E1A\u0E20\u0E32\u0E29\u0E32\u0E04\u0E19)"
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[10px] text-violet-700 -mt-1", children: "AI \u0E2D\u0E48\u0E32\u0E19\u0E1A\u0E23\u0E35\u0E1F\u0E2D\u0E34\u0E2A\u0E23\u0E30\u0E44\u0E14\u0E49\u0E14\u0E35\u0E01\u0E27\u0E48\u0E32 \u0E40\u0E0A\u0E48\u0E19 \u201C\u0E27\u0E34\u0E17\u0E22\u0E32\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C\u0E17\u0E32\u0E07\u0E17\u0E30\u0E40\u0E25...\u0E40\u0E14\u0E47\u0E01 100 \u0E04\u0E19...\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E01\u0E32\u0E2A\u0E30\u0E23\u0E2D\u0E07 \u0E1E\u0E31\u0E17\u0E22\u0E32...\u0E02\u0E32\u0E22\u0E2B\u0E31\u0E27\u0E25\u0E30 3290\u201D \u2014 \u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E19\u0E25\u0E34\u0E07\u0E01\u0E4C claude.ai (\u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01\u0E08\u0E30\u0E02\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15)" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[10px] text-brand/80 -mt-1", children: "AI \u0E2D\u0E48\u0E32\u0E19\u0E1A\u0E23\u0E35\u0E1F\u0E2D\u0E34\u0E2A\u0E23\u0E30\u0E44\u0E14\u0E49\u0E14\u0E35\u0E01\u0E27\u0E48\u0E32 \u0E40\u0E0A\u0E48\u0E19 \u201C\u0E27\u0E34\u0E17\u0E22\u0E32\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C\u0E17\u0E32\u0E07\u0E17\u0E30\u0E40\u0E25...\u0E40\u0E14\u0E47\u0E01 100 \u0E04\u0E19...\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E01\u0E32\u0E2A\u0E30\u0E23\u0E2D\u0E07 \u0E1E\u0E31\u0E17\u0E22\u0E32...\u0E02\u0E32\u0E22\u0E2B\u0E31\u0E27\u0E25\u0E30 3290\u201D \u2014 \u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E19\u0E25\u0E34\u0E07\u0E01\u0E4C claude.ai (\u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01\u0E08\u0E30\u0E02\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15)" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-2", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => applyBrief("new"), className: "py-2.5 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs shadow flex items-center justify-center gap-1.5", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => applyBrief("new"), className: "py-2.5 rounded-xl bg-brand hover:bg-brand-navy text-white font-bold text-xs shadow flex items-center justify-center gap-1.5", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sparkles, { className: "w-4 h-4" }),
                     "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34)"
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => applyBrief("update"), className: "py-2.5 rounded-xl bg-white border border-sky-700 text-sky-700 hover:bg-sky-50 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5", children: "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E07\u0E32\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => applyBrief("update"), className: "py-2.5 rounded-xl bg-white border border-brand text-brand hover:bg-brand-mist/50 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5", children: "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E07\u0E32\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19" })
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[10px] text-slate-500 -mt-1", children: "\u0E1B\u0E38\u0E48\u0E21\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E43\u0E0A\u0E49\u0E15\u0E31\u0E27\u0E08\u0E31\u0E1A\u0E04\u0E33 (\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E15\u0E48\u0E2D AI): \u201C\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E2B\u0E21\u0E48\u201D \u0E25\u0E49\u0E32\u0E07\u0E04\u0E48\u0E32\u0E40\u0E01\u0E48\u0E32\u0E01\u0E48\u0E2D\u0E19 \xB7 \u201C\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u201D \u0E40\u0E01\u0E47\u0E1A\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E1A\u0E23\u0E35\u0E1F\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E01\u0E25\u0E48\u0E32\u0E27\u0E16\u0E36\u0E07" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "pt-3 border-t border-slate-100 space-y-2", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-bold text-slate-700", children: "\u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E44\u0E1F\u0E25\u0E4C\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19:" }),
-                  PRESETS.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => loadPreset(p.id), className: "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-sky-500 hover:bg-sky-50/40 flex items-center justify-between", children: [
+                  PRESETS.map((p) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => loadPreset(p.id), className: "w-full text-left p-3 rounded-xl border border-slate-200 hover:border-sky-500 hover:bg-brand-mist/50/40 flex items-center justify-between", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-extrabold", children: p.label }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-[11px] text-slate-500", children: [
@@ -32168,7 +32200,7 @@
                         " \u0E1A."
                       ] })
                     ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChevronRight, { className: "w-4 h-4 text-sky-700 shrink-0" })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChevronRight, { className: "w-4 h-4 text-brand shrink-0" })
                   ] }, p.id))
                 ] })
               ] }),
@@ -32179,7 +32211,7 @@
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex flex-wrap gap-1.5", children: COURSES.map((co) => {
                     const on = dbSel === co.code;
                     const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
-                    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => setDbSel(co.code), title: co.name, className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? "bg-sky-700 text-white border-sky-700" : "bg-slate-50 border-slate-200 text-slate-600"}`, children: [
+                    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => setDbSel(co.code), title: co.name, className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${on ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-200 text-slate-600"}`, children: [
                       co.code,
                       nPhoto ? " \u{1F4F7}" : ""
                     ] }, co.code);
@@ -32261,7 +32293,7 @@
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23 (\u0E21\u0E38\u0E21\u0E02\u0E27\u0E32\u0E1A\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: camp.docCode, onChange: (e) => set({ docCode: e.target.value }), className: inp }) }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 (\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: `${staffText(camp.students)} \u0E04\u0E19`, readOnly: true, className: inp + " bg-slate-50 text-slate-500" }) })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E27\u0E34\u0E0A\u0E32 / \u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E04\u0E48\u0E32\u0E22 (\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 + \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-1.5", children: Object.keys(SUBJECTS).map((s) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => changeSubject(s), className: `py-2 rounded-lg text-xs font-bold border ${camp.subject === s ? "bg-sky-700 text-white border-sky-700" : "bg-slate-50 border-slate-300"}`, children: SUBJECTS[s].label }, s)) }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E27\u0E34\u0E0A\u0E32 / \u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E04\u0E48\u0E32\u0E22 (\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 + \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "grid grid-cols-2 gap-1.5", children: Object.keys(SUBJECTS).map((s) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => changeSubject(s), className: `py-2 rounded-lg text-xs font-bold border ${camp.subject === s ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-300"}`, children: SUBJECTS[s].label }, s)) }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Field, { label: "\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E08\u0E23\u0E34\u0E07\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 14 \u0E18\u0E35\u0E21 (\u0E14\u0E36\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E23\u0E34\u0E07\u0E02\u0E2D\u0E07\u0E18\u0E35\u0E21\u0E19\u0E31\u0E49\u0E19 \u2014 \u0E41\u0E21\u0E48\u0E19\u0E01\u0E27\u0E48\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E04\u0E48\u0E27\u0E34\u0E0A\u0E32)", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("select", { value: camp.courseCode || "", onChange: (e) => changeCourse(e.target.value), className: inp, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: "", children: "\u2014 \u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 (\u0E43\u0E0A\u0E49\u0E04\u0E25\u0E31\u0E07\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19\u0E15\u0E32\u0E21\u0E27\u0E34\u0E0A\u0E32) \u2014" }),
@@ -32293,7 +32325,7 @@
                   { m: "overnight", d: 4, n: 3, l: "4\u0E273\u0E04" }
                 ].map((o) => {
                   const on = camp.durationMode === o.m && (o.m !== "overnight" || camp.days === o.d);
-                  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => changeDuration(o.m, o.d, o.n), className: `py-2 rounded-lg text-[11px] font-bold border whitespace-pre-line leading-tight ${on ? "bg-sky-700 text-white border-sky-700" : "bg-slate-50 border-slate-300"}`, children: o.l }, o.l);
+                  return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => changeDuration(o.m, o.d, o.n), className: `py-2 rounded-lg text-[11px] font-bold border whitespace-pre-line leading-tight ${on ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-300"}`, children: o.l }, o.l);
                 }) }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-2 gap-2.5", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Field, { label: "\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E2D\u0E01\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07 (\u0E40\u0E0A\u0E48\u0E19 06.30)", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: camp.startTime, onChange: (e) => set({ startTime: e.target.value }), className: inp }) }),
@@ -32330,12 +32362,12 @@
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between text-[11px]", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-500", children: [
                     "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 ",
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-sky-700", children: plan.coreSlots }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: plan.coreSlots }),
                     " \u0E0A\u0E48\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01 \xB7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E27\u0E49 ",
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-sky-700", children: selectedCore })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: selectedCore })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-2", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => set({ activityIds: camp.courseCode ? defaultCourseActs(camp.courseCode) : defaultActs(camp.subject).concat(camp.extraActivities.filter((a) => a.subjects.includes(camp.subject)).map((a) => a.id)) }), className: "font-bold text-sky-700", children: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => set({ activityIds: camp.courseCode ? defaultCourseActs(camp.courseCode) : defaultActs(camp.subject).concat(camp.extraActivities.filter((a) => a.subjects.includes(camp.subject)).map((a) => a.id)) }), className: "font-bold text-brand", children: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => set({ activityIds: camp.activityIds.filter((id) => !subjectPool(camp).some((a) => a.id === id && a.kind === "core")) }), className: "font-bold text-slate-400", children: "\u0E25\u0E49\u0E32\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01" })
                   ] })
                 ] }),
@@ -32350,7 +32382,7 @@
                       const custom = a.id.startsWith("cust-");
                       return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `p-2.5 rounded-lg border flex items-start gap-2 ${on ? "bg-sky-50 border-sky-400" : "bg-white border-slate-200"}`, children: [
                         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => toggleAct(a.id), className: "flex items-start gap-2 flex-1 text-left", children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? "bg-sky-600" : "border border-slate-300"}`, children: on && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4 text-white" }) }),
+                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: `w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? "bg-brand" : "border border-slate-300"}`, children: on && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(CircleCheck, { className: "w-4 h-4 text-white" }) }),
                           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "text-xs font-bold leading-snug", children: [
                               a.title,
@@ -32373,21 +32405,21 @@
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5", children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-600", children: [
                     "\u0E0A\u0E48\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 ",
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-sky-700", children: plan.days.reduce((n, d) => n + d.items.filter((r) => r.slot !== void 0).length, 0) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: plan.days.reduce((n, d) => n + d.items.filter((r) => r.slot !== void 0).length, 0) }),
                     " \u0E0A\u0E48\u0E2D\u0E07 \xB7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2D\u0E07 ",
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-sky-700", children: (camp.coreSlotIds || []).filter(Boolean).length })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("b", { className: "text-brand", children: (camp.coreSlotIds || []).filter(Boolean).length })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: clearSlots, className: "font-bold text-slate-400 hover:text-slate-600", children: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14" })
                 ] }),
                 plan.days.map((d) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "border border-slate-200 rounded-xl overflow-hidden", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-sky-700 text-white text-xs font-bold px-3 py-1.5", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-brand text-white text-xs font-semibold px-3 py-1.5", children: [
                     "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ",
                     d.day
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "divide-y divide-slate-100", children: d.items.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex gap-2 px-2.5 py-1.5 text-[11px]", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-bold text-slate-500 w-28 shrink-0", children: r.time }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-slate-800 flex-1 min-w-0", children: [
-                      r.slot !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "inline-block mb-0.5 px-1 rounded bg-sky-100 text-sky-700 text-[9px] font-bold", children: [
+                      r.slot !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "inline-block mb-0.5 px-1 rounded bg-brand-mist text-brand text-[9px] font-bold", children: [
                         "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2B\u0E25\u0E31\u0E01 #",
                         r.slot + 1
                       ] }),
@@ -32460,7 +32492,7 @@
                       ]
                     }
                   ),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: autoFillImages, className: "px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-800 text-white text-[11px] font-bold flex items-center gap-1", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: autoFillImages, className: "px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[11px] font-bold flex items-center gap-1", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Sparkles, { className: "w-3.5 h-3.5" }),
                     "\u0E40\u0E15\u0E34\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E20\u0E32\u0E1E\u0E15\u0E32\u0E21\u0E1A\u0E23\u0E35\u0E1F"
                   ] })
@@ -32470,7 +32502,7 @@
                 ["actImgs", "venueImgs"].map((group) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between mb-1.5", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs font-bold text-slate-700", children: group === "actImgs" ? "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" : `\u0E20\u0E32\u0E1E\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 (${camp.venue.replace("\u0E42\u0E23\u0E07\u0E41\u0E23\u0E21", "")})` }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => addImage(group), className: "text-[11px] font-bold text-sky-700 flex items-center gap-1", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => addImage(group), className: "text-[11px] font-bold text-brand flex items-center gap-1", children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Plus, { className: "w-3.5 h-3.5" }),
                       "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07"
                     ] })
@@ -32483,7 +32515,7 @@
                       ] }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: im.caption, onChange: (e) => captionImage(group, i, e.target.value), className: "w-full px-2 py-1 rounded border border-slate-200 text-[10px]", placeholder: "\u0E04\u0E33\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E22 (\u0E43\u0E0A\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E04\u0E33\u0E04\u0E49\u0E19\u0E23\u0E39\u0E1B\u0E14\u0E49\u0E27\u0E22)" }),
                       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between", children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => searchImage(im.caption || camp.venue), className: "text-[10px] font-bold text-sky-700 flex items-center gap-0.5", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => searchImage(im.caption || camp.venue), className: "text-[10px] font-bold text-brand flex items-center gap-0.5", children: [
                           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Image, { className: "w-3 h-3" }),
                           "\u0E04\u0E49\u0E19\u0E23\u0E39\u0E1B"
                         ] }),
@@ -32521,7 +32553,7 @@
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "p-5 max-h-[70vh] overflow-y-auto", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Preview, { kind, camp, plan, k, total, cost, profit, margin }) })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => download(kind), disabled: busy, className: "w-full py-3 rounded-xl bg-emerald-600 enabled:hover:bg-emerald-500 disabled:opacity-40 text-white font-extrabold shadow flex items-center justify-center gap-2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { onClick: () => download(kind), disabled: busy, className: "w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-display font-semibold shadow-lift tap flex items-center justify-center gap-2", children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Download, { className: "w-5 h-5" }),
               busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E44\u0E1F\u0E25\u0E4C..." : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label} \u0E40\u0E1B\u0E47\u0E19\u0E44\u0E1F\u0E25\u0E4C Word (.docx)`
             ] }),
@@ -32544,7 +32576,7 @@
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: title2, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E40\u0E0A\u0E48\u0E19 Escape Room \u0E04\u0E13\u0E34\u0E15\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C", className: "w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: desc, onChange: (e) => setDesc(e.target.value), placeholder: "\u0E04\u0E33\u0E2D\u0E18\u0E34\u0E1A\u0E32\u0E22\u0E22\u0E48\u0E2D (\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)", className: "w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-1.5", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex gap-1", children: kinds.map((x) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setKind(x.k), className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${kind === x.k ? "bg-sky-700 text-white border-sky-700" : "bg-white border-slate-300"}`, children: x.l }, x.k)) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "flex gap-1", children: kinds.map((x) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => setKind(x.k), className: `px-2 py-1 rounded-lg text-[10px] font-bold border ${kind === x.k ? "bg-brand text-white border-brand" : "bg-white border-slate-300"}`, children: x.l }, x.k)) }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { disabled: !title2.trim(), onClick: () => {
           onAdd(title2.trim(), kind, desc.trim());
           setTitle("");
@@ -32606,9 +32638,12 @@
     ] });
   }
   function SectionTitle({ title: title2, sub }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "border-b border-slate-100 pb-2", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: "text-sm font-extrabold", children: title2 }),
-      sub && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[11px] text-slate-500 mt-0.5 leading-snug", children: sub })
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "pb-2 mb-1 border-b border-brand-mist flex items-start gap-2", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mt-1 w-1 h-4 rounded-full bg-accent shrink-0" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: "text-sm font-display font-semibold text-brand-ink leading-tight", children: title2 }),
+        sub && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", { className: "text-[11px] text-slate-500 mt-0.5 leading-snug", children: sub })
+      ] })
     ] });
   }
   function Stat({ label, value, tone }) {
@@ -32685,7 +32720,7 @@
         k.titleTh.replace("\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 ", "")
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("table", { className: "w-full border-collapse text-[12px] my-2", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tbody", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { className: "bg-sky-800 text-white", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { className: "bg-brand-navy text-white", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "border p-1", children: "\u0E25\u0E33\u0E14\u0E31\u0E1A" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "border p-1", children: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "border p-1", children: "\u0E08\u0E33\u0E19\u0E27\u0E19" }),
@@ -32809,7 +32844,7 @@
   ] }, i)) });
   function Sched({ plan, extra }) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "space-y-2", children: plan.days.map((d) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-sky-700 text-white text-[12px] font-bold px-2 py-1", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "bg-brand text-white text-[12px] font-semibold px-2 py-1", children: [
         "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ",
         d.day
       ] }),

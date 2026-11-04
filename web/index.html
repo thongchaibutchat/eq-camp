@@ -1,7 +1,36 @@
 <!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EQ Camp — ระบบสร้างเอกสารกระบวนการขาย</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script>
+if (typeof tailwind !== 'undefined') tailwind.config = {
+  theme: { extend: {
+    colors: {
+      brand: { ink: '#0C2A41', navy: '#0E3A5C', DEFAULT: '#155D90', sky: '#0B82C4', mist: '#E7EEF4' },
+      accent: { DEFAULT: '#E07B2E', deep: '#C4641B', soft: '#FBEAD9' },
+      paper: '#ECF0F4'
+    },
+    fontFamily: {
+      sans: ['Sarabun', 'Noto Sans Thai', 'system-ui', 'sans-serif'],
+      display: ['Kanit', 'Sarabun', 'system-ui', 'sans-serif']
+    },
+    boxShadow: { card: '0 1px 2px rgba(14,58,92,.06), 0 1px 3px rgba(14,58,92,.05)', lift: '0 6px 20px -8px rgba(14,58,92,.35)' }
+  } }
+};
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { color-scheme: light; }
+  body { background: #ECF0F4; font-family: 'Sarabun','Noto Sans Thai',system-ui,sans-serif; }
+  .font-display { font-family: 'Kanit','Sarabun',system-ui,sans-serif; }
+  /* หัวกระดาษทำงาน: ลายเส้นวงโคจรจาง ๆ ให้รู้สึกเป็นแบรนด์ EQ ไม่ใช่แถบดำทั่วไป */
+  .brandbar { background:
+      radial-gradient(120% 140% at 88% -20%, rgba(224,123,46,.22), transparent 55%),
+      linear-gradient(103deg, #0C2A41 0%, #0E3A5C 46%, #155D90 100%); }
+  .step-rail::-webkit-scrollbar, .tabrail::-webkit-scrollbar { height: 6px; }
+  .step-rail::-webkit-scrollbar-thumb, .tabrail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+  @media (prefers-reduced-motion: no-preference) { .tap { transition: transform .12s ease, background-color .15s ease, border-color .15s ease, color .15s ease; } .tap:active { transform: translateY(1px); } }
+</style>
 </head><body><div id="root"></div><script src="./bundle.js"></script></body></html>
