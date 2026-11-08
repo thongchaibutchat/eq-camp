@@ -73,6 +73,7 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - Drive โฟลเดอร์ `EQ Camp — ชุดข้อมูลขาย (Sales Kit)` id **16dCNDLqlhF41TvGaJV9v8DxUfetc-xaE**: 00 อ่านก่อน (Doc) · 10 หลักสูตร · 20 กิจกรรม (267, คีย์ = รหัส ref-) · 30 ที่พัก · 40 ราคาขาย · 50 ภาพ · 60 บริษัท-สาขา · 70 ตัวอย่างเอกสาร · 80 บันทึกการแก้ไข (แต่ละอันเป็น Google Sheet แยก — Sheets connector เปิดไฟล์ที่สร้างผ่าน Drive connector ไม่ได้ จึงอัปเป็น CSV→Sheet)
 - โฟลเดอร์ย่อย: 01 ภาพกิจกรรม/<รหัส PL> (14) · 02 ภาพโรงแรม/<ชื่อ> (6, ภาพ 1_–8_) · 03 ตัวอย่างเอกสารจริง · **99 ภายในเท่านั้น** (ปิดสืบทอดสิทธิ์; 91 ต้นทุนต่อหัว, 92 ราคาโรงแรม)
 - "อัปเดตข้อมูล" = อ่านชีตด้วย Drive download_file_content (export text/csv) → ตรวจหัวคอลัมน์/ช่องว่าง (ห้ามเดา) → regen src/eqcamp-data.ts, VENUES, ภาพ (เฉพาะ อนุญาตแล้ว) → test suite → republish
+- **เว็บรวมข้อมูล (โหมด "คลังข้อมูลขาย")**: แถบสลับใต้หัวเว็บ `view: 'build' | 'hub'` → `web/DataHub.tsx` (ภาพรวม/ความพร้อมรายหลักสูตร · หลักสูตร (วัตถุประสงค์+กิจกรรมแยกช่วง+ภาพ) · กิจกรรม (ค้นหา/กรอง 267) · ที่พัก · ราคา&แม่แบบ · บริษัท-สาขา) ปุ่ม "ใช้…" ส่งเข้า builder ทันที (changeCourse/set venue/loadPreset). ข้อมูลมาจาก core (`BRANCHES`, `SALES_KIT` ลิงก์ชีต/โฟลเดอร์ — **ไม่ลิงก์โฟลเดอร์ 99 ต้นทุน**)
 
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)

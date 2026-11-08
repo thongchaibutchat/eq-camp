@@ -159,6 +159,40 @@ export const VENUES = [
   { province: 'ชลบุรี', name: 'สวนนงนุช พัทยา รีสอร์ท', visit: 'ทัศนศึกษาสวนนงนุชและหุบเขาไดโนเสาร์', note: 'คุณฟ้า 092-2928296' },
   { province: 'กาญจนบุรี', name: 'เฟลิกซ์ ริเวอร์แคว รีสอร์ท', visit: 'พิพิธภัณฑ์ธรณีศาสตร์ ม.มหิดล กาญจนบุรี / ถ้ำกระแซ', note: 'คุณปุ้ย 062-3599138' }
 ];
+// สาขา/ที่อยู่รายภาค — แหล่งเดียวกับหัวกระดาษ (ภาคใต้ยังไม่มีข้อมูล: ห้ามเดา)
+export const BRANCHES: { region: string; address: string; phone?: string; note?: string }[] = [
+  { region: 'ภาคกลาง (กรุงเทพฯ)', address: '523 ม.4 แขวงบางปะกอก เขตราษฎร์บูรณะ กรุงเทพมหานคร 10140', note: 'จากเอกสารจริงของทีม' },
+  { region: 'ภาคอีสาน (สำนักงานใหญ่)', address: '289/69 ไพรเวท พาร์ค วิลล์ ม.4 ต.หนองบัว อ.เมือง จ.อุดรธานี 41000', phone: '065 4919415 / 099 2394747' },
+  { region: 'ภาคเหนือ (เชียงใหม่)', address: '62 ม.10 ต.ป่าไผ่ อ.สันทราย จ.เชียงใหม่ 50210' },
+  { region: 'ภาคใต้', address: '', note: 'ยังไม่มีข้อมูล — เอกสารใช้ที่อยู่อุดรแทน' }
+];
+// ชุดข้อมูลขายบน Drive (ทีมแก้ที่นี่ แล้วสั่ง "อัปเดตข้อมูล") — ไม่ใส่ลิงก์โฟลเดอร์ต้นทุน (99) ในเว็บ
+export const SALES_KIT = {
+  folder: 'https://drive.google.com/drive/folders/16dCNDLqlhF41TvGaJV9v8DxUfetc-xaE',
+  sheets: [
+    { label: 'วิธีใช้', url: 'https://docs.google.com/document/d/1e6TCfp_o3sPTrzLqPiD-3cxyIFRg81yvxOs_2Ygb9BY/edit' },
+    { label: 'หลักสูตร', url: 'https://docs.google.com/spreadsheets/d/1AnEwrclPR8awYijL9Ya4rp8vno7U4fzs7CmHkGG4oZo/edit' },
+    { label: 'กิจกรรม', url: 'https://docs.google.com/spreadsheets/d/1Q5OxyIc4Hso9Jg9ckOkMlu8jNVIcxZlglFQmiGwP16c/edit' },
+    { label: 'ที่พัก', url: 'https://docs.google.com/spreadsheets/d/1llVOOIK7q_oZigDqdKYUNfmeTSu-JhRkJTY3_ybZ4mM/edit' },
+    { label: 'ราคาขาย', url: 'https://docs.google.com/spreadsheets/d/1mBUpngNJrpFtxZdfNELjB4PQFVwWE8To_6uwHhJzx1w/edit' },
+    { label: 'ภาพ', url: 'https://docs.google.com/spreadsheets/d/15N65FFPhhq5gFUDtneJ1Gv2IkELSYsuF91-2rhtresA/edit' },
+    { label: 'บริษัท-สาขา', url: 'https://docs.google.com/spreadsheets/d/1GxlcaIskicpT_u8Csd4SfzcqaH-wj7PIG1Iquj2sLQg/edit' },
+    { label: 'บันทึกการแก้ไข', url: 'https://docs.google.com/spreadsheets/d/1BNTIKO0ECwCCNAi_rfeYfVGc4oDtPS61-65UPtl171E/edit' }
+  ],
+  courseFolders: {
+    'PL STM 0101': '1UKieUmdXC9FueJXB4YbZJfJc8488EfDl', 'PL LEA 0102': '1kBU6_HhTJ70HEH5jmC7XOn5R1u1gcdU8', 'PL SEA 0103': '1XfkNZwMq6tJBnsI8HRUnW5HiJwMd8qiM',
+    'PL ENG 0104': '1SyuI0n1V5-oZJF06kJqEmLsMCkKR0KZy', 'PL PRE 0105': '16rcaSrrCOBviN4VcjUmKn24i04x7EyTa', 'PL ENV 0106': '1KQoka073l29N1bx7k2RZjE0E5TlxJosx',
+    'PL MAT 0107': '1t6fgh-k66GVCORbVXDnkSDRqFyQCdTKm', 'PL AST 0108': '1cuaUnXLxkc3z4E-DSlBvCcpSmbmL8IYG', 'PL CHI 0109': '1KiSNHqG3w-IewScwgtj_1TIftKkZxqx2',
+    'PL FOR 0110': '1LCA5Kt938CdlDyRTrMP2qDNu8yX-MRtG', 'PL COD 0111': '1-JD4ZrsvOcxedlbygBq20YnqkKIhFhUF', 'PL GEO 0112': '1SRQUpYbXajEm96RQEHQahZID-DI5maRM',
+    'PL ITD 0113': '1mpnyUgTnyRVwiGY1zKwPVt2aPj-ZVaMl', 'PL TI 0116': '1Nx9cF6eukj1tgzWgXfAZ73OLqc0O0TbT'
+  } as Record<string, string>,
+  venueFolders: {
+    'โรงแรมเชียงคานฮิลล์รีสอร์ท': '1fPfkyOyhzkK5DYRTOdwlsUy7pl-TShv_', 'โรงแรมโกลเด้น ซิตี้ ระยอง': '1T9AWbBx-LGbxXFsDrLh94Nfde6NMNBsW',
+    'ปาล์มมาลี บีช รีสอร์ท ระยอง': '19Qt0XMsgkxqNB4QyrcCvSH4lYV5tm0hp', 'ธารา ชลพฤกษ์ รีสอร์ท': '1WFgEO3PYknLl9soMKNaXb6qxK4lS1jl6',
+    'สวนนงนุช พัทยา รีสอร์ท': '1vGwZJ6SzsGDCAvs0a1Vagr9RtWziOvcV', 'เฟลิกซ์ ริเวอร์แคว รีสอร์ท': '1Y5Gih0ET7LQORQkGvXnpUlUKYZKhukoA'
+  } as Record<string, string>
+};
+export const driveFolder = (id?: string) => id ? `https://drive.google.com/drive/folders/${id}` : undefined;
 export const DOC_TYPES: { id: DocKind; label: string; stage: string; desc: string; internal?: boolean }[] = [
   { id: 'program', label: 'โปรแกรมค่าย (PL)', stage: '1. เสนอโปรแกรม', desc: 'วัตถุประสงค์ + กิจกรรมบูรณาการ + กำหนดการ + ราคา + ภาพกิจกรรม/ที่พัก' },
   { id: 'quotation', label: 'ใบเสนอราคา', stage: '2. เสนอราคา', desc: 'ตารางรายการ จำนวน ราคา/ท่าน ยอดรวม เงื่อนไข ลายเซ็น' },

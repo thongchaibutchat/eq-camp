@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import DataHub from './DataHub';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
@@ -43,6 +44,7 @@ export default function App() {
   const [camp, setCamp] = useState<Camp>(() => initial?.camp ?? fromPreset('pl0109'));
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
+  const [view, setView] = useState<'build' | 'hub'>('build');
   const [tab, setTab] = useState<'brief' | 'db' | 'header' | 'activities' | 'schedule' | 'price' | 'images' | 'stats'>('brief');
   const [brief, setBrief] = useState(initial?.brief ?? 'PL 0109/2569 โรงเรียนอำนาจเจริญ ม.1-2 จำนวน 72 คน ครู 6 คน ค่ายคณิตศาสตร์ Math Camp 3 วัน 2 คืน วันที่ 18 – 20 พฤศจิกายน 2569 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท ราคาปกติ 4,590 ลดเหลือเพียง 3,290 บ./ท่าน');
   const [banner, setBanner] = useState<{ t: string; ok: boolean } | null>(null);
@@ -502,6 +504,16 @@ export default function App() {
         </div>
       </header>
 
+      {/* สลับโหมด: สร้างเอกสาร ↔ คลังข้อมูลขาย (ข้อมูลทั้งหมดอยู่เว็บเดียว) */}
+      <div className="bg-white border-b border-brand-mist">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 flex gap-6" role="tablist" aria-label="โหมด">
+          {([['build', 'สร้างเอกสาร'], ['hub', 'คลังข้อมูลขาย']] as const).map(([id, l]) => (
+            <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
+              className={`tap py-3 text-[15px] border-b-2 -mb-px ${view === id ? 'border-brand-navy text-brand-ink font-semibold' : 'border-transparent text-sub hover:text-brand-ink font-medium'}`}>{l}</button>
+          ))}
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-4">
         {banner && (
           <div className={`mb-4 px-4 py-2.5 rounded-xl text-[13.5px] font-semibold flex items-center justify-between border ${banner.ok ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-rose-50 border-rose-300 text-rose-950'}`}>
@@ -510,6 +522,12 @@ export default function App() {
           </div>
         )}
 
+        {view === 'hub' ? (
+          <DataHub venues={allVenues} currentCourse={camp.courseCode} currentVenue={camp.venue}
+            onUseCourse={code => { changeCourse(code); setKind('program'); setTab('header'); setView('build'); }}
+            onUseVenue={v => { set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }); setView('build'); setTab('header'); flash(`ใช้ที่พัก "${v.name}" ในเอกสารแล้ว`); }}
+            onUsePreset={id => { loadPreset(id); setTab('brief'); setView('build'); }} />
+        ) : (<>
         {/* Sales workflow: 4 document types */}
         <div className="bg-white rounded-2xl border border-brand-mist p-3 mb-4 shadow-card">
           <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
@@ -920,6 +938,7 @@ export default function App() {
             {!ready && <div className="text-[13px] text-amber-700 text-center -mt-1">ℹ ยังมีข้อมูลไม่ครบบางข้อ (ดูแถบ "ตรวจก่อนส่ง" ด้านบน) — ดาวน์โหลดเป็นฉบับร่างได้ แต่ควรเติมให้ครบก่อนส่งลูกค้า</div>}
           </div>
         </div>
+        </>)}
       </div>
     </div>
   );
