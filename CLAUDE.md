@@ -75,6 +75,10 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - "อัปเดตข้อมูล" = อ่านชีตด้วย Drive download_file_content (export text/csv) → ตรวจหัวคอลัมน์/ช่องว่าง (ห้ามเดา) → regen src/eqcamp-data.ts, VENUES, ภาพ (เฉพาะ อนุญาตแล้ว) → test suite → republish
 - **เว็บรวมข้อมูล (โหมด "คลังข้อมูลขาย")**: แถบสลับใต้หัวเว็บ `view: 'build' | 'hub'` → `web/DataHub.tsx` (ภาพรวม/ความพร้อมรายหลักสูตร · หลักสูตร (วัตถุประสงค์+กิจกรรมแยกช่วง+ภาพ) · กิจกรรม (ค้นหา/กรอง 267) · ที่พัก · ราคา&แม่แบบ · บริษัท-สาขา) ปุ่ม "ใช้…" ส่งเข้า builder ทันที (changeCourse/set venue/loadPreset). ข้อมูลมาจาก core (`BRANCHES`, `SALES_KIT` ลิงก์ชีต/โฟลเดอร์ — **ไม่ลิงก์โฟลเดอร์ 99 ต้นทุน**)
 
+## แก้ PDF ข้อความขาด + UI มืออาชีพ (8 พ.ย. 2569)
+- **สาเหตุ PDF ข้อความขาดท้ายทุกบล็อก**: Tailwind preflight `img{display:block}` → html2canvas วัด baseline ด้วย GIF 1px ต่อท้ายข้อความ (`img.offsetTop − span.offsetTop`) ภาพตกบรรทัด → baseline ผิด ~1 บรรทัด → วาดตัวอักษรต่ำกว่าจริง บรรทัดสุดท้ายหลุดแคนวาส. แก้ที่ `web/index.html`: `img[src^="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///…"]{display:inline!important}` (เฉพาะภาพวัดของ html2canvas) — **ห้ามลบ**. เสริม: capture กว้าง 760 คงที่ (`width/windowWidth`), รอฟอนต์ใน onclone, ขีดฆ่าราคาปกติใช้ `::after` (html2canvas วาด line-through กับฟอนต์ไทยเป็นเส้นใต้), ตัดรหัสเอกสารซ้ำในปก. ทดสอบ: `scratchpad/pdfshot.cjs` (Playwright + jspdf/html2canvas จาก /tmp/twbuild)
+- **UI ไม่ให้ดูเป็น AI**: เลิกอีโมจิในป้าย/ปุ่ม, น้ำหนักตัวอักษรสูงสุด semibold, เลิกกล่องสีฟ้า/เขียวตกแต่ง (เหลือ amber = คำเตือนเท่านั้น), ข้อความสั้น; หัวเว็บ = "EQ Camp / เอกสารขายค่ายวิชาการ"; บรีฟ = ปุ่ม "อ่านบรีฟ · เริ่มงานใหม่/แก้งานเดิม" + ลิงก์ให้ Claude ช่วยอ่าน; `CheckPanel` โชว์เฉพาะข้อที่ต้องแก้ (ข้อผ่านพับไว้); SectionTitle ไม่มีเลขนำ (stepper มีแล้ว)
+
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)
 
