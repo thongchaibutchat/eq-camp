@@ -1,6 +1,6 @@
 import {
   Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType,
-  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign, Header, Footer, PageNumber
+  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign, Header, Footer, PageNumber, HeadingLevel, TableLayoutType
 } from 'docx';
 import { LETTERHEADS, regionOf, Region } from './letterheads-data';
 export { LETTERHEADS, regionOf } from './letterheads-data';
@@ -693,20 +693,22 @@ export const money = (n: number) => Math.round(Number.isFinite(n) ? n : 0).toLoc
 
 /* ===================== DOCX HELPERS ===================== */
 const FONT = { ascii: FONT_NAME, hAnsi: FONT_NAME, cs: FONT_NAME, eastAsia: FONT_NAME };
+// ภาษาไทยติดทุก run (w:lang bidi=th-TH) — Word ใช้ตัดคำ/ตรวจตัวสะกด/เลือกฟอนต์ complex-script ถูกชุด ไม่สลับไป Tahoma/Cordia
+const LANG = { value: 'th-TH', eastAsia: 'th-TH', bidirectional: 'th-TH' };
 const BLUE = '155D90', SKY = '087FC2', NAVY = '0C2A41', W = 9400;
 type RO = { b?: boolean; sz?: number; color?: string; strike?: boolean; i?: boolean };
 // ล้างอักขระที่ XML 1.0 ไม่รองรับ (NUL/control chars ที่มักติดมาจากการ copy) — กันไฟล์ .docx เสีย/เปิดไม่ได้
 // อักขระที่อนุญาต: \t \n \r และ 0x20 ขึ้นไป (ยกเว้น noncharacters)
 const XML_BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
 export const xmlSafe = (t: any): string => (t === null || t === undefined ? '' : String(t)).replace(XML_BAD, '');
-const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; return new TextRun({ text: xmlSafe(text), font: FONT, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i }); };
-const P = (t: string | TextRun[], o: RO & { al?: (typeof AlignmentType)[keyof typeof AlignmentType]; before?: number; after?: number; indent?: number; hang?: number; keep?: boolean; pb?: boolean } = {}) =>
-  new Paragraph({ alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 300 }, indent: o.indent !== undefined ? { left: o.indent * 567, hanging: (o.hang || 0) * 567 } : undefined, keepNext: o.keep, pageBreakBefore: o.pb,
+const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; return new TextRun({ text: xmlSafe(text), font: FONT, language: LANG, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i }); };
+const P = (t: string | TextRun[], o: RO & { al?: (typeof AlignmentType)[keyof typeof AlignmentType]; before?: number; after?: number; indent?: number; hang?: number; keep?: boolean; pb?: boolean; hd?: (typeof HeadingLevel)[keyof typeof HeadingLevel] } = {}) =>
+  new Paragraph({ heading: o.hd, alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 300 }, indent: o.indent !== undefined ? { left: o.indent * 567, hanging: (o.hang || 0) * 567 } : undefined, keepNext: o.keep, pageBreakBefore: o.pb,
     children: typeof t === 'string' ? [R(t, o)] : t });
 const CTR = AlignmentType.CENTER, RGT = AlignmentType.RIGHT;
 const code = (t: string) => P(t, { b: true, color: BLUE, al: RGT });
-const title = (th: string, en?: string, sz = 20, pb = false) => [P(th, { b: true, sz: th.length > 40 ? Math.min(sz, 17.5) : th.length > 32 ? Math.min(sz, 18.5) : sz, color: '0F3D63', al: CTR, after: 0, pb, keep: true }), ...(en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 4 })] : [])];
-const H = (t: string) => P(t, { b: true, sz: 17, color: BLUE, before: 6, after: 2, keep: true });
+const title = (th: string, en?: string, sz = 20, pb = false) => [P(th, { hd: HeadingLevel.HEADING_1, b: true, sz: th.length > 40 ? Math.min(sz, 17.5) : th.length > 32 ? Math.min(sz, 18.5) : sz, color: '0F3D63', al: CTR, after: 0, pb, keep: true }), ...(en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 4 })] : [])];
+const H = (t: string) => P(t, { hd: HeadingLevel.HEADING_2, b: true, sz: 17, color: BLUE, before: 6, after: 2, keep: true });
 const numbered = (a: string[]) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
 const dashed = (a: string[], keep = false) => a.map((x, i) => P(`-\t${x}`, { indent: 0.9, hang: 0.9, after: 1, keep: keep && i < a.length - 1 }));
 const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
@@ -718,7 +720,7 @@ const cell = (kids: Paragraph[], w: number, o: { fill?: string; border?: 'none' 
   return new TableCell({ children: kids, width: { size: w, type: WidthType.DXA }, borders: bd, columnSpan: o.span, verticalAlign: VerticalAlign.TOP,
     shading: o.fill ? { type: ShadingType.CLEAR, fill: o.fill, color: 'auto' } : undefined, margins: { top: 50, bottom: 50, left: 100, right: 100 } });
 };
-const tbl = (rows: TableRow[], cols: number[]) => new Table({ rows, width: { size: W, type: WidthType.DXA }, columnWidths: cols });
+const tbl = (rows: TableRow[], cols: number[]) => new Table({ rows, width: { size: W, type: WidthType.DXA }, columnWidths: cols, layout: TableLayoutType.FIXED });
 const infoRows = (pairs: [string, string[]][]) => tbl(pairs.map(([k, v]) => new TableRow({ children: [cell([P(k, { b: true, color: BLUE })], 2200), cell(v.map(x => P(x, { after: 0 })), W - 2200)] })), [2200, W - 2200]);
 const dayBanner = (t: string) => tbl([new TableRow({ children: [cell([P(t, { b: true, sz: 17, color: 'FFFFFF', after: 0 })], W, { fill: BLUE })] })], [W]);
 // ตารางรายวัน: แถบ "วันที่ n" เป็นแถวหัวของตารางเดียวกัน + ทุกแถว keep-with-next → ทั้งวันอยู่หน้าเดียวกัน ไม่มีแถวหลุดไปหน้าถัดไป
@@ -904,7 +906,15 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
   }
   const region: Region = c.region || regionOf(c.province);
   return new Document({ creator: 'EQ Camp', title: `${c.docCode} ${k.titleTh}`,
-    styles: { default: { document: { run: { font: FONT, size: 32, sizeComplexScript: 32 } } } },
+    // สไตล์ชื่อมาตรฐานของ Word: ทีมแก้ต่อใน Word แล้วฟอนต์/ขนาดไม่เพี้ยน (เลือก "ปกติ"/"หัวเรื่อง 1-2" ในแถบสไตล์ได้เลย)
+    // ขนาดเนื้อความ 16 pt ตามแนวพิมพ์หนังสือราชการ, หัวเรื่องมี outlineLevel → ขึ้นในบานหน้าต่างนำทาง/สารบัญ
+    styles: {
+      default: {
+        document: { run: { font: FONT, language: LANG, size: 32, sizeComplexScript: 32 }, paragraph: { spacing: { line: 300, after: 40 } } },
+        heading1: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 40, sizeComplexScript: 40, color: '0F3D63' }, paragraph: { alignment: AlignmentType.CENTER, outlineLevel: 0, keepNext: true, spacing: { line: 300, before: 0, after: 0 } } },
+        heading2: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 34, sizeComplexScript: 34, color: BLUE }, paragraph: { outlineLevel: 1, keepNext: true, spacing: { line: 300, before: 120, after: 40 } } }
+      }
+    },
     sections: [{
       properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1780, bottom: 1060, left: 1253, right: 1253, header: 360, footer: 280 } } },
       headers: { default: brandHeader(region) },
