@@ -32,6 +32,10 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   .font-display { font-family: 'Kanit','Sarabun',system-ui,sans-serif; }
   /* แถบหัวเว็บ: สีกรมท่าเรียบ สีเดียว ไม่มี gradient/เงาจัด */
   .brandbar { background: #0C2A41; }
+  /* แก้ PDF ข้อความขาด/เลื่อนลง: html2canvas วัด baseline ฟอนต์ด้วยภาพ GIF 1px วางต่อท้ายข้อความ (img.offsetTop − span.offsetTop)
+     แต่ Tailwind preflight ตั้ง img{display:block} → ภาพตกบรรทัดใหม่ → baseline ผิดไปเกือบ 1 บรรทัด → ตัวอักษรถูกวาดต่ำกว่าจริง บรรทัดท้ายแต่ละบล็อกหลุดแคนวาส
+     คืนค่า inline เฉพาะภาพวัดของ html2canvas (src ตายตัว) ไม่กระทบภาพอื่นในเว็บ */
+  img[src^="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"] { display: inline !important; vertical-align: baseline !important; }
   .tabrail::-webkit-scrollbar { height: 5px; }
   .tabrail::-webkit-scrollbar-thumb { background: #D1D1D6; border-radius: 999px; }
   @media (prefers-reduced-motion: no-preference) { .tap { transition: background-color .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease; } .tap:active { opacity: .85; } }

@@ -322,7 +322,7 @@ export default function App() {
   // ฟอนต์/ขนาดตรงกับ Word: TH Sarabun New ฝังในหน้า (ไม่พึ่งฟอนต์เครื่อง) · เนื้อหาตัวปกติ · ตัวหนาเฉพาะหัวข้อหลัก
   // กล่องเนื้อหาแต่ละชิ้นเรนเดอร์กว้าง 760px → วางทีละ "บล็อก" ไม่ตัดกลางบรรทัด; หัวกระดาษวาดทุกหน้า
   const PDF_STYLE = `<style>${FONT_FACE_CSS}
-.eqpdf{width:760px;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:18px;line-height:1.25;font-weight:400}
+.eqpdf{width:760px;box-sizing:border-box;padding:0 0 4px;display:flow-root;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:18px;line-height:1.3;font-weight:400}
 .eqpdf b{font-weight:700}
 .eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
 .eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
@@ -336,7 +336,7 @@ export default function App() {
 .eqpdf .sub{color:#48484a}
 .eqpdf .note{color:#48484a;margin:4px 0}
 .eqpdf .price{text-align:center;border:1.5px solid #0C2A41;background:#fff;padding:11px;border-radius:6px;margin:4px 0 14px}
-.eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;text-decoration:line-through;font-size:18px}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
+.eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;font-size:18px;position:relative;display:inline-block}.eqpdf .price .old::after{content:'';position:absolute;left:-2px;right:-2px;top:50%;border-top:1.5px solid #8e8e93}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
 .eqpdf table.bud{width:100%;border-collapse:collapse;margin:4px 0}
 .eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:17px}
 .eqpdf table.bud td{padding:5px 10px;vertical-align:top;border-bottom:1px solid #ECECEF}.eqpdf table.bud td.no{width:44px;text-align:center;color:#8e8e93}
@@ -364,7 +364,12 @@ export default function App() {
         w.innerHTML = PDF_STYLE + inner; document.body.appendChild(w);
         try { const fs = (document as any).fonts; await Promise.all([fs?.load?.("20px EQSarabun"), fs?.load?.("bold 20px EQSarabun")]); await fs?.ready; } catch {}
         await new Promise(r => setTimeout(r, 120));
-        const c = await h2c(w, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+        // วัดความสูงจริงรวมส่วนที่ล้น (scrollHeight) + กว้างคงที่ ไม่ขึ้นกับขนาดจอ (มือถือ/คอม ได้ผลเท่ากัน)
+        const c = await h2c(w, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 760, height: Math.ceil(w.scrollHeight), windowWidth: 1200, windowHeight: Math.max(1200, Math.ceil(w.scrollHeight) + 50), scrollX: 0, scrollY: 0,
+          // (สาเหตุหลักของ "ข้อความขาดท้ายบล็อก" แก้ที่ web/index.html — ดูคอมเมนต์ img[src^="data:image/gif..."]) ที่นี่แค่รอฟอนต์ในสำเนาให้ครบ
+          onclone: async (doc: Document) => {
+            try { const f = (doc as any).fonts; await Promise.all([f.load('20px EQSarabun'), f.load('bold 20px EQSarabun')]); await f.ready; } catch { /* ignore */ }
+          } });
         document.body.removeChild(w); return c;
       };
       const pdf = new jsNS.jsPDF('p', 'mm', 'a4');
@@ -394,7 +399,7 @@ export default function App() {
       };
 
       // ---- หน้าปก ----
-      await place(`<div class="code">${esc(camp.docCode)}</div><h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
+      await place(`<h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
       await place(`<h2>วัตถุประสงค์การเรียนรู้</h2>${ol(kk.objectives)}` +
         `<table class="info"><tr><td class="k">จำนวน</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">วิทยากร</td><td>${esc(kk.staff)} คน</td></tr><tr><td class="k">ระยะเวลาอบรม</td><td>${esc(kk.dur)}</td></tr></table>`);
       await place(`<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}`);
