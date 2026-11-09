@@ -170,9 +170,11 @@ export default function App() {
   const loadPreset = (id: string) => { setCamp(fromPreset(id)); flash(`โหลดแม่แบบ "${PRESETS.find(p => p.id === id)!.label}" แล้ว`); };
 
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
-    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights }));
+    const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
+    // ระยะเวลาเปลี่ยน → ค่าที่พัก/มื้ออาหารในงบเปลี่ยน: คืนรายการงบเป็นอัตโนมัติ กันตัวเลขค้างผิด
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined }));
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
-    flash(`ปรับระยะเวลาเป็น ${label} — ระบบจัดกำหนดการใหม่อัตโนมัติ`);
+    flash(`ปรับระยะเวลาเป็น ${label} — จัดกำหนดการใหม่แล้ว${hadBudget ? ' · รายการงบกลับเป็นอัตโนมัติ (แก้ได้อีกครั้งในขั้นราคา & งบ)' : ''}`);
   };
   const changeSubject = (s: Subject) => set({ subject: s, courseCode: undefined, activityIds: defaultActs(s).concat(camp.extraActivities.filter(a => a.subjects.includes(s)).map(a => a.id)), coreSlotIds: [] });
   const changeCourse = (code: string) => {
@@ -322,31 +324,34 @@ export default function App() {
   // ฟอนต์/ขนาดตรงกับ Word: TH Sarabun New ฝังในหน้า (ไม่พึ่งฟอนต์เครื่อง) · เนื้อหาตัวปกติ · ตัวหนาเฉพาะหัวข้อหลัก
   // กล่องเนื้อหาแต่ละชิ้นเรนเดอร์กว้าง 760px → วางทีละ "บล็อก" ไม่ตัดกลางบรรทัด; หัวกระดาษวาดทุกหน้า
   const PDF_STYLE = `<style>${FONT_FACE_CSS}
-.eqpdf{width:760px;box-sizing:border-box;padding:0 0 4px;display:flow-root;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:18px;line-height:1.3;font-weight:400}
+.eqpdf{width:760px;box-sizing:border-box;padding:0 0 4px;display:flow-root;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:24.6px;line-height:1.18;font-weight:400}
 .eqpdf b{font-weight:700}
 .eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
-.eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
-.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:10px 0 4px}
-.eqpdf .li{display:flex;margin:0 0 4px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:3px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
-.eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
-.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 12px}
-.eqpdf .day{font-weight:700;color:#0C2A41;font-size:19px;margin:0 0 4px;letter-spacing:.3px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:4px 8px;vertical-align:top;line-height:1.35}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
-.eqpdf .sub{color:#48484a}
+.eqpdf h1{text-align:center;color:#0C2A41;font-size:30.8px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:27.7px;margin:0}
+.eqpdf h2{color:#0C2A41;font-size:26.2px;font-weight:700;margin:8px 0 2px}
+.eqpdf .li{display:flex;margin:0}.eqpdf .li .n{flex:0 0 40px;padding-left:6px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:0 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:200px}
+.eqpdf .sh{text-align:center;font-weight:700;font-size:27.7px;line-height:1.3;color:#0F3D63}
+.eqpdf .sech{text-align:center;color:#0C2A41;font-size:30.1px;font-weight:700;margin:0 0 12px}
+.eqpdf .day{font-weight:700;color:#0C2A41;font-size:27.7px;margin:0 0 4px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:2px 8px;vertical-align:top;line-height:1.22}.eqpdf table.sched td.t{width:215px;white-space:nowrap;color:#3a3a3c}
+.eqpdf .sub{color:#48484a;font-size:24.65px}
 .eqpdf .note{color:#48484a;margin:4px 0}
 .eqpdf .price{text-align:center;border:1.5px solid #0C2A41;background:#fff;padding:11px;border-radius:6px;margin:4px 0 14px}
-.eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;font-size:18px;position:relative;display:inline-block}.eqpdf .price .old::after{content:'';position:absolute;left:-2px;right:-2px;top:50%;border-top:1.5px solid #8e8e93}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
+.eqpdf .price .lbl{color:#3a3a3c;font-size:24.6px}.eqpdf .price .old{color:#8e8e93;font-size:24.6px;position:relative;display:inline-block}.eqpdf .price .old::after{content:'';position:absolute;left:-2px;right:-2px;top:50%;border-top:1.5px solid #8e8e93}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:34.2px}
 .eqpdf table.bud{width:100%;border-collapse:collapse;margin:4px 0}
-.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:17px}
+.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:23.3px}
 .eqpdf table.bud td{padding:5px 10px;vertical-align:top;border-bottom:1px solid #ECECEF}.eqpdf table.bud td.no{width:44px;text-align:center;color:#8e8e93}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 12px}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:30.1px;margin:0 0 12px}
 .eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
 .eqpdf .pcell{width:47%}
 .eqpdf .pcell .pf{position:relative;border-radius:5px;overflow:hidden}
 .eqpdf .pcell img{width:100%;aspect-ratio:var(--a,4/3);object-fit:cover;display:block}
-.eqpdf .pcell .num{position:absolute;top:6px;left:6px;background:rgba(12,42,65,.82);color:#fff;font-size:13px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.eqpdf .pcell .cap{text-align:center;font-size:14px;color:#6E6E73;margin-top:4px;line-height:1.2}</style>`;
+.eqpdf .pcell .num{position:absolute;top:6px;left:6px;background:rgba(12,42,65,.82);color:#fff;font-size:17.8px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.eqpdf .pcell .cap{text-align:center;font-size:19.2px;color:#6E6E73;margin-top:4px;line-height:1.2}
+.eqpdf .pline{margin:0 0 4px}.eqpdf .pline .red{color:#FF0000}
+.eqpdf .dl{display:flex;margin:0 0 3px}.eqpdf .dl .d{flex:0 0 52px;padding-left:6px}.eqpdf .dl .x{flex:1}
+</style>`;
   const printPDF = async () => {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
     if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
@@ -383,7 +388,8 @@ export default function App() {
       const drawHead = () => {
         pdf.addImage(lhData, 'PNG', M, topGap, contentW, lhH, 'eqlh', 'FAST');
         pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(120);
-        pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: 'right' });
+        // รหัสเอกสาร (เช่น PL FOR 0110/2569) แสดงเฉพาะหน้าแรกเท่านั้น
+        if (pdf.getNumberOfPages() === 1) pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: 'right' });
       };
       const contentTop = topGap + lhH + 9;
       let y = contentTop; drawHead();
@@ -408,19 +414,19 @@ export default function App() {
       // ---- หน้ากำหนดการ: ขึ้นหน้าใหม่ · แต่ละวันเป็นบล็อก (ไม่ตัดข้ามหน้า) · ปิดด้วยหมายเหตุ ----
       await place(`<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` +
         (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>', { newpage: true, gap: 6 });
-      for (const d of plan.days) {
+      // หมายเหตุติดท้าย "วันสุดท้าย" ในบล็อกเดียวกัน → ไม่มีวันหลุดไปอยู่หน้าโดด ๆ
+      for (const [i, d] of plan.days.entries()) {
+        const last = i === plan.days.length - 1;
         await place(`<div class="day">วันที่ ${d.day}</div><table class="sched">` +
-          d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>', { gap: 6 });
+          d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>' +
+          (last ? '<div class="note" style="margin-top:10px">หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม</div>' : ''), { gap: 6 });
       }
-      await place(`<div class="note">หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม</div>`);
 
-      // ---- ราคา + รายละเอียดงบประมาณ (ตาราง) + ลงนาม : ขึ้นหน้าใหม่เสมอ ----
-      const budRows = kk.budget.map((x, i) => `<tr><td class="no">${i + 1}</td><td>${esc(x)}</td></tr>`).join('');
+      // ---- ราคา + รายละเอียดงบประมาณ: แบบเรียบตามเอกสารทีม (ไม่มีตาราง/กรอบ) ขึ้นหน้าใหม่เสมอ ----
       await place(
-        `<div class="sech">ราคาและรายละเอียดงบประมาณ</div>` +
-        `<div class="price"><span class="lbl">ราคาปกติ </span><span class="old">${money(camp.normalPrice)} บ./ท่าน</span><span class="lbl">&nbsp;&nbsp; ลดเหลือเพียง </span><span class="new">${money(camp.specialPrice)} บ./ท่าน</span></div>` +
-        `<table class="bud"><thead><tr><th style="width:44px">ลำดับ</th><th>รายการ</th></tr></thead><tbody>${budRows}</tbody></table>` +
-        `<div class="note">หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม</div>`,
+        `<div class="pline">ราคาปกติ ${money(camp.normalPrice)} <span class="red">ลดเหลือเพียง ${money(camp.specialPrice)} บ./ท่าน</span></div>` +
+        `<div class="pline">รายละเอียดงบประมาณมีดังนี้</div>` +
+        kk.budget.map(x => `<div class="dl"><span class="d">-</span><span class="x">${esc(x)}</span></div>`).join(''),
         { newpage: true });
 
       // ---- ภาพประกอบ 6–8 รูป: กริด 2 คอลัมน์ มีกรอบ + หมายเลข + คำบรรยายใต้รูป · แต่ละชุดขึ้นหน้าใหม่ ----
@@ -717,18 +723,28 @@ export default function App() {
                     <Field label="ครู (คน)"><input type="number" value={camp.teachers} onChange={e => set({ teachers: +e.target.value || 0 })} className={inp} /></Field>
                   </div>
                   <Field label="ระยะเวลา (จัดกำหนดการใหม่อัตโนมัติ)">
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {([
+                    {([
+                      ['ไป-กลับ (Day Camp)', [
                         { m: 'half' as DurationMode, d: 1, n: 0, l: 'ครึ่งวัน' },
-                        { m: 'day' as DurationMode, d: 1, n: 0, l: '1 วัน\nไป-กลับ' },
-                        { m: 'overnight' as DurationMode, d: 2, n: 1, l: '2ว1ค' },
-                        { m: 'overnight' as DurationMode, d: 3, n: 2, l: '3ว2ค' },
-                        { m: 'overnight' as DurationMode, d: 4, n: 3, l: '4ว3ค' }
-                      ]).map(o => {
-                        const on = camp.durationMode === o.m && (o.m !== 'overnight' || camp.days === o.d);
-                        return <button key={o.l} onClick={() => changeDuration(o.m, o.d, o.n)} className={`py-2 rounded-lg text-[13px] font-semibold border whitespace-pre-line leading-tight ${on ? 'bg-brand text-white border-brand' : 'bg-slate-50 border-slate-300'}`}>{o.l}</button>;
-                      })}
-                    </div>
+                        { m: 'day' as DurationMode, d: 1, n: 0, l: '1 วัน' },
+                        { m: 'day' as DurationMode, d: 2, n: 0, l: '2 วัน' },
+                        { m: 'day' as DurationMode, d: 3, n: 0, l: '3 วัน' }]],
+                      ['พักค้าง', [
+                        { m: 'overnight' as DurationMode, d: 2, n: 1, l: '2 วัน 1 คืน' },
+                        { m: 'overnight' as DurationMode, d: 3, n: 2, l: '3 วัน 2 คืน' },
+                        { m: 'overnight' as DurationMode, d: 4, n: 3, l: '4 วัน 3 คืน' }]]
+                    ] as const).map(([grp, opts]) => (
+                      <div key={grp} className="mb-2 last:mb-0">
+                        <div className="text-[12.5px] text-sub mb-1">{grp}</div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {opts.map(o => {
+                            const on = camp.durationMode === o.m && (o.m === 'half' || camp.days === o.d);
+                            return <button key={o.l} onClick={() => changeDuration(o.m, o.d, o.n)} aria-pressed={on}
+                              className={`tap py-2 rounded-lg text-[13.5px] border ${on ? 'bg-brand-navy text-white border-brand-navy font-semibold' : 'bg-white border-brand-mist hover:border-brand/40'}`}>{o.l}</button>;
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </Field>
                   <div className="grid grid-cols-2 gap-2.5">
                     <Field label="เวลาออกเดินทาง (เช่น 06.30)"><input value={camp.startTime} onChange={e => set({ startTime: e.target.value })} className={inp} /></Field>
@@ -854,6 +870,9 @@ export default function App() {
                     <Stat label="ต้นทุนรวม" value={money(cost)} tone="slate" />
                     <Stat label={`กำไร (${margin.toFixed(1)}%)`} value={money(profit)} tone={profit < 0 ? 'rose' : margin < 20 ? 'amber' : 'emerald'} />
                   </div>
+                  <BudgetEditor items={camp.budgetItems && camp.budgetItems.length ? camp.budgetItems : null} auto={k.autoBudget}
+                    normal={camp.normalPrice} special={camp.specialPrice}
+                    onChange={items => set({ budgetItems: items })} />
                   <Field label="เงื่อนไขการชำระเงิน (ในใบเสนอราคา)"><input value={camp.payTerms} onChange={e => set({ payTerms: e.target.value })} className={inp} /></Field>
                   <div className="grid grid-cols-2 gap-2.5">
                     <Field label="ยืนราคา (วัน)"><input type="number" value={camp.validDays} onChange={e => set({ validDays: +e.target.value || 0 })} className={inp} /></Field>
@@ -999,6 +1018,33 @@ function autoImages(c: Camp): { act: Img[]; ven: Img[] } {
 const inp = 'w-full px-3 py-2.5 rounded-xl border border-brand-mist bg-white text-[15px] focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15';
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><label className="block text-[13.5px] font-medium text-brand-ink mb-1.5">{label}</label>{children}</div>;
+}
+// รายการงบประมาณ: แก้/เพิ่ม/ลบได้ทีละบรรทัด — เอกสารจะแสดงแบบ "-  รายการ" ไม่มีตาราง (ตามแบบทีม)
+function BudgetEditor({ items, auto, normal, special, onChange }: { items: string[] | null; auto: string[]; normal: number; special: number; onChange: (v: string[] | undefined) => void }) {
+  const list = items ?? auto;
+  const edit = (next: string[]) => onChange(next);
+  return (
+    <section className="rounded-xl border border-brand-mist p-4 space-y-3" aria-label="รายละเอียดงบประมาณ">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[15px] font-semibold">รายละเอียดงบประมาณ</h3>
+        {items && <button onClick={() => onChange(undefined)} className="tap text-[13px] text-sub hover:text-brand-ink">ใช้รายการอัตโนมัติ</button>}
+      </div>
+      <p className="text-[14px] leading-relaxed">ราคาปกติ {money(normal)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(special)} บ./ท่าน</span><br />รายละเอียดงบประมาณมีดังนี้</p>
+      <ol className="space-y-1.5">
+        {list.map((x, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <span className="w-4 text-sub text-center" aria-hidden>-</span>
+            <label className="flex-1"><span className="sr-only">รายการที่ {i + 1}</span>
+              <input value={x} onChange={e => { const n = [...list]; n[i] = e.target.value; edit(n); }}
+                className="w-full px-3 py-2 rounded-lg border border-brand-mist text-[14.5px] focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15" /></label>
+            <button onClick={() => { const n = list.filter((_, j) => j !== i); edit(n.length ? n : ['']); }} aria-label={`ลบรายการที่ ${i + 1}`} className="tap p-1.5 rounded-md text-sub hover:text-rose-700 hover:bg-paper"><X className="w-4 h-4" /></button>
+          </li>
+        ))}
+      </ol>
+      <button onClick={() => edit([...list, ''])} className="tap inline-flex items-center gap-1.5 text-[13.5px] text-brand-navy font-medium"><Plus className="w-4 h-4" />เพิ่มรายการ</button>
+      {!items && <p className="text-[12.5px] text-sub">ตอนนี้ใช้รายการที่ระบบคำนวณจากที่พัก มื้ออาหาร และทีมงาน — แก้ช่องไหนก็ได้ ระบบจะจำรายการที่แก้ไว้</p>}
+    </section>
+  );
 }
 function CheckPanel({ checks, ready }: { checks: { ok: boolean; soft?: boolean; msg: string }[]; ready: boolean }) {
   const [all, setAll] = useState(false);
@@ -1199,8 +1245,9 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
       <H>บูรณาการการเรียน (integration instruction)</H><OL items={k.integ} />
       <div className="my-3 border-t pt-2 text-center font-extrabold text-sky-900">กำหนดการ</div>
       <Sched plan={plan} />
-      <div className="my-3 text-center bg-sky-50 border-2 border-sky-300 rounded-lg py-2 font-bold text-sky-900">ราคาปกติ <span className="line-through text-rose-600">{money(c.normalPrice)}</span> ลดเหลือเพียง <span className="text-emerald-700 text-base">{money(c.specialPrice)} บ./ท่าน</span></div>
-      <H>รายละเอียดงบประมาณ</H>{k.budget.map((b: string, i: number) => <div key={i} className="pl-3">- {b}</div>)}
+      <div className="mt-4 pt-3 border-t">ราคาปกติ {money(c.normalPrice)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(c.specialPrice)} บ./ท่าน</span></div>
+      <div>รายละเอียดงบประมาณมีดังนี้</div>
+      {k.budget.map((b: string, i: number) => <div key={i} className="flex"><span className="w-8 shrink-0 pl-1">-</span><span>{b}</span></div>)}
     </div>
   );
   if (kind === 'quotation') return (

@@ -30,6 +30,8 @@ export interface Row { time: string; title: string; sub?: string[]; slot?: numbe
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
+  /** รายการงบประมาณที่ทีมแก้เอง (ว่าง = ระบบสร้างอัตโนมัติจากที่พัก/มื้ออาหาร/ทีมงาน) */
+  budgetItems?: string[];
   students: number; teachers: number; days: number; nights: number; durationMode: DurationMode;
   dates: string; province: string; region?: Region; venue: string; venueVisit: string; startTime: string; travelHours: number;
   normalPrice: number; specialPrice: number; costPerPerson: number;
@@ -536,13 +538,15 @@ export function buildSchedule(c: Camp): Plan {
         else put(name, dur);                                     // หลักสูตรอื่น: ชื่อกิจกรรมของหลักสูตรเป็นหัวข้อช่วงโดยตรง
         items[items.length - 1].slot = slotIdx;
       };
-      if (first) put('ลงทะเบียน / พิธีเปิด', 30); else put('ทบทวนการเรียนรู้วันก่อนหน้า', 30);
-      { const a = pick1('opening'); put(a.title, 60, act(a)); }  // 09.00–10.00
-      put(introTitle, 20);                                       // 10.00–10.20
+      // วันแรก: ลงทะเบียน+เปิดค่าย+ปูพื้นฐาน · วันถัดไป: ทบทวน+สันทนาการปลุกพลัง+ชี้แจงภารกิจประจำวัน (ไม่ซ้ำกิจกรรมเปิด)
+      const ep = (d - 1) * 2;
+      if (first) put('ลงทะเบียน / พิธีเปิด', 30); else put(`ทบทวนการเรียนรู้วันที่ ${d - 1}`, 30);
+      { const a = first ? pick1('opening') : pick1('recreation'); put(a.title, 60, act(a)); }  // 09.00–10.00
+      put(first ? introTitle : `ชี้แจงภารกิจการเรียนรู้ประจำวันที่ ${d}`, 20);                 // 10.00–10.20
       meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15);      // 10.20–10.35
-      coreRow('#EP.1', 85);                                      // 10.35–12.00
+      coreRow(`#EP.${ep + 1}`, 85);                              // 10.35–12.00
       meals.l++; put(`รับประทานอาหารกลางวัน (${++mealNo})`, 60);  // 12.00–13.00
-      coreRow('#EP.2', 120);                                     // 13.00–15.00
+      coreRow(`#EP.${ep + 2}`, 120);                             // 13.00–15.00
       meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15);      // 15.00–15.15
       const sumWhat = isSteam ? ` ${mission}` : `ด้าน${topic}`;
       put(last ? `สรุปการเรียนรู้${sumWhat} และถอดบทเรียน (AAR : After Action Review)` : `สรุปการเรียนรู้${sumWhat} ประจำวัน`, 45); // 15.15–16.00
@@ -670,11 +674,14 @@ export function compose(c: Camp, plan: Plan) {
   const m = plan.meals, main = m.b + m.l + m.d;
   const parts = [m.b && `อาหารเช้า ${m.b} มื้อ`, m.l && `อาหารกลางวัน ${m.l} มื้อ`, m.d && `อาหารเย็น ${m.d} มื้อ`].filter(Boolean).join(' ');
   const staff = staffText(c.students);
-  const budget = [
+  const autoBudget = [
     c.nights > 0 && `ค่าที่พัก ${c.nights} คืน ${c.venue}`, main > 0 && `ค่าอาหาร ${main} มื้อ (${parts})`, m.s > 0 && `ค่าอาหารว่าง ${m.s} มื้อ`,
     'ค่าห้องประชุมสัมมนารองรับการทำกิจกรรม', `ค่าวิทยากรและทีมงาน จำนวน ${staff} ท่าน`, 'ค่าเดินทางวิทยากร',
     plan.hasTrip && 'ค่ากิจกรรมทัศนศึกษาแหล่งเรียนรู้', 'ค่าอุปกรณ์การจัดค่ายทั้งหมด'
   ].filter(Boolean) as string[];
+  // ทีมแก้รายการเองได้ (ช่องว่างถูกตัดทิ้ง) — ถ้าไม่ได้แก้ ใช้รายการอัตโนมัติ
+  const custom = (c.budgetItems || []).map(x => String(x ?? '').trim()).filter(Boolean);
+  const budget = custom.length ? custom : autoBudget;
   const total = c.students + c.teachers;
   // แยกชื่อหลักสูตรเป็นไทย + อังกฤษ: ชื่อในคลังอยู่รูป "ชื่อไทย (English Name)" → ไทยบรรทัดบน, อังกฤษในวงเล็บบรรทัดล่าง
   const rawName = course ? course.name : S.titleTh;
@@ -682,7 +689,7 @@ export function compose(c: Camp, plan: Plan) {
   const nameTh = nm ? nm[1].trim() : rawName;      // ชื่อไทยล้วน (ไม่มีวงเล็บอังกฤษ)
   const enName = nm ? nm[2].trim() : S.en;          // อังกฤษในวงเล็บ (หรือชื่อ EN มาตรฐานของวิชา)
   return {
-    titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, objectives, acts, integ, budget, staff,
+    titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, objectives, acts, integ, budget, autoBudget, staff,
     p1: `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`, p2: `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน`,
     dur: c.durationMode === 'half' ? 'ครึ่งวัน (ไป-กลับ)'
       : c.durationMode === 'day' ? `${c.days} วัน (ไป-กลับ)`
@@ -761,41 +768,40 @@ const dayBanner = (t: string) => tbl([new TableRow({ children: [cell([P(t, { b: 
 const scheduleTable = (d: Day, extra?: boolean, banner?: string) => {
   const cols = extra ? [2250, 4150, 3000] : [2700, W - 2700];
   const n = d.items.length;
-  const head = banner ? [new TableRow({ cantSplit: true, children: [cell([P(banner, { b: true, sz: 17, color: 'FFFFFF', after: 0, keep: true })], W, { fill: BLUE, span: cols.length })] })] : [];
+  const head = banner ? [new TableRow({ cantSplit: true, children: [cell([P(banner, { b: true, sz: 18, color: 'FFFFFF', after: 0, keep: true })], W, { fill: BLUE, span: cols.length })] })] : [];
   return tbl([...head, ...d.items.map((r, i) => { const k = i < n - 1; return new TableRow({ cantSplit: true, children: [
-    cell([P(r.time, { sz: 15.5, after: 0, keep: k })], cols[0], { border: 'none' }),
-    cell([P(r.title, { sz: 15.5, after: 0, keep: k }), ...(r.sub || []).map(s => P(s, { sz: 15, indent: 0.5, after: 0, color: '334155', keep: k }))], cols[1], { border: 'none' }),
+    cell([P(r.time, { sz: 16, after: 0, keep: k })], cols[0], { border: 'none' }),
+    cell([P(r.title, { sz: 16, after: 0, keep: k }), ...(r.sub || []).map(s => P(s, { sz: 16, indent: 0.5, after: 0, color: '334155', keep: k }))], cols[1], { border: 'none' }),
     ...(extra ? [cell([P('', { after: 0, keep: k })], cols[2], { border: 'none' })] : [])] }); })], cols);
 };
 // หน้ากำหนดการ: 1.กำหนดการ 2.ชื่อหลักสูตร(ไทย/อังกฤษ) 3.โรงเรียน 4.วันที่(ถ้ามี) 5.สถานที่(ถ้ามี)
 const hasVal = (s?: string) => !!(s && s.trim() && !s.includes('...'));
 const scheduleBlock = (c: Camp, plan: Plan, k: ReturnType<typeof compose>, extra = false, pb = false) => [
-  ...title('กำหนดการ', undefined, 20, pb), ...title(k.nameTh, k.titleEn),
-  ...(hasVal(c.school) ? [P(c.school, { b: true, al: CTR, after: 0 })] : []),
-  ...(hasVal(c.dates) ? [P(c.dates, { b: true, al: CTR, after: 0 })] : []),
-  ...(hasVal(c.venue) ? [P(`ณ ${c.venue}`, { b: true, al: CTR, after: 8 })] : [P('', { after: 8 })]),
+  // หัวข้อกำหนดการทั้งก้อน = 18 pt ตัวหนา (ตามแบบทีม) · รายละเอียดในตาราง = 16 pt ตัวธรรมดา
+  P('กำหนดการ', { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: '0F3D63', al: CTR, after: 0, pb, keep: true }),
+  P(k.nameTh, { b: true, sz: 18, color: '0F3D63', al: CTR, after: 0, keep: true }),
+  P(k.titleEn, { b: true, sz: 18, color: SKY, al: CTR, after: 0, keep: true }),
+  ...(hasVal(c.school) ? [P(c.school, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : []),
+  ...(hasVal(c.dates) ? [P(c.dates, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : []),
+  ...(hasVal(c.venue) ? [P(`ณ ${c.venue}`, { b: true, sz: 18, al: CTR, after: 8 })] : [P('', { after: 8 })]),
   ...plan.days.flatMap(d => [P('', { after: 0, sz: 6 }), scheduleTable(d, extra, `วันที่ ${d.day}${extra ? '  (ช่องขวา: ผู้รับผิดชอบ / อุปกรณ์)' : ''}`)]),
   // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ ไม่หนา
   P('หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { color: '334155', before: 8, after: 0 })
 ];
-// แถบราคา: จัดกึ่งกลาง เรียบร้อย — ราคาปกติขีดฆ่า (เทา), ราคาพิเศษ "สีแดง" ตัวเข้มเด่น (ไม่พึ่งขีดฆ่าอย่างเดียว)
-// แถบราคา: กล่องขอบหนาโทนกรมท่า (ไม่ใช่กล่องชมพู) — ราคาปกติขีดฆ่า(เทา) · ราคาพิเศษเด่น
-const priceBanner = (c: Camp) => tbl([new TableRow({ cantSplit: true, children: [cell([P([
-  R('ราคาปกติ ', { sz: 18, color: '3A3A3C' }),
-  R(`${money(c.normalPrice)} บ./ท่าน`, { sz: 18, color: '8E8E93', strike: true }),
-  R('    ลดเหลือเพียง ', { sz: 18, color: '3A3A3C' }),
-  R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 22, color: 'C4641B' })
-], { al: CTR, after: 0 })], W, { border: 'navy' })] })], [W]);
-// ตารางงบประมาณ — หัวแถบกรมท่า + เส้นคั่นแถวแนวนอนบาง ๆ เท่านั้น (ไม่มีเส้นตั้ง/กรอบ)
-const budgetTable = (items: string[]) => tbl([
-  new TableRow({ tableHeader: true, children: [cell([P('ลำดับ', { b: true, color: 'FFFFFF', al: CTR, after: 0 })], 1100, { fill: NAVY, border: 'none' }), cell([P('รายการ', { b: true, color: 'FFFFFF', after: 0 })], W - 1100, { fill: NAVY, border: 'none' })] }),
-  ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: 'line' }), cell([P(x, { after: 0 })], W - 1100, { border: 'line' })] }))
-], [1100, W - 1100]);
-// ส่วนราคา + งบประมาณ : ขึ้นหน้าใหม่เสมอ (pageBreakBefore ที่หัวข้อ) — ไม่มีช่องลงนาม
-const priceBudgetSection = (c: Camp, k: ReturnType<typeof compose>): (Paragraph | Table)[] => [
-  P('ราคาและรายละเอียดงบประมาณ', { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 8, pb: true, keep: true }),
-  priceBanner(c), P('', { after: 6 }), budgetTable(k.budget),
-  P('หมายเหตุ : ราคาข้างต้นรวมตามรายการที่ระบุ และอาจปรับเปลี่ยนตามความเหมาะสมของกิจกรรม', { color: '48484A', before: 6, after: 0 })
+// ราคา + รายละเอียดงบประมาณ — แบบเรียบตามเอกสารจริงของทีม: ไม่มีตาราง/กรอบ
+//   ราคาปกติ 6,290 ลดเหลือเพียง 5,290 บ./ท่าน   (ส่วน "ลดเหลือเพียง…" สีแดง)
+//   รายละเอียดงบประมาณมีดังนี้
+//   -<tab>รายการ …                                  (ทุกรายการแก้ได้ในขั้น "ราคา & งบ" → camp.budgetItems)
+// ขึ้นหน้าใหม่เสมอ (ไม่ให้แยกจากกำหนดการแบบครึ่ง ๆ กลาง ๆ)
+export const PRICE_RED = 'FF0000';
+const priceLine = (c: Camp, pb = false) => P([
+  R(`ราคาปกติ ${money(c.normalPrice)} `),
+  R(`ลดเหลือเพียง ${money(c.specialPrice)} บ./ท่าน`, { color: PRICE_RED })
+], { pb, keep: true, after: 2 });
+const priceBudgetSection = (c: Camp, k: ReturnType<typeof compose>): Paragraph[] => [
+  priceLine(c, true),
+  P('รายละเอียดงบประมาณมีดังนี้', { keep: true, after: 2 }),
+  ...dashed(k.budget, true)
 ];
 // ขนาดจริงของภาพจาก header (PNG/JPEG) — ใช้คงสัดส่วนภาพ ไม่ให้ภาพบีบ/ยืด
 const imgSize = (d: Uint8Array): { w: number; h: number } | null => {

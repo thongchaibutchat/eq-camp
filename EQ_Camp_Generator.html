@@ -31122,19 +31122,20 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           else put(name, dur);
           items[items.length - 1].slot = slotIdx;
         };
+        const ep = (d - 1) * 2;
         if (first) put("\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19 / \u0E1E\u0E34\u0E18\u0E35\u0E40\u0E1B\u0E34\u0E14", 30);
-        else put("\u0E17\u0E1A\u0E17\u0E27\u0E19\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E27\u0E31\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2B\u0E19\u0E49\u0E32", 30);
+        else put(`\u0E17\u0E1A\u0E17\u0E27\u0E19\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d - 1}`, 30);
         {
-          const a = pick1("opening");
+          const a = first ? pick1("opening") : pick1("recreation");
           put(a.title, 60, act(a));
         }
-        put(introTitle, 20);
+        put(first ? introTitle : `\u0E0A\u0E35\u0E49\u0E41\u0E08\u0E07\u0E20\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d}`, 20);
         meals.s++;
         put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 (${meals.s})`, 15);
-        coreRow("#EP.1", 85);
+        coreRow(`#EP.${ep + 1}`, 85);
         meals.l++;
         put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 (${++mealNo})`, 60);
-        coreRow("#EP.2", 120);
+        coreRow(`#EP.${ep + 2}`, 120);
         meals.s++;
         put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 (${meals.s})`, 15);
         const sumWhat = isSteam ? ` ${mission}` : `\u0E14\u0E49\u0E32\u0E19${topic}`;
@@ -31330,7 +31331,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const m = plan.meals, main = m.b + m.l + m.d;
     const parts = [m.b && `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E40\u0E0A\u0E49\u0E32 ${m.b} \u0E21\u0E37\u0E49\u0E2D`, m.l && `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 ${m.l} \u0E21\u0E37\u0E49\u0E2D`, m.d && `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E40\u0E22\u0E47\u0E19 ${m.d} \u0E21\u0E37\u0E49\u0E2D`].filter(Boolean).join(" ");
     const staff = staffText(c.students);
-    const budget = [
+    const autoBudget = [
       c.nights > 0 && `\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${c.nights} \u0E04\u0E37\u0E19 ${c.venue}`,
       main > 0 && `\u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23 ${main} \u0E21\u0E37\u0E49\u0E2D (${parts})`,
       m.s > 0 && `\u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 ${m.s} \u0E21\u0E37\u0E49\u0E2D`,
@@ -31340,6 +31341,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       plan.hasTrip && "\u0E04\u0E48\u0E32\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E31\u0E28\u0E19\u0E28\u0E36\u0E01\u0E29\u0E32\u0E41\u0E2B\u0E25\u0E48\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49",
       "\u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E01\u0E32\u0E23\u0E08\u0E31\u0E14\u0E04\u0E48\u0E32\u0E22\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"
     ].filter(Boolean);
+    const custom = (c.budgetItems || []).map((x) => String(x ?? "").trim()).filter(Boolean);
+    const budget = custom.length ? custom : autoBudget;
     const total = c.students + c.teachers;
     const rawName = course ? course.name : S.titleTh;
     const nm = rawName.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
@@ -31353,6 +31356,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       acts,
       integ,
       budget,
+      autoBudget,
       staff,
       p1: `\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E2B\u0E49\u0E2D\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29 \u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19 ${c.level} \u0E08\u0E33\u0E19\u0E27\u0E19 ${c.students} \u0E04\u0E19`,
       p2: `\u0E04\u0E38\u0E13\u0E04\u0E23\u0E39\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25 ${c.teachers} \u0E04\u0E19 \u0E23\u0E27\u0E21 ${total} \u0E04\u0E19`,
@@ -31438,43 +31442,38 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var scheduleTable = (d, extra, banner) => {
     const cols = extra ? [2250, 4150, 3e3] : [2700, W - 2700];
     const n = d.items.length;
-    const head = banner ? [new TableRow({ cantSplit: true, children: [cell([P(banner, { b: true, sz: 17, color: "FFFFFF", after: 0, keep: true })], W, { fill: BLUE, span: cols.length })] })] : [];
+    const head = banner ? [new TableRow({ cantSplit: true, children: [cell([P(banner, { b: true, sz: 18, color: "FFFFFF", after: 0, keep: true })], W, { fill: BLUE, span: cols.length })] })] : [];
     return tbl([...head, ...d.items.map((r, i) => {
       const k = i < n - 1;
       return new TableRow({ cantSplit: true, children: [
-        cell([P(r.time, { sz: 15.5, after: 0, keep: k })], cols[0], { border: "none" }),
-        cell([P(r.title, { sz: 15.5, after: 0, keep: k }), ...(r.sub || []).map((s) => P(s, { sz: 15, indent: 0.5, after: 0, color: "334155", keep: k }))], cols[1], { border: "none" }),
+        cell([P(r.time, { sz: 16, after: 0, keep: k })], cols[0], { border: "none" }),
+        cell([P(r.title, { sz: 16, after: 0, keep: k }), ...(r.sub || []).map((s) => P(s, { sz: 16, indent: 0.5, after: 0, color: "334155", keep: k }))], cols[1], { border: "none" }),
         ...extra ? [cell([P("", { after: 0, keep: k })], cols[2], { border: "none" })] : []
       ] });
     })], cols);
   };
   var hasVal = (s) => !!(s && s.trim() && !s.includes("..."));
   var scheduleBlock = (c, plan, k, extra = false, pb = false) => [
-    ...title("\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23", void 0, 20, pb),
-    ...title(k.nameTh, k.titleEn),
-    ...hasVal(c.school) ? [P(c.school, { b: true, al: CTR, after: 0 })] : [],
-    ...hasVal(c.dates) ? [P(c.dates, { b: true, al: CTR, after: 0 })] : [],
-    ...hasVal(c.venue) ? [P(`\u0E13 ${c.venue}`, { b: true, al: CTR, after: 8 })] : [P("", { after: 8 })],
+    // หัวข้อกำหนดการทั้งก้อน = 18 pt ตัวหนา (ตามแบบทีม) · รายละเอียดในตาราง = 16 pt ตัวธรรมดา
+    P("\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23", { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: "0F3D63", al: CTR, after: 0, pb, keep: true }),
+    P(k.nameTh, { b: true, sz: 18, color: "0F3D63", al: CTR, after: 0, keep: true }),
+    P(k.titleEn, { b: true, sz: 18, color: SKY, al: CTR, after: 0, keep: true }),
+    ...hasVal(c.school) ? [P(c.school, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : [],
+    ...hasVal(c.dates) ? [P(c.dates, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : [],
+    ...hasVal(c.venue) ? [P(`\u0E13 ${c.venue}`, { b: true, sz: 18, al: CTR, after: 8 })] : [P("", { after: 8 })],
     ...plan.days.flatMap((d) => [P("", { after: 0, sz: 6 }), scheduleTable(d, extra, `\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}${extra ? "  (\u0E0A\u0E48\u0E2D\u0E07\u0E02\u0E27\u0E32: \u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A / \u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C)" : ""}`)]),
     // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ ไม่หนา
     P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21", { color: "334155", before: 8, after: 0 })
   ];
-  var priceBanner = (c) => tbl([new TableRow({ cantSplit: true, children: [cell([P([
-    R2("\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ", { sz: 18, color: "3A3A3C" }),
-    R2(`${money(c.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { sz: 18, color: "8E8E93", strike: true }),
-    R2("    \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ", { sz: 18, color: "3A3A3C" }),
-    R2(`${money(c.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { b: true, sz: 22, color: "C4641B" })
-  ], { al: CTR, after: 0 })], W, { border: "navy" })] })], [W]);
-  var budgetTable = (items) => tbl([
-    new TableRow({ tableHeader: true, children: [cell([P("\u0E25\u0E33\u0E14\u0E31\u0E1A", { b: true, color: "FFFFFF", al: CTR, after: 0 })], 1100, { fill: NAVY, border: "none" }), cell([P("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", { b: true, color: "FFFFFF", after: 0 })], W - 1100, { fill: NAVY, border: "none" })] }),
-    ...items.map((x, i) => new TableRow({ cantSplit: true, children: [cell([P(`${i + 1}`, { al: CTR, after: 0 })], 1100, { border: "line" }), cell([P(x, { after: 0 })], W - 1100, { border: "line" })] }))
-  ], [1100, W - 1100]);
+  var PRICE_RED = "FF0000";
+  var priceLine = (c, pb = false) => P([
+    R2(`\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ${money(c.normalPrice)} `),
+    R2(`\u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ${money(c.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19`, { color: PRICE_RED })
+  ], { pb, keep: true, after: 2 });
   var priceBudgetSection = (c, k) => [
-    P("\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", { b: true, sz: 20, color: NAVY, al: CTR, before: 0, after: 8, pb: true, keep: true }),
-    priceBanner(c),
-    P("", { after: 6 }),
-    budgetTable(k.budget),
-    P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", { color: "48484A", before: 6, after: 0 })
+    priceLine(c, true),
+    P("\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49", { keep: true, after: 2 }),
+    ...dashed(k.budget, true)
   ];
   var imgSize = (d) => {
     if (d[0] === 137 && d[1] === 80) return { w: d[16] << 24 | d[17] << 16 | d[18] << 8 | d[19], h: d[20] << 24 | d[21] << 16 | d[22] << 8 | d[23] };
@@ -32325,9 +32324,10 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       flash(`\u0E42\u0E2B\u0E25\u0E14\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A "${PRESETS.find((p) => p.id === id).label}" \u0E41\u0E25\u0E49\u0E27`);
     };
     const changeDuration = (mode, days = 1, nights = 0) => {
-      setCamp((c) => normalizeDuration({ ...c, durationMode: mode, days, nights }));
+      const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
+      setCamp((c) => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: void 0 }));
       const label = mode === "half" ? "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19" : mode === "day" ? `${days} \u0E27\u0E31\u0E19 (\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A)` : `${days} \u0E27\u0E31\u0E19 ${nights} \u0E04\u0E37\u0E19`;
-      flash(`\u0E1B\u0E23\u0E31\u0E1A\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E40\u0E1B\u0E47\u0E19 ${label} \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E31\u0E14\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34`);
+      flash(`\u0E1B\u0E23\u0E31\u0E1A\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E40\u0E1B\u0E47\u0E19 ${label} \u2014 \u0E08\u0E31\u0E14\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27${hadBudget ? " \xB7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E07\u0E1A\u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 (\u0E41\u0E01\u0E49\u0E44\u0E14\u0E49\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07\u0E43\u0E19\u0E02\u0E31\u0E49\u0E19\u0E23\u0E32\u0E04\u0E32 & \u0E07\u0E1A)" : ""}`);
     };
     const changeSubject = (s) => set({ subject: s, courseCode: void 0, activityIds: defaultActs(s).concat(camp.extraActivities.filter((a) => a.subjects.includes(s)).map((a) => a.id)), coreSlotIds: [] });
     const changeCourse = (code2) => {
@@ -32551,31 +32551,34 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       setBusy(false);
     };
     const PDF_STYLE = `<style>${FONT_FACE_CSS}
-.eqpdf{width:760px;box-sizing:border-box;padding:0 0 4px;display:flow-root;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:18px;line-height:1.3;font-weight:400}
+.eqpdf{width:760px;box-sizing:border-box;padding:0 0 4px;display:flow-root;background:#fff;color:#1D1D1F;font-family:'EQSarabun',sans-serif;font-size:24.6px;line-height:1.18;font-weight:400}
 .eqpdf b{font-weight:700}
 .eqpdf .code{text-align:right;font-weight:700;color:#0C2A41}
-.eqpdf h1{text-align:center;color:#0C2A41;font-size:25px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:21px;margin:0}
-.eqpdf h2{color:#0C2A41;font-size:20px;font-weight:700;margin:10px 0 4px}
-.eqpdf .li{display:flex;margin:0 0 4px 0}.eqpdf .li .n{flex:0 0 30px;padding-left:6px}.eqpdf .li .x{flex:1}
-.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:3px 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:150px}
-.eqpdf .sh{text-align:center;font-weight:700;line-height:1.3}
-.eqpdf .sech{text-align:center;color:#0C2A41;font-size:22px;font-weight:700;margin:0 0 12px}
-.eqpdf .day{font-weight:700;color:#0C2A41;font-size:19px;margin:0 0 4px;letter-spacing:.3px}
-.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:4px 8px;vertical-align:top;line-height:1.35}.eqpdf table.sched td.t{width:168px;white-space:nowrap;color:#3a3a3c}
-.eqpdf .sub{color:#48484a}
+.eqpdf h1{text-align:center;color:#0C2A41;font-size:30.8px;font-weight:700;margin:2px 0 0;line-height:1.22}.eqpdf .en{text-align:center;color:#155D90;font-weight:700;font-size:27.7px;margin:0}
+.eqpdf h2{color:#0C2A41;font-size:26.2px;font-weight:700;margin:8px 0 2px}
+.eqpdf .li{display:flex;margin:0}.eqpdf .li .n{flex:0 0 40px;padding-left:6px}.eqpdf .li .x{flex:1}
+.eqpdf table.info{width:100%;border-collapse:collapse;margin:4px 0}.eqpdf table.info td{vertical-align:top;padding:0 4px}.eqpdf table.info td.k{color:#0C2A41;font-weight:700;width:200px}
+.eqpdf .sh{text-align:center;font-weight:700;font-size:27.7px;line-height:1.3;color:#0F3D63}
+.eqpdf .sech{text-align:center;color:#0C2A41;font-size:30.1px;font-weight:700;margin:0 0 12px}
+.eqpdf .day{font-weight:700;color:#0C2A41;font-size:27.7px;margin:0 0 4px}
+.eqpdf table.sched{width:100%;border-collapse:collapse}.eqpdf table.sched td{padding:2px 8px;vertical-align:top;line-height:1.22}.eqpdf table.sched td.t{width:215px;white-space:nowrap;color:#3a3a3c}
+.eqpdf .sub{color:#48484a;font-size:24.65px}
 .eqpdf .note{color:#48484a;margin:4px 0}
 .eqpdf .price{text-align:center;border:1.5px solid #0C2A41;background:#fff;padding:11px;border-radius:6px;margin:4px 0 14px}
-.eqpdf .price .lbl{color:#3a3a3c;font-size:18px}.eqpdf .price .old{color:#8e8e93;font-size:18px;position:relative;display:inline-block}.eqpdf .price .old::after{content:'';position:absolute;left:-2px;right:-2px;top:50%;border-top:1.5px solid #8e8e93}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:25px}
+.eqpdf .price .lbl{color:#3a3a3c;font-size:24.6px}.eqpdf .price .old{color:#8e8e93;font-size:24.6px;position:relative;display:inline-block}.eqpdf .price .old::after{content:'';position:absolute;left:-2px;right:-2px;top:50%;border-top:1.5px solid #8e8e93}.eqpdf .price .new{color:#C4641B;font-weight:700;font-size:34.2px}
 .eqpdf table.bud{width:100%;border-collapse:collapse;margin:4px 0}
-.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:17px}
+.eqpdf table.bud th{background:#0C2A41;color:#fff;font-weight:700;padding:6px 10px;text-align:left;font-size:23.3px}
 .eqpdf table.bud td{padding:5px 10px;vertical-align:top;border-bottom:1px solid #ECECEF}.eqpdf table.bud td.no{width:44px;text-align:center;color:#8e8e93}
-.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:22px;margin:0 0 12px}
+.eqpdf .phead{text-align:center;font-weight:700;color:#0C2A41;font-size:30.1px;margin:0 0 12px}
 .eqpdf .pgrid{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
 .eqpdf .pcell{width:47%}
 .eqpdf .pcell .pf{position:relative;border-radius:5px;overflow:hidden}
 .eqpdf .pcell img{width:100%;aspect-ratio:var(--a,4/3);object-fit:cover;display:block}
-.eqpdf .pcell .num{position:absolute;top:6px;left:6px;background:rgba(12,42,65,.82);color:#fff;font-size:13px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.eqpdf .pcell .cap{text-align:center;font-size:14px;color:#6E6E73;margin-top:4px;line-height:1.2}</style>`;
+.eqpdf .pcell .num{position:absolute;top:6px;left:6px;background:rgba(12,42,65,.82);color:#fff;font-size:17.8px;font-weight:700;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.eqpdf .pcell .cap{text-align:center;font-size:19.2px;color:#6E6E73;margin-top:4px;line-height:1.2}
+.eqpdf .pline{margin:0 0 4px}.eqpdf .pline .red{color:#FF0000}
+.eqpdf .dl{display:flex;margin:0 0 3px}.eqpdf .dl .d{flex:0 0 52px;padding-left:6px}.eqpdf .dl .x{flex:1}
+</style>`;
     const printPDF = async () => {
       const jsNS = window.jspdf;
       const h2c = window.html2canvas;
@@ -32641,7 +32644,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           pdf.setFont("helvetica", "normal");
           pdf.setFontSize(8);
           pdf.setTextColor(120);
-          pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: "right" });
+          if (pdf.getNumberOfPages() === 1) pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: "right" });
         };
         const contentTop = topGap + lhH + 9;
         let y = contentTop;
@@ -32664,13 +32667,12 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         await place(`<h2>\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23</h2>${ol(kk.acts)}`);
         await place(`<h2>\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)</h2>${ol(kk.integ)}`);
         await place(`<div class="sh">\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` + (has(camp.school) ? "<br>" + esc(camp.school) : "") + (has(camp.dates) ? "<br>" + esc(camp.dates) : "") + (has(camp.venue) ? "<br>\u0E13 " + esc(camp.venue) : "") + "</div>", { newpage: true, gap: 6 });
-        for (const d of plan2.days) {
-          await place(`<div class="day">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}</div><table class="sched">` + d.items.map((r) => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map((s) => `<div class="sub">${esc(s)}</div>`).join("")}</td></tr>`).join("") + "</table>", { gap: 6 });
+        for (const [i, d] of plan2.days.entries()) {
+          const last = i === plan2.days.length - 1;
+          await place(`<div class="day">\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}</div><table class="sched">` + d.items.map((r) => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map((s) => `<div class="sub">${esc(s)}</div>`).join("")}</td></tr>`).join("") + "</table>" + (last ? '<div class="note" style="margin-top:10px">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div>' : ""), { gap: 6 });
         }
-        await place(`<div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21</div>`);
-        const budRows = kk.budget.map((x, i) => `<tr><td class="no">${i + 1}</td><td>${esc(x)}</td></tr>`).join("");
         await place(
-          `<div class="sech">\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13</div><div class="price"><span class="lbl">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 </span><span class="old">${money(camp.normalPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span><span class="lbl">&nbsp;&nbsp; \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 </span><span class="new">${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div><table class="bud"><thead><tr><th style="width:44px">\u0E25\u0E33\u0E14\u0E31\u0E1A</th><th>\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23</th></tr></thead><tbody>${budRows}</tbody></table><div class="note">\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E23\u0E32\u0E04\u0E32\u0E02\u0E49\u0E32\u0E07\u0E15\u0E49\u0E19\u0E23\u0E27\u0E21\u0E15\u0E32\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E38 \u0E41\u0E25\u0E30\u0E2D\u0E32\u0E08\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>`,
+          `<div class="pline">\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ${money(camp.normalPrice)} <span class="red">\u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ${money(camp.specialPrice)} \u0E1A./\u0E17\u0E48\u0E32\u0E19</span></div><div class="pline">\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49</div>` + kk.budget.map((x) => `<div class="dl"><span class="d">-</span><span class="x">${esc(x)}</span></div>`).join(""),
           { newpage: true }
         );
         const u8b64 = (u) => {
@@ -33081,16 +33083,34 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 (\u0E04\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "number", value: camp.students, onChange: (e) => set({ students: +e.target.value || 0 }), className: inp }) }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E04\u0E23\u0E39 (\u0E04\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "number", value: camp.teachers, onChange: (e) => set({ teachers: +e.target.value || 0 }), className: inp }) })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32 (\u0E08\u0E31\u0E14\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "grid grid-cols-5 gap-1.5", children: [
-                    { m: "half", d: 1, n: 0, l: "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19" },
-                    { m: "day", d: 1, n: 0, l: "1 \u0E27\u0E31\u0E19\n\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A" },
-                    { m: "overnight", d: 2, n: 1, l: "2\u0E271\u0E04" },
-                    { m: "overnight", d: 3, n: 2, l: "3\u0E272\u0E04" },
-                    { m: "overnight", d: 4, n: 3, l: "4\u0E273\u0E04" }
-                  ].map((o) => {
-                    const on = camp.durationMode === o.m && (o.m !== "overnight" || camp.days === o.d);
-                    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => changeDuration(o.m, o.d, o.n), className: `py-2 rounded-lg text-[13px] font-semibold border whitespace-pre-line leading-tight ${on ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-300"}`, children: o.l }, o.l);
-                  }) }) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32 (\u0E08\u0E31\u0E14\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: [
+                    ["\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A (Day Camp)", [
+                      { m: "half", d: 1, n: 0, l: "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19" },
+                      { m: "day", d: 1, n: 0, l: "1 \u0E27\u0E31\u0E19" },
+                      { m: "day", d: 2, n: 0, l: "2 \u0E27\u0E31\u0E19" },
+                      { m: "day", d: 3, n: 0, l: "3 \u0E27\u0E31\u0E19" }
+                    ]],
+                    ["\u0E1E\u0E31\u0E01\u0E04\u0E49\u0E32\u0E07", [
+                      { m: "overnight", d: 2, n: 1, l: "2 \u0E27\u0E31\u0E19 1 \u0E04\u0E37\u0E19" },
+                      { m: "overnight", d: 3, n: 2, l: "3 \u0E27\u0E31\u0E19 2 \u0E04\u0E37\u0E19" },
+                      { m: "overnight", d: 4, n: 3, l: "4 \u0E27\u0E31\u0E19 3 \u0E04\u0E37\u0E19" }
+                    ]]
+                  ].map(([grp, opts]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mb-2 last:mb-0", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[12.5px] text-sub mb-1", children: grp }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "grid grid-cols-4 gap-1.5", children: opts.map((o) => {
+                      const on = camp.durationMode === o.m && (o.m === "half" || camp.days === o.d);
+                      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                        "button",
+                        {
+                          onClick: () => changeDuration(o.m, o.d, o.n),
+                          "aria-pressed": on,
+                          className: `tap py-2 rounded-lg text-[13.5px] border ${on ? "bg-brand-navy text-white border-brand-navy font-semibold" : "bg-white border-brand-mist hover:border-brand/40"}`,
+                          children: o.l
+                        },
+                        o.l
+                      );
+                    }) })
+                  ] }, grp)) }),
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "grid grid-cols-2 gap-2.5", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E2D\u0E01\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07 (\u0E40\u0E0A\u0E48\u0E19 06.30)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { value: camp.startTime, onChange: (e) => set({ startTime: e.target.value }), className: inp }) }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E0A\u0E31\u0E48\u0E27\u0E42\u0E21\u0E07\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07 (\u0E0A\u0E21.)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "number", step: "0.5", value: camp.travelHours, onChange: (e) => set({ travelHours: +e.target.value || 0 }), className: inp }) })
@@ -33233,6 +33253,16 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Stat, { label: "\u0E15\u0E49\u0E19\u0E17\u0E38\u0E19\u0E23\u0E27\u0E21", value: money(cost), tone: "slate" }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Stat, { label: `\u0E01\u0E33\u0E44\u0E23 (${margin.toFixed(1)}%)`, value: money(profit), tone: profit < 0 ? "rose" : margin < 20 ? "amber" : "emerald" })
                   ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                    BudgetEditor,
+                    {
+                      items: camp.budgetItems && camp.budgetItems.length ? camp.budgetItems : null,
+                      auto: k.autoBudget,
+                      normal: camp.normalPrice,
+                      special: camp.specialPrice,
+                      onChange: (items) => set({ budgetItems: items })
+                    }
+                  ),
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02\u0E01\u0E32\u0E23\u0E0A\u0E33\u0E23\u0E30\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { value: camp.payTerms, onChange: (e) => set({ payTerms: e.target.value }), className: inp }) }),
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "grid grid-cols-2 gap-2.5", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E22\u0E37\u0E19\u0E23\u0E32\u0E04\u0E32 (\u0E27\u0E31\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "number", value: camp.validDays, onChange: (e) => set({ validDays: +e.target.value || 0 }), className: inp }) }),
@@ -33410,6 +33440,58 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("label", { className: "block text-[13.5px] font-medium text-brand-ink mb-1.5", children: label }),
       children
+    ] });
+  }
+  function BudgetEditor({ items, auto, normal, special, onChange }) {
+    const list = items ?? auto;
+    const edit = (next) => onChange(next);
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("section", { className: "rounded-xl border border-brand-mist p-4 space-y-3", "aria-label": "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center justify-between gap-2", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("h3", { className: "text-[15px] font-semibold", children: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13" }),
+        items && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => onChange(void 0), className: "tap text-[13px] text-sub hover:text-brand-ink", children: "\u0E43\u0E0A\u0E49\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("p", { className: "text-[14px] leading-relaxed", children: [
+        "\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ",
+        money(normal),
+        " ",
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "text-[#FF0000]", children: [
+          "\u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ",
+          money(special),
+          " \u0E1A./\u0E17\u0E48\u0E32\u0E19"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("br", {}),
+        "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ol", { className: "space-y-1.5", children: list.map((x, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-4 text-sub text-center", "aria-hidden": true, children: "-" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "flex-1", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "sr-only", children: [
+            "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48 ",
+            i + 1
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "input",
+            {
+              value: x,
+              onChange: (e) => {
+                const n = [...list];
+                n[i] = e.target.value;
+                edit(n);
+              },
+              className: "w-full px-3 py-2 rounded-lg border border-brand-mist text-[14.5px] focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => {
+          const n = list.filter((_, j) => j !== i);
+          edit(n.length ? n : [""]);
+        }, "aria-label": `\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48 ${i + 1}`, className: "tap p-1.5 rounded-md text-sub hover:text-rose-700 hover:bg-paper", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(X, { className: "w-4 h-4" }) })
+      ] }, i)) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { onClick: () => edit([...list, ""]), className: "tap inline-flex items-center gap-1.5 text-[13.5px] text-brand-navy font-medium", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Plus, { className: "w-4 h-4" }),
+        "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"
+      ] }),
+      !items && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("p", { className: "text-[12.5px] text-sub", children: "\u0E15\u0E2D\u0E19\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E49\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E30\u0E1A\u0E1A\u0E04\u0E33\u0E19\u0E27\u0E13\u0E08\u0E32\u0E01\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 \u0E21\u0E37\u0E49\u0E2D\u0E2D\u0E32\u0E2B\u0E32\u0E23 \u0E41\u0E25\u0E30\u0E17\u0E35\u0E21\u0E07\u0E32\u0E19 \u2014 \u0E41\u0E01\u0E49\u0E0A\u0E48\u0E2D\u0E07\u0E44\u0E2B\u0E19\u0E01\u0E47\u0E44\u0E14\u0E49 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E08\u0E33\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E41\u0E01\u0E49\u0E44\u0E27\u0E49" })
     ] });
   }
   function CheckPanel({ checks, ready }) {
@@ -33665,19 +33747,20 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(OL, { items: k.integ }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "my-3 border-t pt-2 text-center font-extrabold text-sky-900", children: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Sched, { plan }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "my-3 text-center bg-sky-50 border-2 border-sky-300 rounded-lg py-2 font-bold text-sky-900", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mt-4 pt-3 border-t", children: [
         "\u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 ",
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "line-through text-rose-600", children: money(c.normalPrice) }),
-        " \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ",
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "text-emerald-700 text-base", children: [
+        money(c.normalPrice),
+        " ",
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "text-[#FF0000]", children: [
+          "\u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 ",
           money(c.specialPrice),
           " \u0E1A./\u0E17\u0E48\u0E32\u0E19"
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(H2, { children: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13" }),
-      k.budget.map((b, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "pl-3", children: [
-        "- ",
-        b
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { children: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E07\u0E1A\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13\u0E21\u0E35\u0E14\u0E31\u0E07\u0E19\u0E35\u0E49" }),
+      k.budget.map((b, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "w-8 shrink-0 pl-1", children: "-" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: b })
       ] }, i))
     ] });
     if (kind === "quotation") return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "text-[13px] leading-relaxed", children: [
