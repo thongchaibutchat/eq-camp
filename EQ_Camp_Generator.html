@@ -21287,6 +21287,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       this.root.push(new Attributes({ val: hpsMeasureValue(val) }));
     }
   };
+  var EmptyElement = class extends XmlComponent {
+  };
   var StringValueElement = class extends XmlComponent {
     constructor(name, val) {
       super(name);
@@ -22989,6 +22991,11 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       for (const child of children) {
         this.root.push(new Comment(child));
       }
+    }
+  };
+  var Tab = class extends EmptyElement {
+    constructor() {
+      super("w:tab");
     }
   };
   var PageBreakBefore = class extends XmlComponent {
@@ -30603,6 +30610,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ...REF_ACTIVITIES.map((a) => ({ id: a.id, subjects: [a.family], kind: a.kind, title: tidyTitle(a.title), courseCode: a.course, draft: true }))
   ];
   var courseById = (code2) => COURSES.find((c) => c.code === code2);
+  var showTeachers = (c) => c.includeTeachers ?? c.durationMode === "overnight";
   var docCodeFor = (code2) => code2 ? `${code2}/2569` : "";
   var hasCoursePhotos = (code2) => !!(code2 && COURSE_PHOTOS[code2] && COURSE_PHOTOS[code2].length);
   function coursePhotos(code2, max = 4) {
@@ -31095,6 +31103,14 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       const topic = courseShortTh(c);
       const introTitle = isSteam ? "\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19 STEM \u0E14\u0E49\u0E27\u0E22\u0E01\u0E23\u0E30\u0E1A\u0E27\u0E19\u0E01\u0E32\u0E23 5 STEPs Learning \u0E41\u0E25\u0E30\u0E2B\u0E25\u0E31\u0E01\u0E01\u0E32\u0E23\u0E2D\u0E2D\u0E01\u0E41\u0E1A\u0E1A\u0E40\u0E0A\u0E34\u0E07\u0E27\u0E34\u0E28\u0E27\u0E01\u0E23\u0E23\u0E21 (Engineering Design Process : EDP)" : `\u0E1B\u0E39\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E04\u0E27\u0E32\u0E21\u0E23\u0E39\u0E49\u0E14\u0E49\u0E32\u0E19${topic} \u0E41\u0E25\u0E30\u0E0A\u0E35\u0E49\u0E41\u0E08\u0E07\u0E20\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49`;
       const mission = isSteam ? "\u201CSTEAM Mission\u201D" : `\u0E20\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E14\u0E49\u0E32\u0E19${topic}`;
+      const stripPart = (t) => t.replace(/\s*[-–]?\s*(Part|EP)\.?\s*\d+\s*$/i, "").trim();
+      const seenBase = /* @__PURE__ */ new Set();
+      const coresD = cores.filter((a) => !/night|party|ปาร์ตี้|ภาคค่ำ/i.test(a.title)).filter((a) => {
+        const k = stripPart(a.title);
+        if (seenBase.has(k)) return false;
+        seenBase.add(k);
+        return true;
+      });
       for (let d = 1; d <= c.days; d++) {
         const first = d === 1, last = d === c.days;
         let cur = 8 * 60 + 30;
@@ -31111,31 +31127,64 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           if (pick) {
             name = pick.title;
             act(pick);
-          } else if (cores.length) {
-            const a = cores[coreIdx % cores.length];
-            const rep = Math.floor(coreIdx / cores.length) > 0;
+          } else if (coresD.length) {
+            const a = coresD[coreIdx % coresD.length];
+            const rep = Math.floor(coreIdx / coresD.length) > 0;
             coreIdx++;
-            name = rep ? `${a.title}\xA0(\u0E15\u0E48\u0E2D\u2060\u0E22\u0E2D\u0E14)` : a.title;
+            name = rep ? `${stripPart(a.title)}\xA0(\u0E15\u0E48\u0E2D\u2060\u0E22\u0E2D\u0E14)` : a.title;
             act(a);
+            if (!rep) name = stripPart(a.title);
           } else name = "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E10\u0E32\u0E19\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23";
-          if (isSteam) put(`\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 ${mission} ${label}`, dur, [name]);
+          if (isSteam) put(`\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 ${mission}${label ? " " + label : ""}`, dur, [name]);
           else put(name, dur);
           items[items.length - 1].slot = slotIdx;
         };
-        const ep = (d - 1) * 2;
+        if (!first) {
+          cur = 9 * 60;
+          {
+            const a = pick1("recreation");
+            put(a.title, 30, act(a));
+          }
+          const twoPart = (d1, gapTitle, gap, d2) => {
+            coreRow("", d1);
+            const row = items[items.length - 1];
+            const raw = row.sub && row.sub.length ? row.sub[0] : row.title;
+            const TAG = "\xA0(\u0E15\u0E48\u0E2D\u2060\u0E22\u0E2D\u0E14)";
+            const ext = raw.includes(TAG);
+            const nm = stripPart(raw.replace(TAG, ""));
+            const p1 = `${nm} - Part 1${ext ? TAG : ""}`, p2 = `${nm} - Part 2${ext ? TAG : ""}`;
+            if (row.sub && row.sub.length) row.sub = [p1];
+            else row.title = p1;
+            if (gapTitle) put(gapTitle, gap);
+            const slot = row.slot;
+            if (row.sub && row.sub.length) put(row.title, d2, [p2]);
+            else put(p2, d2);
+            items[items.length - 1].slot = slot;
+          };
+          meals.s++;
+          twoPart(60, `\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 (${meals.s})`, 15, 75);
+          meals.l++;
+          put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 (${++mealNo})`, 60);
+          meals.s++;
+          twoPart(90, `\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 (${meals.s})`, 30, 60);
+          const sumWhat2 = isSteam ? ` ${mission}` : `\u0E14\u0E49\u0E32\u0E19${topic}`;
+          put(last ? `\u0E2A\u0E23\u0E38\u0E1B\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49${sumWhat2} \u0E41\u0E25\u0E30\u0E16\u0E2D\u0E14\u0E1A\u0E17\u0E40\u0E23\u0E35\u0E22\u0E19 (AAR : After Action Review)` : `\u0E2A\u0E23\u0E38\u0E1B\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49${sumWhat2} \u0E1B\u0E23\u0E30\u0E08\u0E33\u0E27\u0E31\u0E19`, 30);
+          if (last) items.push({ time: `${fmt(cur)} \u0E19. \u0E40\u0E1B\u0E47\u0E19\u0E15\u0E49\u0E19\u0E44\u0E1B`, title: "\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07\u0E01\u0E25\u0E31\u0E1A\u0E42\u0E14\u0E22\u0E2A\u0E27\u0E31\u0E2A\u0E14\u0E34\u0E20\u0E32\u0E1E" });
+          days.push({ day: d, items });
+          continue;
+        }
         if (first) put("\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19 / \u0E1E\u0E34\u0E18\u0E35\u0E40\u0E1B\u0E34\u0E14", 30);
-        else put(`\u0E17\u0E1A\u0E17\u0E27\u0E19\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d - 1}`, 30);
         {
-          const a = first ? pick1("opening") : pick1("recreation");
+          const a = pick1("opening");
           put(a.title, 60, act(a));
         }
-        put(first ? introTitle : `\u0E0A\u0E35\u0E49\u0E41\u0E08\u0E07\u0E20\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d}`, 20);
+        put(introTitle, 20);
         meals.s++;
         put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 (${meals.s})`, 15);
-        coreRow(`#EP.${ep + 1}`, 85);
+        coreRow("#EP.1", 85);
         meals.l++;
         put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 (${++mealNo})`, 60);
-        coreRow(`#EP.${ep + 2}`, 120);
+        coreRow("#EP.2", 120);
         meals.s++;
         put(`\u0E23\u0E31\u0E1A\u0E1B\u0E23\u0E30\u0E17\u0E32\u0E19\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 (${meals.s})`, 15);
         const sumWhat = isSteam ? ` ${mission}` : `\u0E14\u0E49\u0E32\u0E19${topic}`;
@@ -31316,22 +31365,43 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const ORD = { core: 0, night: 1, opening: 2, recreation: 3, closing: 4 };
     const selForActs = pool.filter((a) => c.activityIds.includes(a.id)).length ? pool.filter((a) => c.activityIds.includes(a.id)) : sel;
     const ordered = [...selForActs].sort((a, b) => (ORD[a.kind] ?? 9) - (ORD[b.kind] ?? 9));
-    const baseName = (t) => tidyTitle(t).replace(/\s*\(ต่อยอด\)\s*$/, "").replace(/\s*(EP|Part)\.?\s*\d+\s*$/i, "").trim();
-    const acts = Array.from(new Set(ordered.map((a) => baseName(a.title)))).slice(0, 6);
-    acts.push("\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E14\u0E2A\u0E2D\u0E1A\u0E2B\u0E25\u0E31\u0E07\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49 (After Action Review : AAR)");
+    const baseName = (t) => tidyTitle(t).replace(/\s*\(ต่อยอด\)\s*$/, "").replace(/\s*[-–]?\s*(EP|Part)\.?\s*\d+\s*$/i, "").replace(/\s*#EP\.?\s*\d+\s*$/i, "").trim();
+    const asKijakam = (t) => {
+      const x = baseName(t);
+      if (/^กิจกรรม/.test(x)) return x;
+      return /[“"”]/.test(x) ? `\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21${x}` : `\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u201C${x}\u201D`;
+    };
+    const firstOf = (k) => ordered.find((a) => a.kind === k);
+    const warm = firstOf("opening") || firstOf("recreation");
+    const warmLine = warm ? /\(/.test(warm.title) ? asKijakam(warm.title) : `${asKijakam(warm.title)} (\u0E01\u0E23\u0E30\u0E1A\u0E27\u0E19\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C)` : "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u201CReboot Your Brain\u201D (\u0E01\u0E23\u0E30\u0E1A\u0E27\u0E19\u0E01\u0E32\u0E23\u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C)";
+    const station = ordered.find((a) => a.kind === "core" && /station|mission|quest|challenge|ฐานการเรียนรู้/i.test(a.title));
+    const night = c.nights > 0 ? firstOf("night") : void 0;
+    const acts = [
+      warmLine,
+      "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E23\u0E30\u0E14\u0E21\u0E2A\u0E21\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E25\u0E2D\u0E07\u0E1B\u0E31\u0E0D\u0E0D\u0E32",
+      station ? asKijakam(station.title) : "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u201CCreative Learning Station\u201D",
+      ...night ? [asKijakam(night.title)] : [],
+      "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E23\u0E30\u0E14\u0E21\u0E2A\u0E21\u0E2D\u0E07 \u0E16\u0E2D\u0E14\u0E1A\u0E17\u0E40\u0E23\u0E35\u0E22\u0E19",
+      "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E14\u0E2A\u0E2D\u0E1A\u0E2B\u0E25\u0E31\u0E07\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49 (After Action Review : AAR)"
+    ];
     const extra = c.courseCode && c.subject === "steam" && !isSteamProgram(c) ? [`\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E41\u0E1A\u0E1A\u0E2A\u0E2B\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E32\u0E23\u0E14\u0E49\u0E32\u0E19${courseShortTh(c)}`, `\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E17\u0E31\u0E01\u0E29\u0E30\u0E27\u0E34\u0E0A\u0E32\u0E0A\u0E35\u0E1E\u0E14\u0E49\u0E32\u0E19${courseShortTh(c)}`] : S.extra;
     const integ = [
       "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E04\u0E38\u0E13\u0E25\u0E31\u0E01\u0E29\u0E13\u0E30\u0E17\u0E35\u0E48\u0E1E\u0E36\u0E07\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E43\u0E19\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E43\u0E19\u0E28\u0E15\u0E27\u0E23\u0E23\u0E29\u0E17\u0E35\u0E48 21",
       "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E42\u0E14\u0E22\u0E43\u0E0A\u0E49\u0E42\u0E04\u0E23\u0E07\u0E01\u0E32\u0E23\u0E43\u0E19\u0E17\u0E32\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E25\u0E31\u0E01\u0E29\u0E13\u0E30\u0E20\u0E32\u0E23\u0E01\u0E34\u0E08\u0E43\u0E19\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21",
       ...extra,
-      "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E23\u0E30\u0E1A\u0E27\u0E19\u0E01\u0E32\u0E23\u0E01\u0E25\u0E38\u0E48\u0E21\u0E41\u0E25\u0E30\u0E17\u0E31\u0E01\u0E29\u0E30\u0E04\u0E27\u0E32\u0E21\u0E40\u0E1B\u0E47\u0E19\u0E1C\u0E39\u0E49\u0E19\u0E33 (Collaborative and Leadership Skills)",
       "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E17\u0E31\u0E01\u0E29\u0E30\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49\u0E41\u0E25\u0E30\u0E19\u0E27\u0E31\u0E15\u0E01\u0E23\u0E23\u0E21 (Learning and Innovation Skills)",
       "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E17\u0E31\u0E01\u0E29\u0E30\u0E01\u0E32\u0E23\u0E2A\u0E37\u0E48\u0E2D\u0E2A\u0E32\u0E23 (Communication Tactic)"
-    ].slice(0, 7);
+    ].slice(0, 6);
     const m = plan.meals, main = m.b + m.l + m.d;
     const parts = [m.b && `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E40\u0E0A\u0E49\u0E32 ${m.b} \u0E21\u0E37\u0E49\u0E2D`, m.l && `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E01\u0E25\u0E32\u0E07\u0E27\u0E31\u0E19 ${m.l} \u0E21\u0E37\u0E49\u0E2D`, m.d && `\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E40\u0E22\u0E47\u0E19 ${m.d} \u0E21\u0E37\u0E49\u0E2D`].filter(Boolean).join(" ");
     const staff = staffText(c.students);
-    const autoBudget = [
+    const autoBudget = c.durationMode !== "overnight" ? [
+      "\u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E01\u0E32\u0E23\u0E08\u0E31\u0E14\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21",
+      `\u0E04\u0E48\u0E32\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23\u0E41\u0E25\u0E30\u0E17\u0E35\u0E21\u0E07\u0E32\u0E19\u0E1C\u0E39\u0E49\u0E40\u0E0A\u0E35\u0E48\u0E22\u0E27\u0E0A\u0E32\u0E0D ${staff} \u0E17\u0E48\u0E32\u0E19`,
+      "\u0E04\u0E48\u0E32\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23",
+      "\u0E04\u0E48\u0E32\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E07\u0E27\u0E31\u0E25 \u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21",
+      "\u0E04\u0E48\u0E32\u0E1B\u0E23\u0E30\u0E2A\u0E32\u0E19\u0E07\u0E32\u0E19"
+    ] : [
       c.nights > 0 && `\u0E04\u0E48\u0E32\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${c.nights} \u0E04\u0E37\u0E19 ${c.venue}`,
       main > 0 && `\u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23 ${main} \u0E21\u0E37\u0E49\u0E2D (${parts})`,
       m.s > 0 && `\u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23\u0E27\u0E48\u0E32\u0E07 ${m.s} \u0E21\u0E37\u0E49\u0E2D`,
@@ -31343,7 +31413,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ].filter(Boolean);
     const custom = (c.budgetItems || []).map((x) => String(x ?? "").trim()).filter(Boolean);
     const budget = custom.length ? custom : autoBudget;
-    const total = c.students + c.teachers;
+    const total = c.students + (showTeachers(c) ? c.teachers : 0);
     const rawName = course ? course.name : S.titleTh;
     const nm = rawName.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
     const nameTh = nm ? nm[1].trim() : rawName;
@@ -31359,8 +31429,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       autoBudget,
       staff,
       p1: `\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E2B\u0E49\u0E2D\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E1E\u0E34\u0E40\u0E28\u0E29 \u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19 ${c.level} \u0E08\u0E33\u0E19\u0E27\u0E19 ${c.students} \u0E04\u0E19`,
-      p2: `\u0E04\u0E38\u0E13\u0E04\u0E23\u0E39\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25 ${c.teachers} \u0E04\u0E19 \u0E23\u0E27\u0E21 ${total} \u0E04\u0E19`,
-      dur: c.durationMode === "half" ? "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19 (\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A)" : c.durationMode === "day" ? `${c.days} \u0E27\u0E31\u0E19 (\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A)` : `${c.days} \u0E27\u0E31\u0E19 ${c.nights} \u0E04\u0E37\u0E19`
+      p2: showTeachers(c) ? `\u0E04\u0E38\u0E13\u0E04\u0E23\u0E39\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25 ${c.teachers} \u0E04\u0E19 \u0E23\u0E27\u0E21 ${total} \u0E04\u0E19` : "",
+      dur: c.durationMode === "half" ? "\u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19" : c.durationMode === "day" ? `${c.days} \u0E27\u0E31\u0E19` : `${c.days} \u0E27\u0E31\u0E19 ${c.nights} \u0E04\u0E37\u0E19`
     };
   }
   function check(c, plan) {
@@ -31403,24 +31473,32 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var xmlSafe = (t) => (t === null || t === void 0 ? "" : String(t)).replace(XML_BAD, "");
   var R2 = (text, o = {}) => {
     const sz = (o.sz || 16) * 2;
-    return new TextRun({ text: xmlSafe(text), font: FONT, language: LANG, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i });
+    const tab = text.startsWith("	");
+    const t = xmlSafe(tab ? text.slice(1) : text);
+    return new TextRun({ ...tab ? { children: [new Tab(), t] } : { text: t }, font: FONT, language: LANG, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i, underline: o.u ? { type: UnderlineType.SINGLE } : void 0 });
   };
   var P = (t, o = {}) => new Paragraph({
     heading: o.hd,
     alignment: o.al,
     spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 300 },
-    indent: o.indent !== void 0 ? { left: o.indent * 567, hanging: (o.hang || 0) * 567 } : void 0,
+    indent: o.indent !== void 0 || o.first !== void 0 ? { left: (o.indent || 0) * 567, hanging: o.hang ? o.hang * 567 : void 0, firstLine: o.first ? o.first * 567 : void 0 } : void 0,
+    tabStops: o.tab ? [{ type: TabStopType.LEFT, position: o.tab }] : void 0,
     keepNext: o.keep,
     pageBreakBefore: o.pb,
     children: typeof t === "string" ? [R2(t, o)] : t
   });
   var CTR = AlignmentType.CENTER;
   var RGT = AlignmentType.RIGHT;
-  var code = (t) => P(t, { b: true, color: BLUE, al: RGT });
+  var code = (t) => P(t, { color: "000000", al: RGT });
   var title = (th, en, sz = 20, pb = false) => [P(th, { hd: HeadingLevel.HEADING_1, b: true, sz: th.length > 40 ? Math.min(sz, 17.5) : th.length > 32 ? Math.min(sz, 18.5) : sz, color: "0F3D63", al: CTR, after: 0, pb, keep: true }), ...en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 4 })] : []];
+  var HK = (t) => P(t, { hd: HeadingLevel.HEADING_2, b: true, color: "000000", after: 0, keep: true });
   var H = (t) => P(t, { hd: HeadingLevel.HEADING_2, b: true, sz: 17, color: BLUE, before: 6, after: 2, keep: true });
+  var numFirst = (a) => a.map((x, i) => P(`${i + 1}.${x}`, { first: 1.27, after: 0 }));
+  var numBlock = (a) => a.map((x, i) => P(`${i + 1}.${x}`, { indent: 1.27, after: 0 }));
+  var TAB_INFO = 2160;
+  var infoTabs = (pairs) => pairs.flatMap(([k, v]) => v.filter(Boolean).map((x, i) => i === 0 ? P([R2(k, { b: true }), R2("	" + x)], { tab: TAB_INFO, indent: TAB_INFO / 567, hang: TAB_INFO / 567, after: 0 }) : P(x, { indent: TAB_INFO / 567, after: 0 })));
   var numbered = (a) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
-  var dashed = (a, keep = false) => a.map((x, i) => P(`-	${x}`, { indent: 0.9, hang: 0.9, after: 1, keep: keep && i < a.length - 1 }));
+  var dashed = (a, keep = false) => a.map((x, i) => P([R2("-"), R2("	" + x)], { indent: 1.27, hang: 1.27, after: 0, keep: keep && i < a.length - 1 }));
   var NB = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
   var LB = { style: BorderStyle.SINGLE, size: 4, color: "CBD5E1" };
   var cell = (kids, w, o = {}) => {
@@ -31453,17 +31531,28 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     })], cols);
   };
   var hasVal = (s) => !!(s && s.trim() && !s.includes("..."));
+  var TAB_SCHED = 2160;
+  var schedLines = (d) => {
+    const out = [P([R2(`\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}`, { u: true })], { keep: true, before: 8, after: 2 })];
+    d.items.forEach((r, i) => {
+      const keep = i < d.items.length - 1;
+      out.push(P([R2(r.time), R2("	" + r.title)], { tab: TAB_SCHED, indent: TAB_SCHED / 567, hang: TAB_SCHED / 567, after: 0, keep: keep || !!(r.sub && r.sub.length) }));
+      (r.sub || []).forEach((x, j) => out.push(P(x, { indent: TAB_SCHED / 567, after: 0, color: "334155", keep: keep || j < r.sub.length - 1 })));
+    });
+    return out;
+  };
   var scheduleBlock = (c, plan, k, extra = false, pb = false) => [
-    // หัวข้อกำหนดการทั้งก้อน = 18 pt ตัวหนา (ตามแบบทีม) · รายละเอียดในตาราง = 16 pt ตัวธรรมดา
-    P("\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23", { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: "0F3D63", al: CTR, after: 0, pb, keep: true }),
-    P(k.nameTh, { b: true, sz: 18, color: "0F3D63", al: CTR, after: 0, keep: true }),
-    P(k.titleEn, { b: true, sz: 18, color: SKY, al: CTR, after: 0, keep: true }),
+    // หัวข้อกำหนดการทั้งก้อน = 18 pt ตัวหนา กึ่งกลาง · รายละเอียด = 16 pt ธรรมดา (ไม่มีตาราง/แถบสี — สุภาพตามเอกสารจริง)
+    P("\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23", { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: "000000", al: CTR, after: 0, pb, keep: true }),
+    P(k.nameTh, { b: true, sz: 18, al: CTR, after: 0, keep: true }),
+    P(k.titleEn, { b: true, sz: 18, al: CTR, after: 0, keep: true }),
     ...hasVal(c.school) ? [P(c.school, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : [],
     ...hasVal(c.dates) ? [P(c.dates, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : [],
-    ...hasVal(c.venue) ? [P(`\u0E13 ${c.venue}`, { b: true, sz: 18, al: CTR, after: 8 })] : [P("", { after: 8 })],
-    ...plan.days.flatMap((d) => [P("", { after: 0, sz: 6 }), scheduleTable(d, extra, `\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}${extra ? "  (\u0E0A\u0E48\u0E2D\u0E07\u0E02\u0E27\u0E32: \u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A / \u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C)" : ""}`)]),
-    // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ ไม่หนา
-    P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21", { color: "334155", before: 8, after: 0 })
+    ...hasVal(c.venue) ? [P(`\u0E13 ${c.venue}`, { b: true, sz: 18, al: CTR, after: 6 })] : [P("", { after: 6 })],
+    // เอกสารภายใน (runsheet) ยังใช้ตารางที่มีช่องผู้รับผิดชอบ
+    ...extra ? plan.days.flatMap((d) => [P("", { after: 0, sz: 6 }), scheduleTable(d, true, `\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}  (\u0E0A\u0E48\u0E2D\u0E07\u0E02\u0E27\u0E32: \u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A / \u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C)`)]) : plan.days.flatMap(schedLines),
+    // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ สีแดง ตามเอกสารจริง
+    P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21", { color: PRICE_RED, before: 10, after: 0 })
   ];
   var PRICE_RED = "FF0000";
   var priceLine = (c, pb = false) => P([
@@ -31582,16 +31671,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     if (kind === "program") {
       body = [
         code(c.docCode),
-        ...title(k.titleTh, k.titleEn),
-        P("", { after: 4 }),
-        H("\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49"),
-        ...numbered(k.objectives),
-        P("", { after: 2 }),
-        infoRows([["\u0E08\u0E33\u0E19\u0E27\u0E19", [k.p1, k.p2]], ["\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23", [`${k.staff} \u0E04\u0E19`]], ["\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21", [k.dur]]]),
-        H("\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23"),
-        ...numbered(k.acts),
-        H("\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)"),
-        ...numbered(k.integ),
+        P(k.titleTh, { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: "000000", al: CTR, after: 0 }),
+        P(k.titleEn, { b: true, sz: 18, color: "000000", al: CTR, after: 4 }),
+        HK("\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49"),
+        ...numFirst(k.objectives),
+        ...infoTabs([["\u0E08\u0E33\u0E19\u0E27\u0E19", [k.p1, k.p2]], ["\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23", [`${k.staff} \u0E04\u0E19`]], ["\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21", [k.dur]]]),
+        HK("\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23"),
+        ...numBlock(k.acts),
+        HK("\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (Instruction Integration)"),
+        ...numBlock(k.integ),
         ...scheduleBlock(c, plan, k, false, true),
         ...priceBudgetSection(c, k),
         ...photoSection(c, { venue: true })
@@ -31627,7 +31715,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       ];
     } else if (kind === "booking") {
       const supplier = c.supplierNote || VENUES.find((x) => x.name === c.venue)?.note || "";
-      const m = plan.meals, ppl = c.students + c.teachers;
+      const m = plan.meals, tch = showTeachers(c) ? c.teachers : 0, ppl = c.students + tch;
       body = [
         code(`BK ${c.docCode.replace(/^PL\s*/, "")}`),
         ...title("\u0E2B\u0E19\u0E31\u0E07\u0E2A\u0E37\u0E2D\u0E02\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32\u0E41\u0E25\u0E30\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E49\u0E2D\u0E07\u0E1E\u0E31\u0E01/\u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21", "ACCOMMODATION & MEETING REQUEST"),
@@ -31637,7 +31725,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         infoRows([
           ["\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E31\u0E01", [c.dates]],
           ["\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32", [k.dur]],
-          ["\u0E08\u0E33\u0E19\u0E27\u0E19\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E31\u0E01", [`\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 ${c.students} \u0E04\u0E19 \u0E04\u0E23\u0E39 ${c.teachers} \u0E04\u0E19 \u0E17\u0E35\u0E21\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 ${k.staff} \u0E04\u0E19 (\u0E23\u0E27\u0E21\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13 ${ppl} \u0E04\u0E19)`]],
+          ["\u0E08\u0E33\u0E19\u0E27\u0E19\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E1E\u0E31\u0E01", [`\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 ${c.students} \u0E04\u0E19 ${tch ? `\u0E04\u0E23\u0E39 ${tch} \u0E04\u0E19 ` : ""} \u0E17\u0E35\u0E21\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23 ${k.staff} \u0E04\u0E19 (\u0E23\u0E27\u0E21\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13 ${ppl} \u0E04\u0E19)`]],
           ["\u0E40\u0E27\u0E25\u0E32\u0E16\u0E36\u0E07\u0E42\u0E14\u0E22\u0E1B\u0E23\u0E30\u0E21\u0E32\u0E13", [plan.days[0].items.find((r) => r.title.startsWith("\u0E40\u0E14\u0E34\u0E19\u0E17\u0E32\u0E07\u0E16\u0E36\u0E07"))?.time || "-"]]
         ]),
         H("\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32"),
@@ -32578,6 +32666,15 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
 .eqpdf .pcell .cap{text-align:center;font-size:19.2px;color:#6E6E73;margin-top:4px;line-height:1.2}
 .eqpdf .pline{margin:0 0 4px}.eqpdf .pline .red{color:#FF0000}
 .eqpdf .dl{display:flex;margin:0 0 3px}.eqpdf .dl .d{flex:0 0 52px;padding-left:6px}.eqpdf .dl .x{flex:1}
+
+.eqpdf h1,.eqpdf .en,.eqpdf h2,.eqpdf .sh,.eqpdf .day{color:#1D1D1F}
+.eqpdf h1{font-size:27.7px}.eqpdf .en{font-size:27.7px}
+.eqpdf h2{font-size:24.65px;margin:6px 0 0}
+.eqpdf .fl{text-indent:55px}.eqpdf .blk{padding-left:55px}
+.eqpdf .kv{display:flex}.eqpdf .kv b{flex:0 0 166px}.eqpdf .kv span{flex:1}
+.eqpdf .day{font-weight:400;font-size:24.65px;text-decoration:underline;margin:10px 0 2px}
+.eqpdf table.sched td{padding:0}.eqpdf table.sched td.t{width:166px;color:#1D1D1F}
+.eqpdf .note{color:#FF0000}
 </style>`;
     const printPDF = async () => {
       const jsNS = window.jspdf;
@@ -32663,9 +32760,11 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
           y += h + (opts.gap ?? 3);
         };
         await place(`<h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
-        await place(`<h2>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49</h2>${ol(kk.objectives)}<table class="info"><tr><td class="k">\u0E08\u0E33\u0E19\u0E27\u0E19</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23</td><td>${esc(kk.staff)} \u0E04\u0E19</td></tr><tr><td class="k">\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21</td><td>${esc(kk.dur)}</td></tr></table>`);
-        await place(`<h2>\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23</h2>${ol(kk.acts)}`);
-        await place(`<h2>\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)</h2>${ol(kk.integ)}`);
+        const fl = (a) => a.map((x, i) => `<div class="fl">${i + 1}.${esc(x)}</div>`).join("");
+        const blk = (a) => a.map((x, i) => `<div class="blk">${i + 1}.${esc(x)}</div>`).join("");
+        await place(`<h2>\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49</h2>${fl(kk.objectives)}<div class="kv"><b>\u0E08\u0E33\u0E19\u0E27\u0E19</b><span>${esc(kk.p1)}${kk.p2 ? "<br>" + esc(kk.p2) : ""}</span></div><div class="kv"><b>\u0E27\u0E34\u0E17\u0E22\u0E32\u0E01\u0E23</b><span>${esc(kk.staff)} \u0E04\u0E19</span></div><div class="kv"><b>\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32\u0E2D\u0E1A\u0E23\u0E21</b><span>${esc(kk.dur)}</span></div>`);
+        await place(`<h2>\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23</h2>${blk(kk.acts)}`);
+        await place(`<h2>\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (Instruction Integration)</h2>${blk(kk.integ)}`);
         await place(`<div class="sh">\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` + (has(camp.school) ? "<br>" + esc(camp.school) : "") + (has(camp.dates) ? "<br>" + esc(camp.dates) : "") + (has(camp.venue) ? "<br>\u0E13 " + esc(camp.venue) : "") + "</div>", { newpage: true, gap: 6 });
         for (const [i, d] of plan2.days.entries()) {
           const last = i === plan2.days.length - 1;
@@ -33082,6 +33181,19 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { value: camp.level, onChange: (e) => set({ level: e.target.value }), className: inp }) }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 (\u0E04\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "number", value: camp.students, onChange: (e) => set({ students: +e.target.value || 0 }), className: inp }) }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E04\u0E23\u0E39 (\u0E04\u0E19)", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "number", value: camp.teachers, onChange: (e) => set({ teachers: +e.target.value || 0 }), className: inp }) })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("label", { className: "inline-flex items-center gap-2 text-[14px] cursor-pointer", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("input", { type: "checkbox", className: "w-4 h-4 accent-[#0C2A41]", checked: showTeachers(camp), onChange: (e) => set({ includeTeachers: e.target.checked }) }),
+                      "\u0E41\u0E2A\u0E14\u0E07\u0E04\u0E23\u0E39\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E43\u0E19\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23"
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("p", { className: "text-[12.5px] text-sub mt-0.5 ml-6", children: [
+                      camp.durationMode === "overnight" ? "\u0E04\u0E48\u0E32\u0E22\u0E1E\u0E31\u0E01\u0E04\u0E49\u0E32\u0E07: \u0E1B\u0E01\u0E15\u0E34\u0E41\u0E2A\u0E14\u0E07\u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E23\u0E39\u0E41\u0E25\u0E30\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21" : "Day Camp / \u0E04\u0E23\u0E36\u0E48\u0E07\u0E27\u0E31\u0E19: \u0E1B\u0E01\u0E15\u0E34\u0E44\u0E21\u0E48\u0E41\u0E2A\u0E14\u0E07\u0E04\u0E23\u0E39 \u0E40\u0E1E\u0E23\u0E32\u0E30\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E14\u0E39\u0E41\u0E25\u0E04\u0E23\u0E39",
+                      camp.includeTeachers !== void 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+                        " \xB7 ",
+                        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { onClick: () => set({ includeTeachers: void 0 }), className: "underline underline-offset-2", children: "\u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E04\u0E48\u0E32\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" })
+                      ] })
+                    ] })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Field, { label: "\u0E23\u0E30\u0E22\u0E30\u0E40\u0E27\u0E25\u0E32 (\u0E08\u0E31\u0E14\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34)", children: [
                     ["\u0E44\u0E1B-\u0E01\u0E25\u0E31\u0E1A (Day Camp)", [
@@ -33743,7 +33855,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       ] }) }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(H2, { children: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(OL, { items: k.acts }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(H2, { children: "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (integration instruction)" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(H2, { children: "\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19 (Instruction Integration)" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(OL, { items: k.integ }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "my-3 border-t pt-2 text-center font-extrabold text-sky-900", children: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Sched, { plan }),

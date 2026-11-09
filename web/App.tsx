@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
+  showTeachers
 } from '../src/eqcamp-core';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
@@ -351,6 +352,15 @@ export default function App() {
 .eqpdf .pcell .cap{text-align:center;font-size:19.2px;color:#6E6E73;margin-top:4px;line-height:1.2}
 .eqpdf .pline{margin:0 0 4px}.eqpdf .pline .red{color:#FF0000}
 .eqpdf .dl{display:flex;margin:0 0 3px}.eqpdf .dl .d{flex:0 0 52px;padding-left:6px}.eqpdf .dl .x{flex:1}
+
+.eqpdf h1,.eqpdf .en,.eqpdf h2,.eqpdf .sh,.eqpdf .day{color:#1D1D1F}
+.eqpdf h1{font-size:27.7px}.eqpdf .en{font-size:27.7px}
+.eqpdf h2{font-size:24.65px;margin:6px 0 0}
+.eqpdf .fl{text-indent:55px}.eqpdf .blk{padding-left:55px}
+.eqpdf .kv{display:flex}.eqpdf .kv b{flex:0 0 166px}.eqpdf .kv span{flex:1}
+.eqpdf .day{font-weight:400;font-size:24.65px;text-decoration:underline;margin:10px 0 2px}
+.eqpdf table.sched td{padding:0}.eqpdf table.sched td.t{width:166px;color:#1D1D1F}
+.eqpdf .note{color:#FF0000}
 </style>`;
   const printPDF = async () => {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
@@ -406,10 +416,13 @@ export default function App() {
 
       // ---- หน้าปก ----
       await place(`<h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
-      await place(`<h2>วัตถุประสงค์การเรียนรู้</h2>${ol(kk.objectives)}` +
-        `<table class="info"><tr><td class="k">จำนวน</td><td>${esc(kk.p1)}<br>${esc(kk.p2)}</td></tr><tr><td class="k">วิทยากร</td><td>${esc(kk.staff)} คน</td></tr><tr><td class="k">ระยะเวลาอบรม</td><td>${esc(kk.dur)}</td></tr></table>`);
-      await place(`<h2>กิจกรรมเชิงบูรณาการ</h2>${ol(kk.acts)}`);
-      await place(`<h2>บูรณาการการเรียน (integration instruction)</h2>${ol(kk.integ)}`);
+      // แพตเทิร์นเอกสารจริง: วัตถุประสงค์ย่อหน้าแรกเยื้อง · ข้อมูลจำนวน/วิทยากร/ระยะเวลาแบบแท็บ · รายการบูรณาการเยื้องทั้งบล็อก "1.ข้อความ"
+      const fl = (a: string[]) => a.map((x, i) => `<div class="fl">${i + 1}.${esc(x)}</div>`).join('');
+      const blk = (a: string[]) => a.map((x, i) => `<div class="blk">${i + 1}.${esc(x)}</div>`).join('');
+      await place(`<h2>วัตถุประสงค์การเรียนรู้</h2>${fl(kk.objectives)}` +
+        `<div class="kv"><b>จำนวน</b><span>${esc(kk.p1)}${kk.p2 ? '<br>' + esc(kk.p2) : ''}</span></div><div class="kv"><b>วิทยากร</b><span>${esc(kk.staff)} คน</span></div><div class="kv"><b>ระยะเวลาอบรม</b><span>${esc(kk.dur)}</span></div>`);
+      await place(`<h2>กิจกรรมเชิงบูรณาการ</h2>${blk(kk.acts)}`);
+      await place(`<h2>บูรณาการการเรียน (Instruction Integration)</h2>${blk(kk.integ)}`);
 
       // ---- หน้ากำหนดการ: ขึ้นหน้าใหม่ · แต่ละวันเป็นบล็อก (ไม่ตัดข้ามหน้า) · ปิดด้วยหมายเหตุ ----
       await place(`<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` +
@@ -721,6 +734,13 @@ export default function App() {
                     <Field label="ระดับชั้น"><input value={camp.level} onChange={e => set({ level: e.target.value })} className={inp} /></Field>
                     <Field label="นักเรียน (คน)"><input type="number" value={camp.students} onChange={e => set({ students: +e.target.value || 0 })} className={inp} /></Field>
                     <Field label="ครู (คน)"><input type="number" value={camp.teachers} onChange={e => set({ teachers: +e.target.value || 0 })} className={inp} /></Field>
+                  </div>
+                  <div>
+                    <label className="inline-flex items-center gap-2 text-[14px] cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4 accent-[#0C2A41]" checked={showTeachers(camp)} onChange={e => set({ includeTeachers: e.target.checked })} />
+                      แสดงครูผู้ดูแลในเอกสาร
+                    </label>
+                    <p className="text-[12.5px] text-sub mt-0.5 ml-6">{camp.durationMode === 'overnight' ? 'ค่ายพักค้าง: ปกติแสดงจำนวนครูและยอดรวม' : 'Day Camp / ครึ่งวัน: ปกติไม่แสดงครู เพราะไม่ต้องดูแลครู'}{camp.includeTeachers !== undefined && <> · <button onClick={() => set({ includeTeachers: undefined })} className="underline underline-offset-2">กลับเป็นค่าอัตโนมัติ</button></>}</p>
                   </div>
                   <Field label="ระยะเวลา (จัดกำหนดการใหม่อัตโนมัติ)">
                     {([
@@ -1242,7 +1262,7 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
         <tr><td className="font-bold text-sky-800 py-0.5">ระยะเวลา</td><td>{k.dur}</td></tr>
       </tbody></table>
       <H>กิจกรรมเชิงบูรณาการ</H><OL items={k.acts} />
-      <H>บูรณาการการเรียน (integration instruction)</H><OL items={k.integ} />
+      <H>บูรณาการการเรียน (Instruction Integration)</H><OL items={k.integ} />
       <div className="my-3 border-t pt-2 text-center font-extrabold text-sky-900">กำหนดการ</div>
       <Sched plan={plan} />
       <div className="mt-4 pt-3 border-t">ราคาปกติ {money(c.normalPrice)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(c.specialPrice)} บ./ท่าน</span></div>

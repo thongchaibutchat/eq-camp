@@ -52,6 +52,7 @@
         "validDays": { "type": "integer" },
         "payTerms": { "type": "string" },
         "activityIds": { "type": "array", "items": { "type": "string" }, "description": "id ของกิจกรรมที่เลือก (ทั้งจากคลังมาตรฐานและ extraActivities)" },
+        "includeTeachers": { "type": "boolean", "description": "แสดงครูผู้ดูแลในเอกสาร; ขาด = อัตโนมัติ (overnight แสดง, half/day ตัดออก) — optional ไม่ต้อง migrate" },
         "budgetItems": { "type": "array", "items": { "type": "string" }, "description": "รายการงบประมาณที่ทีมแก้เอง (แสดงแบบ \"-  รายการ\"); ว่าง/ขาด = ระบบสร้างอัตโนมัติ (optional, backward-compatible ไม่ต้อง migrate)" },
         "coreSlotIds": { "type": "array", "items": { "type": "string" }, "description": "เลือกกิจกรรมรายช่วง (per-slot): ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม ('' = อัตโนมัติ); ว่าง/ขาด = ให้ระบบจัดอัตโนมัติทั้งหมด (backward-compatible, migrate เป็น [])" },
         "extraActivities": {
