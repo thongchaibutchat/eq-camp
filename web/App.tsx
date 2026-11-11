@@ -503,7 +503,7 @@ export default function App() {
     <div className="min-h-screen bg-paper text-brand-ink pb-20">
       {/* Header */}
       <header className="sticky top-0 z-30 brandbar text-white shadow-lift">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 py-2 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/20 grid place-items-center font-display font-semibold text-[15px] text-white tracking-tight">EQ</div>
             <div>
@@ -514,15 +514,15 @@ export default function App() {
           <div className="flex items-center gap-2">
             <button onClick={() => download(kind)} disabled={busy}
               className="tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[13.5px] font-semibold shadow-lift flex items-center gap-1.5">
-              <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label}`}
+              <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : <>ดาวน์โหลด<span className="hidden sm:inline"> {DOC_TYPES.find(d => d.id === kind)!.label}</span></>}
             </button>
             <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
               className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-[13.5px] font-medium flex items-center gap-1.5">
-              <Layers className="w-4 h-4" />ครบชุด 4 ไฟล์
+              <Layers className="w-4 h-4" />ครบชุด<span className="hidden sm:inline"> 4 ไฟล์</span>
             </button>
             <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF"
               className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-[13.5px] font-medium flex items-center gap-1.5">
-              <FileText className="w-4 h-4" />บันทึก PDF
+              <FileText className="w-4 h-4" /><span className="hidden sm:inline">บันทึก </span>PDF
             </button>
           </div>
         </div>
@@ -569,10 +569,10 @@ export default function App() {
               const Icon = KIND_ICON[d.id]; const on = kind === d.id;
               return (
                 <button key={d.id} onClick={() => setKind(d.id)}
-                  className={`tap text-left p-3.5 rounded-xl border ${on ? 'bg-brand-navy text-white border-brand-navy' : 'bg-white border-brand-mist hover:border-brand/40'}`}>
+                  className={`tap text-left p-2.5 sm:p-3.5 rounded-xl border ${on ? 'bg-brand-navy text-white border-brand-navy' : 'bg-white border-brand-mist hover:border-brand/40'}`}>
                   <div className="flex items-center gap-1.5 mb-1.5"><span className={`text-[12px] font-medium ${on ? 'text-white/70' : 'text-sub'}`}>{d.stage}</span>{d.internal && <Lock className={`w-3 h-3 ml-auto ${on ? 'text-white/70' : 'text-sub'}`} />}</div>
                   <div className="text-[15px] font-semibold leading-tight">{d.label}</div>
-                  <div className={`text-[13px] mt-1 leading-snug ${on ? 'text-white/70' : 'text-sub'}`}>{d.desc}</div>
+                  <div className={`hidden sm:block text-[13px] mt-1 leading-snug ${on ? 'text-white/70' : 'text-sub'}`}>{d.desc}</div>
                 </button>
               );
             })}
@@ -799,7 +799,7 @@ export default function App() {
 
               {tab === 'activities' && (
                 <div className="space-y-3">
-                  <SectionTitle title={`3. เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
+                  <SectionTitle title={`เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
                   <div className="flex items-center justify-between text-[13px]">
                     <span className="text-sub">ตารางต้องการ <b className="text-brand">{plan.coreSlots}</b> ช่องกิจกรรมหลัก · เลือกไว้ <b className="text-brand">{selectedCore}</b></span>
                     <div className="flex gap-2">

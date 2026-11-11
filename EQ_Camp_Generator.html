@@ -30506,6 +30506,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   init_shim();
 
   // src/eqcamp-core.ts
+  var CARD_ONLY = /* @__PURE__ */ new Set(["PL STM 0101"]);
+  var COURSE_PHOTOS2 = Object.fromEntries(Object.entries(COURSE_PHOTOS).filter(([k]) => !CARD_ONLY.has(k)));
   var SUBJECTS = {
     math: {
       label: "\u0E04\u0E13\u0E34\u0E15\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C",
@@ -30612,11 +30614,11 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var courseById = (code2) => COURSES.find((c) => c.code === code2);
   var showTeachers = (c) => c.includeTeachers ?? c.durationMode === "overnight";
   var docCodeFor = (code2) => code2 ? `${code2}/2569` : "";
-  var hasCoursePhotos = (code2) => !!(code2 && COURSE_PHOTOS[code2] && COURSE_PHOTOS[code2].length);
+  var hasCoursePhotos = (code2) => !!(code2 && COURSE_PHOTOS2[code2] && COURSE_PHOTOS2[code2].length);
   function coursePhotos(code2, max = 4) {
-    if (!code2 || !COURSE_PHOTOS[code2]) return [];
+    if (!code2 || !COURSE_PHOTOS2[code2]) return [];
     const name = (courseById(code2)?.name || "").replace(/\s*\([^)]*\)\s*$/, "").replace(/^หลักสูตรค่าย\s*/, "").replace(/^ค่าย/, "");
-    return COURSE_PHOTOS[code2].slice(0, max).map((p, i) => ({ data: b64bytes(p.b64), caption: `\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22${name} (${i + 1})`.slice(0, 90) }));
+    return COURSE_PHOTOS2[code2].slice(0, max).map((p, i) => ({ data: b64bytes(p.b64), caption: `\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E04\u0E48\u0E32\u0E22${name} (${i + 1})`.slice(0, 90) }));
   }
   function courseDataset(code2) {
     const course = courseById(code2);
@@ -30628,8 +30630,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       actsByKind: kinds.map((kind) => ({ kind, items: acts.filter((a) => a.kind === kind) })).filter((g) => g.items.length),
       total: acts.length,
       draftCount: acts.filter((a) => a.draft).length,
-      photoCount: COURSE_PHOTOS[code2]?.length || 0,
-      photos: COURSE_PHOTOS[code2] || []
+      photoCount: COURSE_PHOTOS2[code2]?.length || 0,
+      photos: COURSE_PHOTOS2[code2] || []
     };
   }
   var VENUES = [
@@ -31492,7 +31494,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   var code = (t) => P(t, { color: "000000", al: RGT });
   var title = (th, en, sz = 20, pb = false) => [P(th, { hd: HeadingLevel.HEADING_1, b: true, sz: th.length > 40 ? Math.min(sz, 17.5) : th.length > 32 ? Math.min(sz, 18.5) : sz, color: "0F3D63", al: CTR, after: 0, pb, keep: true }), ...en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 4 })] : []];
   var HK = (t) => P(t, { hd: HeadingLevel.HEADING_2, b: true, color: "000000", after: 0, keep: true });
-  var H = (t) => P(t, { hd: HeadingLevel.HEADING_2, b: true, sz: 17, color: BLUE, before: 6, after: 2, keep: true });
+  var H = (t) => P(t, { hd: HeadingLevel.HEADING_2, b: true, color: "000000", before: 6, after: 2, keep: true });
   var numFirst = (a) => a.map((x, i) => P(`${i + 1}.${x}`, { first: 1.27, after: 0 }));
   var numBlock = (a) => a.map((x, i) => P(`${i + 1}.${x}`, { indent: 1.27, after: 0 }));
   var TAB_INFO = 2160;
@@ -31532,10 +31534,10 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
   };
   var hasVal = (s) => !!(s && s.trim() && !s.includes("..."));
   var TAB_SCHED = 2160;
-  var schedLines = (d) => {
+  var schedLines = (d, lastDay = false) => {
     const out = [P([R2(`\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}`, { u: true })], { keep: true, before: 8, after: 2 })];
     d.items.forEach((r, i) => {
-      const keep = i < d.items.length - 1;
+      const keep = lastDay || i < d.items.length - 1;
       out.push(P([R2(r.time), R2("	" + r.title)], { tab: TAB_SCHED, indent: TAB_SCHED / 567, hang: TAB_SCHED / 567, after: 0, keep: keep || !!(r.sub && r.sub.length) }));
       (r.sub || []).forEach((x, j) => out.push(P(x, { indent: TAB_SCHED / 567, after: 0, color: "334155", keep: keep || j < r.sub.length - 1 })));
     });
@@ -31550,7 +31552,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     ...hasVal(c.dates) ? [P(c.dates, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : [],
     ...hasVal(c.venue) ? [P(`\u0E13 ${c.venue}`, { b: true, sz: 18, al: CTR, after: 6 })] : [P("", { after: 6 })],
     // เอกสารภายใน (runsheet) ยังใช้ตารางที่มีช่องผู้รับผิดชอบ
-    ...extra ? plan.days.flatMap((d) => [P("", { after: 0, sz: 6 }), scheduleTable(d, true, `\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}  (\u0E0A\u0E48\u0E2D\u0E07\u0E02\u0E27\u0E32: \u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A / \u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C)`)]) : plan.days.flatMap(schedLines),
+    ...extra ? plan.days.flatMap((d) => [P("", { after: 0, sz: 6 }), scheduleTable(d, true, `\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}  (\u0E0A\u0E48\u0E2D\u0E07\u0E02\u0E27\u0E32: \u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A / \u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C)`)]) : plan.days.flatMap((d, i) => schedLines(d, i === plan.days.length - 1)),
     // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ สีแดง ตามเอกสารจริง
     P("\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 : \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E08\u0E30\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21", { color: PRICE_RED, before: 10, after: 0 })
   ];
@@ -31592,6 +31594,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     }
     return { width: w, height: h };
   };
+  var IMG_SP = { line: 240, lineRule: LineRuleType.AUTO };
   var photoGrid = (imgs, fallbackN, label = "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21") => {
     const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, () => ({ caption: "" }))).slice(0, 8);
     const rows = [];
@@ -31603,17 +31606,18 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         if (!im) return cell([P("", { keep: kp })], W / 2, { border: "none" });
         const cap = im.caption && im.caption.trim() && !im.caption.includes("...") ? im.caption : `${label}\u0E17\u0E35\u0E48 ${n}`;
         return cell([
-          im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8 }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] }) : P("\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E20\u0E32\u0E1E", { al: CTR, color: "94A3B8", before: 70, after: 70, keep: true }),
+          im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8, ...IMG_SP }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data) })] }) : P("\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E27\u0E32\u0E07\u0E20\u0E32\u0E1E", { al: CTR, color: "94A3B8", before: 70, after: 70, keep: true }),
           new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R2(`${n}  `, { b: true, sz: 13, color: BLUE }), R2(cap, { sz: 13, color: "48484A" })] })
         ], W / 2, { border: "none" });
       }) }));
     }
     return tbl(rows, [W / 2, W / 2]);
   };
-  var steamGalleryPara = () => new Paragraph({ alignment: CTR, spacing: { before: 40 }, children: [new ImageRun({ type: "jpg", data: b64bytes(STEAM_GALLERY.b64), transformation: { width: Math.min(520, CONTENT_W_PX), height: Math.round(Math.min(520, CONTENT_W_PX) * STEAM_GALLERY.h / STEAM_GALLERY.w) } })] });
+  var steamGalleryPara = () => new Paragraph({ alignment: CTR, spacing: { before: 40, ...IMG_SP }, children: [new ImageRun({ type: "jpg", data: b64bytes(STEAM_GALLERY.b64), transformation: { width: Math.min(520, CONTENT_W_PX), height: Math.round(Math.min(520, CONTENT_W_PX) * STEAM_GALLERY.h / STEAM_GALLERY.w) } })] });
   var photoSection = (c, opts = {}) => {
     const acts = c.actImgs.length ? c.actImgs : coursePhotos(c.courseCode, 8);
-    const out = [...title("\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", void 0, 20, true), P("", { after: 2 }), photoGrid(acts, 6, "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21")];
+    const real = acts.filter((im) => im.data);
+    const out = real.length ? [...title("\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", void 0, 20, true), P("", { after: 2 }), photoGrid(real, 0, "\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21")] : [];
     if (opts.venue && c.venueImgs.some((im) => im.data)) {
       out.push(...title(`\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E1A\u0E23\u0E23\u0E22\u0E32\u0E01\u0E32\u0E28\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01 ${c.venue || ""}`.trim(), void 0, 20, true), P("", { after: 2 }), photoGrid(c.venueImgs, 6, "\u0E20\u0E32\u0E1E\u0E17\u0E35\u0E48\u0E1E\u0E31\u0E01"));
     }
@@ -31622,7 +31626,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     }
     return out;
   };
-  var sign = (l, who) => cell([P("", { after: 18 }), P("\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D ....................................................", { al: CTR, after: 0 }), P(`( ${who} )`, { al: CTR, after: 0 }), P(l, { al: CTR, after: 0 })], W / 2);
+  var sign = (l, who) => cell([P("", { after: 18, keep: true }), P("\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D ....................................................", { al: CTR, after: 0, keep: true }), P(`( ${who} )`, { al: CTR, after: 0, keep: true }), P(l, { al: CTR, after: 0, keep: true })], W / 2);
   var thDate = () => {
     const d = /* @__PURE__ */ new Date();
     return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`;
@@ -31646,7 +31650,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const h = FULL_HEADERS[r];
     return new Header2({ children: [new Paragraph({
       alignment: CTR,
-      spacing: { after: 0 },
+      spacing: { after: 0, ...IMG_SP },
       children: [new ImageRun({ type: "png", data: b64bytes(h.b64), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * h.h / h.w) } })]
     })] });
   };
@@ -31658,7 +31662,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       new Paragraph({ alignment: CTR, spacing: { after: 20 }, children: [pnTxt("\u0E2B\u0E19\u0E49\u0E32 "), pn(PageNumber.CURRENT), pnTxt(" / "), pn(PageNumber.TOTAL_PAGES)] }),
       new Paragraph({
         alignment: CTR,
-        spacing: { before: 0 },
+        spacing: { before: 0, ...IMG_SP },
         children: [new ImageRun({ type: "png", data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })]
       })
     ] });
@@ -31685,7 +31689,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         ...photoSection(c, { venue: true })
       ];
     } else if (kind === "quotation") {
-      const cols = [700, 4300, 1100, 1600, 1700];
+      const cols = [900, 4100, 1100, 1600, 1700];
       const hd = ["\u0E25\u0E33\u0E14\u0E31\u0E1A", "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", "\u0E08\u0E33\u0E19\u0E27\u0E19", "\u0E23\u0E32\u0E04\u0E32/\u0E17\u0E48\u0E32\u0E19 (\u0E1A\u0E32\u0E17)", "\u0E23\u0E27\u0E21 (\u0E1A\u0E32\u0E17)"];
       body = [
         code(`QT ${c.docCode.replace(/^PL\s*/, "")}`),
@@ -31710,7 +31714,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         H("\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02"),
         ...numbered([`\u0E23\u0E32\u0E04\u0E32\u0E19\u0E35\u0E49\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E20\u0E32\u0E22\u0E43\u0E19 ${c.validDays} \u0E27\u0E31\u0E19 \u0E19\u0E31\u0E1A\u0E08\u0E32\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32`, c.payTerms, "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2D\u0E32\u0E08\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E1B\u0E25\u0E07\u0E15\u0E32\u0E21\u0E04\u0E27\u0E32\u0E21\u0E40\u0E2B\u0E21\u0E32\u0E30\u0E2A\u0E21 \u0E42\u0E14\u0E22\u0E44\u0E21\u0E48\u0E01\u0E23\u0E30\u0E17\u0E1A\u0E40\u0E19\u0E37\u0E49\u0E2D\u0E2B\u0E32\u0E01\u0E32\u0E23\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E39\u0E49"]),
         P("", { after: 6 }),
-        tbl([new TableRow({ children: [sign("\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32", c.contactName), sign("\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / \u0E15\u0E31\u0E27\u0E41\u0E17\u0E19\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19", `\u0E1C\u0E39\u0E49\u0E2D\u0E33\u0E19\u0E27\u0E22\u0E01\u0E32\u0E23${c.school}`)] })], [W / 2, W / 2]),
+        tbl([new TableRow({ cantSplit: true, children: [sign("\u0E1C\u0E39\u0E49\u0E40\u0E2A\u0E19\u0E2D\u0E23\u0E32\u0E04\u0E32", c.contactName), sign("\u0E1C\u0E39\u0E49\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 / \u0E15\u0E31\u0E27\u0E41\u0E17\u0E19\u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19", `\u0E1C\u0E39\u0E49\u0E2D\u0E33\u0E19\u0E27\u0E22\u0E01\u0E32\u0E23${c.school}`)] })], [W / 2, W / 2]),
         ...photoSection(c)
       ];
     } else if (kind === "booking") {
@@ -31739,10 +31743,14 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         ]),
         supplier ? P(`\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E1B\u0E23\u0E30\u0E2A\u0E32\u0E19\u0E07\u0E32\u0E19\u0E40\u0E14\u0E34\u0E21\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A: ${supplier}`, { sz: 14, color: "64748B" }) : P("", { after: 0 }),
         H("\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21\u0E41\u0E25\u0E30\u0E21\u0E37\u0E49\u0E2D\u0E2D\u0E32\u0E2B\u0E32\u0E23"),
-        ...plan.days.flatMap((d) => [P(`\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}`, { b: true, after: 0 }), ...d.items.filter((r) => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title)).map((r) => P(`${r.time}  ${r.title}`, { sz: 14, indent: 1, after: 0 }))]),
-        P("\u0E08\u0E36\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E21\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E42\u0E1B\u0E23\u0E14\u0E1E\u0E34\u0E08\u0E32\u0E23\u0E13\u0E32\u0E41\u0E25\u0E30\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A \u0E02\u0E2D\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E2A\u0E39\u0E07", { before: 8, indent: 1 }),
-        P("", { after: 6 }),
-        tbl([new TableRow({ children: [cell([P("")], W / 2), sign("\u0E1C\u0E39\u0E49\u0E1B\u0E23\u0E30\u0E2A\u0E32\u0E19\u0E07\u0E32\u0E19 EQ Camp", c.contactName)] })], [W / 2, W / 2]),
+        ...plan.days.flatMap((d, di) => {
+          const rows = d.items.filter((r) => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title));
+          const lastDay = di === plan.days.length - 1;
+          return [P([R2(`\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ${d.day}`, { u: true })], { keep: true, before: 4, after: 0 }), ...rows.map((r, i) => P([R2(r.time, { sz: 14 }), R2("	" + r.title, { sz: 14 })], { tab: 567 + TAB_SCHED, indent: 1 + TAB_SCHED / 567, hang: TAB_SCHED / 567, after: 0, keep: lastDay ? i >= rows.length - 3 : i < rows.length - 1 }))];
+        }),
+        P("\u0E08\u0E36\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E21\u0E32\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E42\u0E1B\u0E23\u0E14\u0E1E\u0E34\u0E08\u0E32\u0E23\u0E13\u0E32\u0E41\u0E25\u0E30\u0E15\u0E2D\u0E1A\u0E01\u0E25\u0E31\u0E1A \u0E02\u0E2D\u0E02\u0E2D\u0E1A\u0E04\u0E38\u0E13\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E2A\u0E39\u0E07", { before: 8, first: 1.27, keep: true }),
+        P("", { after: 6, keep: true }),
+        tbl([new TableRow({ cantSplit: true, children: [cell([P("", { keep: true })], W / 2), sign("\u0E1C\u0E39\u0E49\u0E1B\u0E23\u0E30\u0E2A\u0E32\u0E19\u0E07\u0E32\u0E19 EQ Camp", c.contactName)] })], [W / 2, W / 2]),
         ...photoSection(c, { venue: true })
       ];
     } else {
@@ -31847,8 +31855,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const [fKind, setFKind] = (0, import_react3.useState)("");
     const courseActs = (0, import_react3.useMemo)(() => Object.fromEntries(COURSES.map((c) => [c.code, LIB.filter((a) => a.courseCode === c.code)])), []);
     const totalActs = LIB.filter((a) => a.courseCode).length;
-    const photoTotal = COURSES.reduce((n, c) => n + (COURSE_PHOTOS[c.code]?.length || 0), 0);
-    const coursesFull = COURSES.filter((c) => (COURSE_PHOTOS[c.code]?.length || 0) >= 6).length;
+    const photoTotal = COURSES.reduce((n, c) => n + (COURSE_PHOTOS2[c.code]?.length || 0), 0);
+    const coursesFull = COURSES.filter((c) => (COURSE_PHOTOS2[c.code]?.length || 0) >= 6).length;
     const actRows = (0, import_react3.useMemo)(() => {
       const k = q.trim().toLowerCase();
       return LIB.filter((a) => a.courseCode && (!fCourse || a.courseCode === fCourse) && (!fKind || a.kind === fKind) && (!k || a.title.toLowerCase().includes(k) || a.courseCode.toLowerCase().includes(k)));
@@ -31913,7 +31921,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { className: "py-2 px-1" })
             ] }) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tbody", { children: COURSES.slice().sort((a, b) => a.code.slice(-4).localeCompare(b.code.slice(-4))).map((c) => {
-              const nP = COURSE_PHOTOS[c.code]?.length || 0;
+              const nP = COURSE_PHOTOS2[c.code]?.length || 0;
               const nm = splitName(c.name);
               return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { className: "border-b border-brand-mist/70 last:border-0", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("td", { className: "py-2 px-1", children: [
@@ -31949,7 +31957,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
       sec === "courses" && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "space-y-2.5", children: COURSES.slice().sort((a, b) => a.code.slice(-4).localeCompare(b.code.slice(-4))).map((c) => {
         const nm = splitName(c.name);
         const acts = courseActs[c.code];
-        const photos = COURSE_PHOTOS[c.code] || [];
+        const photos = COURSE_PHOTOS2[c.code] || [];
         const isOpen = open === c.code;
         const isCur = currentCourse === c.code;
         return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: `${card} ${isCur ? "ring-1 ring-brand-navy border-brand-navy" : ""}`, children: [
@@ -32789,7 +32797,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         const withData = camp.actImgs.filter((a) => a.data);
         let actCells = [];
         if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell2(`<img src="data:${a.data[0] === 137 ? "image/png" : "image/jpeg"};base64,${u8b64(a.data)}">`, i + 1, realCap(a.caption) ? a.caption : `\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48 ${i + 1}`));
-        else if (hasCoursePhotos(camp.courseCode)) actCells = COURSE_PHOTOS[camp.courseCode].slice(0, 8).map((p, i) => cell2(`<img src="data:image/jpeg;base64,${p.b64}">`, i + 1, `\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48 ${i + 1}`));
+        else if (hasCoursePhotos(camp.courseCode)) actCells = COURSE_PHOTOS2[camp.courseCode].slice(0, 8).map((p, i) => cell2(`<img src="data:image/jpeg;base64,${p.b64}">`, i + 1, `\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48 ${i + 1}`));
         if (actCells.length) {
           photoCount += actCells.length;
           await place(`<div class="phead">\u0E15\u0E31\u0E27\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E20\u0E32\u0E1E\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21</div>${gridOf(actCells)}`, { newpage: true });
@@ -32858,7 +32866,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const AUX = TABS.filter((t) => t.id === "db" || t.id === "stats");
     const stepIdx = STEPS.findIndex((s) => s.id === tab);
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "min-h-screen bg-paper text-brand-ink pb-20", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("header", { className: "sticky top-0 z-30 brandbar text-white shadow-lift", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("header", { className: "sticky top-0 z-30 brandbar text-white shadow-lift", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "max-w-7xl mx-auto px-4 py-2 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-3", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/20 grid place-items-center font-display font-semibold text-[15px] text-white tracking-tight", children: "EQ" }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
@@ -32875,7 +32883,13 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               className: "tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[13.5px] font-semibold shadow-lift flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Download, { className: "w-4 h-4" }),
-                busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u2026" : `\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 ${DOC_TYPES.find((d) => d.id === kind).label}`
+                busy ? "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u2026" : /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+                  "\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14",
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "hidden sm:inline", children: [
+                    " ",
+                    DOC_TYPES.find((d) => d.id === kind).label
+                  ] })
+                ] })
               ]
             }
           ),
@@ -32888,7 +32902,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-[13.5px] font-medium flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Layers, { className: "w-4 h-4" }),
-                "\u0E04\u0E23\u0E1A\u0E0A\u0E38\u0E14 4 \u0E44\u0E1F\u0E25\u0E4C"
+                "\u0E04\u0E23\u0E1A\u0E0A\u0E38\u0E14",
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "hidden sm:inline", children: " 4 \u0E44\u0E1F\u0E25\u0E4C" })
               ]
             }
           ),
@@ -32901,7 +32916,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
               className: "tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-[13.5px] font-medium flex items-center gap-1.5",
               children: [
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(FileText, { className: "w-4 h-4" }),
-                "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 PDF"
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "hidden sm:inline", children: "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 " }),
+                "PDF"
               ]
             }
           )
@@ -32971,14 +32987,14 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                 "button",
                 {
                   onClick: () => setKind(d.id),
-                  className: `tap text-left p-3.5 rounded-xl border ${on ? "bg-brand-navy text-white border-brand-navy" : "bg-white border-brand-mist hover:border-brand/40"}`,
+                  className: `tap text-left p-2.5 sm:p-3.5 rounded-xl border ${on ? "bg-brand-navy text-white border-brand-navy" : "bg-white border-brand-mist hover:border-brand/40"}`,
                   children: [
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center gap-1.5 mb-1.5", children: [
                       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `text-[12px] font-medium ${on ? "text-white/70" : "text-sub"}`, children: d.stage }),
                       d.internal && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(Lock, { className: `w-3 h-3 ml-auto ${on ? "text-white/70" : "text-sub"}` })
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "text-[15px] font-semibold leading-tight", children: d.label }),
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `text-[13px] mt-1 leading-snug ${on ? "text-white/70" : "text-sub"}`, children: d.desc })
+                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `hidden sm:block text-[13px] mt-1 leading-snug ${on ? "text-white/70" : "text-sub"}`, children: d.desc })
                   ]
                 },
                 d.id
@@ -33045,7 +33061,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SectionTitle, { title: "\u0E10\u0E32\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E48\u0E32\u0E22 (14 \u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E08\u0E23\u0E34\u0E07)", sub: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E48\u0E32\u0E22 \u2192 \u0E40\u0E2B\u0E47\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E04\u0E48\u0E32\u0E22\u0E19\u0E31\u0E49\u0E19 (\u0E27\u0E31\u0E15\u0E16\u0E38\u0E1B\u0E23\u0E30\u0E2A\u0E07\u0E04\u0E4C \xB7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \xB7 \u0E20\u0E32\u0E1E) \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E43\u0E0A\u0E49\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49' \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E02\u0E49\u0E32\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23" }),
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "flex flex-wrap gap-1.5", children: COURSES.map((co) => {
                       const on = dbSel === co.code;
-                      const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
+                      const nPhoto = COURSE_PHOTOS2[co.code]?.length || 0;
                       return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("button", { onClick: () => setDbSel(co.code), title: co.name, className: `px-2 py-1 rounded-lg text-[12px] font-semibold border ${on ? "bg-brand text-white border-brand" : "bg-slate-50 border-slate-200 text-sub"}`, children: [
                         co.code,
                         nPhoto ? "" : ""
@@ -33254,7 +33270,7 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(VenueAdd, { onAdd: addVenue })
                 ] }),
                 tab === "activities" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "space-y-3", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SectionTitle, { title: `3. \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 ${camp.courseCode ? "\xB7 \u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 " + (courseById(camp.courseCode)?.name || camp.courseCode) : "(\u0E27\u0E34\u0E0A\u0E32" + SUBJECTS[camp.subject].label + ")"}`, sub: camp.courseCode ? "\u0E41\u0E2A\u0E14\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E02\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 + \u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23/\u0E40\u0E1B\u0E34\u0E14-\u0E1B\u0E34\u0E14\u0E01\u0E25\u0E32\u0E07\u0E17\u0E35\u0E48\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07" : "\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E33\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1B\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E43\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E30\u0E23\u0E49\u0E2D\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04 '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23' \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(SectionTitle, { title: `\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E08\u0E32\u0E01\u0E04\u0E25\u0E31\u0E07 ${camp.courseCode ? "\xB7 \u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23 " + (courseById(camp.courseCode)?.name || camp.courseCode) : "(\u0E27\u0E34\u0E0A\u0E32" + SUBJECTS[camp.subject].label + ")"}`, sub: camp.courseCode ? "\u0E41\u0E2A\u0E14\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E02\u0E2D\u0E07\u0E2B\u0E25\u0E31\u0E01\u0E2A\u0E39\u0E15\u0E23\u0E19\u0E35\u0E49 + \u0E2A\u0E31\u0E19\u0E17\u0E19\u0E32\u0E01\u0E32\u0E23/\u0E40\u0E1B\u0E34\u0E14-\u0E1B\u0E34\u0E14\u0E01\u0E25\u0E32\u0E07\u0E17\u0E35\u0E48\u0E08\u0E33\u0E40\u0E1B\u0E47\u0E19 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07" : "\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E33\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E1B\u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E43\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E08\u0E19\u0E40\u0E15\u0E47\u0E21 \u0E44\u0E21\u0E48\u0E40\u0E27\u0E49\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07 \u0E41\u0E25\u0E30\u0E23\u0E49\u0E2D\u0E22\u0E40\u0E1B\u0E47\u0E19\u0E1B\u0E23\u0E30\u0E42\u0E22\u0E04 '\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E40\u0E0A\u0E34\u0E07\u0E1A\u0E39\u0E23\u0E13\u0E32\u0E01\u0E32\u0E23' \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
                   /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "flex items-center justify-between text-[13px]", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "text-sub", children: [
                       "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 ",
