@@ -32245,6 +32245,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     };
     return { camp, venues: snap.customVenues || [], brief: snap.brief };
   };
+  var WEB_URL = "https://thongchaibutchat.github.io/eq-camp/";
+  var IN_CLAUDE = typeof window !== "undefined" && !!window.claude && typeof window.claude.use === "function";
   function App() {
     const saved = typeof window !== "undefined" ? loadLS() : null;
     const initial = saved ? rehydrate(saved) : null;
@@ -32255,6 +32257,19 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
     const [tab, setTab] = (0, import_react4.useState)("brief");
     const [brief, setBrief] = (0, import_react4.useState)(initial?.brief ?? "PL 0109/2569 \u0E42\u0E23\u0E07\u0E40\u0E23\u0E35\u0E22\u0E19\u0E2D\u0E33\u0E19\u0E32\u0E08\u0E40\u0E08\u0E23\u0E34\u0E0D \u0E21.1-2 \u0E08\u0E33\u0E19\u0E27\u0E19 72 \u0E04\u0E19 \u0E04\u0E23\u0E39 6 \u0E04\u0E19 \u0E04\u0E48\u0E32\u0E22\u0E04\u0E13\u0E34\u0E15\u0E28\u0E32\u0E2A\u0E15\u0E23\u0E4C Math Camp 3 \u0E27\u0E31\u0E19 2 \u0E04\u0E37\u0E19 \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 18 \u2013 20 \u0E1E\u0E24\u0E28\u0E08\u0E34\u0E01\u0E32\u0E22\u0E19 2569 \u0E13 \u0E42\u0E23\u0E07\u0E41\u0E23\u0E21\u0E40\u0E0A\u0E35\u0E22\u0E07\u0E04\u0E32\u0E19\u0E2E\u0E34\u0E25\u0E25\u0E4C\u0E23\u0E35\u0E2A\u0E2D\u0E23\u0E4C\u0E17 \u0E23\u0E32\u0E04\u0E32\u0E1B\u0E01\u0E15\u0E34 4,590 \u0E25\u0E14\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E1E\u0E35\u0E22\u0E07 3,290 \u0E1A./\u0E17\u0E48\u0E32\u0E19");
     const [banner, setBanner] = (0, import_react4.useState)(null);
+    const [dlBlocked, setDlBlocked] = (0, import_react4.useState)(false);
+    (0, import_react4.useEffect)(() => {
+      if (!IN_CLAUDE) return;
+      let live = true;
+      window.claude.use("downloads").then((d) => {
+        if (live && !d) setDlBlocked(true);
+      }).catch(() => {
+        if (live) setDlBlocked(true);
+      });
+      return () => {
+        live = false;
+      };
+    }, []);
     const [dbSel, setDbSel] = (0, import_react4.useState)(() => initial?.camp?.courseCode || COURSES[0].code);
     const allVenues = (0, import_react4.useMemo)(() => [...VENUES, ...customVenues], [customVenues]);
     (0, import_react4.useEffect)(() => {
@@ -32367,7 +32382,6 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         if (stale()) return;
         if (!sample) {
           applyBrief(mode);
-          flash("\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E40\u0E23\u0E35\u0E22\u0E01 AI \u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E43\u0E0A\u0E49\u0E01\u0E32\u0E23\u0E41\u0E1B\u0E25\u0E07\u0E1A\u0E23\u0E35\u0E1F\u0E41\u0E1A\u0E1A\u0E1B\u0E01\u0E15\u0E34\u0E41\u0E17\u0E19 (\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E19\u0E25\u0E34\u0E07\u0E01\u0E4C claude.ai \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E0A\u0E49 AI \u0E0A\u0E48\u0E27\u0E22\u0E14\u0E36\u0E07)", false);
           return;
         }
         flash("AI \u0E01\u0E33\u0E25\u0E31\u0E07\u0E2D\u0E48\u0E32\u0E19\u0E1A\u0E23\u0E35\u0E1F\u0E41\u0E25\u0E30\u0E14\u0E36\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25...");
@@ -32599,7 +32613,8 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
             return;
           }
           anchorDownload(blob, name);
-          flash("\u0E16\u0E49\u0E32\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E21\u0E48\u0E40\u0E23\u0E34\u0E48\u0E21\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 \u0E43\u0E2B\u0E49\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49 claude.ai \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u201C\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u201D \u0E15\u0E2D\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E02\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E1F\u0E25\u0E4C", false);
+          flash(`\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E1F\u0E25\u0E4C\u0E43\u0E2B\u0E49\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E04\u0E38\u0E13\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u2014 \u0E43\u0E0A\u0E49\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E41\u0E17\u0E19: ${WEB_URL}`, false);
+          setDlBlocked(true);
           logEvent("word", camp, dk);
           setBusy(false);
           return;
@@ -32838,7 +32853,10 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         } else {
           anchorDownload(blob, name);
           logEvent("pdf", camp, "program");
-          flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27" + photoWarn, !photoWarn);
+          if (IN_CLAUDE) {
+            setDlBlocked(true);
+            flash(`\u0E16\u0E49\u0E32 PDF \u0E44\u0E21\u0E48\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 \u0E43\u0E2B\u0E49\u0E43\u0E0A\u0E49\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E40\u0E27\u0E47\u0E1A: ${WEB_URL}`, false);
+          } else flash("\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF \u0E41\u0E25\u0E49\u0E27" + photoWarn, !photoWarn);
         }
       } catch (e) {
         flash("\u0E2A\u0E23\u0E49\u0E32\u0E07 PDF \u0E44\u0E21\u0E48\u0E2A\u0E33\u0E40\u0E23\u0E47\u0E08: " + e.message, false);
@@ -32935,6 +32953,13 @@ if (typeof tailwind !== 'undefined') tailwind.config = {
         id
       )) }) }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "max-w-7xl mx-auto px-3 sm:px-6 pt-4", children: [
+        dlBlocked && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "mb-4 pl-4 pr-3 py-2.5 rounded-xl text-[14px] border border-amber-300 bg-white flex flex-wrap items-center justify-between gap-2", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "flex items-start gap-2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(TriangleAlert, { className: "w-4 h-4 mt-0.5 shrink-0 text-amber-600" }),
+            "\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49\u0E1A\u0E19 claude.ai \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E1F\u0E25\u0E4C\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E02\u0E49\u0E32\u0E43\u0E0A\u0E49 \u2014 \u0E17\u0E35\u0E21\u0E07\u0E32\u0E19\u0E17\u0E38\u0E01\u0E04\u0E19\u0E43\u0E0A\u0E49\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E14\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("a", { href: WEB_URL, target: "_blank", rel: "noopener", className: "tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium", children: "\u0E40\u0E1B\u0E34\u0E14\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19\u0E40\u0E27\u0E47\u0E1A" })
+        ] }),
         banner && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `mb-4 pl-4 pr-2 py-2.5 rounded-xl text-[14px] flex items-center justify-between gap-3 border bg-white ${banner.ok ? "border-brand-mist text-brand-ink" : "border-amber-300 text-brand-ink"}`, children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "flex items-start gap-2", children: [
             banner.ok ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(CircleCheck, { className: "w-4 h-4 mt-0.5 shrink-0 text-emerald-600" }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(TriangleAlert, { className: "w-4 h-4 mt-0.5 shrink-0 text-amber-600" }),
