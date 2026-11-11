@@ -105,6 +105,13 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - UI มือถือ: ปุ่มหัวเว็บย่อ (ดาวน์โหลด/ครบชุด/PDF), การ์ดเลือกเอกสารซ่อนคำอธิบาย <sm → ฟอร์มขึ้นจอแรก; ตรวจ 1360/768/390 ไม่มี overflow/ไม่มี error
 - ข้อจำกัดที่รู้: หลักสูตรกิจกรรมน้อย (GEO/TI/ENV/AST) ค่ายยาวจะมี "(ต่อยอด)" ซ้ำ (ตามกฎข้อ 4) — ทีมเติมกิจกรรมใน MASTER จะหายเอง
 
+## เวอร์ชันเว็บสาธารณะ — ใครมีลิงก์ก็สร้างไฟล์ได้ (11 พ.ย. 2569)
+- **https://thongchaibutchat.github.io/eq-camp/** (GitHub Pages, branch `gh-pages` = `index.html` ไฟล์เดียวจาก `EQ_Camp_Generator.html`) — ดาวน์โหลด Word/PDF/ครบชุดได้ทันทีไม่ต้องลงชื่อเข้าใช้ (เบราว์เซอร์ปกติ → `anchorDownload`)
+- สาเหตุที่ต้องมี: artifact บน claude.ai บันทึกไฟล์ผ่าน `downloads` capability ได้เฉพาะผู้ชมที่ลงชื่อเข้าใช้ → คนอื่นสร้างไฟล์ไม่ได้. ในหน้า artifact ถ้า `use('downloads')` = null จะขึ้นแถบ "เปิดเวอร์ชันเว็บ" (`WEB_URL`, `IN_CLAUDE` ใน App.tsx)
+- เวอร์ชันเว็บไม่มี AI ช่วยอ่านบรีฟ (`sample`) → ปุ่ม AI ใช้ตัวอ่านบรีฟปกติแทนแบบเงียบ ๆ; สถิติ (`db`) ไม่บันทึก
+- **อัปเดตทุกครั้ง**: `npm run build && bash scripts/deploy-pages.sh` + republish artifact (ให้สองลิงก์ตรงกัน). เว็บนี้สาธารณะ → ห้ามใส่ต้นทุนจริง/ข้อมูลโฟลเดอร์ 99 ลง bundle
+- ทดสอบดาวน์โหลดด้วย Playwright ต้องตั้ง `LANG=C.UTF-8` ไม่งั้น Chromium ตั้งชื่อไฟล์ภาษาไทยเป็น "download" (ปัญหาเครื่องทดสอบ ไม่ใช่ของจริง)
+
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)
 

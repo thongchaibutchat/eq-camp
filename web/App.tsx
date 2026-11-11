@@ -39,6 +39,9 @@ const rehydrate = (snap: any): { camp: Camp; venues: VenueRec[]; brief?: string 
   return { camp, venues: (snap.customVenues || []) as VenueRec[], brief: snap.brief };
 };
 
+// เวอร์ชันเว็บสาธารณะ (GitHub Pages) — ใครมีลิงก์ก็สร้าง/ดาวน์โหลดไฟล์ได้ ไม่ต้องลงชื่อเข้าใช้
+export const WEB_URL = 'https://thongchaibutchat.github.io/eq-camp/';
+const IN_CLAUDE = typeof window !== 'undefined' && !!(window as any).claude && typeof (window as any).claude.use === 'function';
 export default function App() {
   const saved = typeof window !== 'undefined' ? loadLS() : null;
   const initial = saved ? rehydrate(saved) : null;
@@ -49,6 +52,13 @@ export default function App() {
   const [tab, setTab] = useState<'brief' | 'db' | 'header' | 'activities' | 'schedule' | 'price' | 'images' | 'stats'>('brief');
   const [brief, setBrief] = useState(initial?.brief ?? 'PL 0109/2569 โรงเรียนอำนาจเจริญ ม.1-2 จำนวน 72 คน ครู 6 คน ค่ายคณิตศาสตร์ Math Camp 3 วัน 2 คืน วันที่ 18 – 20 พฤศจิกายน 2569 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท ราคาปกติ 4,590 ลดเหลือเพียง 3,290 บ./ท่าน');
   const [banner, setBanner] = useState<{ t: string; ok: boolean } | null>(null);
+  // บน claude.ai: ผู้ชมที่ไม่ได้ลงชื่อเข้าใช้จะบันทึกไฟล์ไม่ได้ → ชี้ไปเวอร์ชันเว็บ
+  const [dlBlocked, setDlBlocked] = useState(false);
+  useEffect(() => {
+    if (!IN_CLAUDE) return; let live = true;
+    (window as any).claude.use('downloads').then((d: any) => { if (live && !d) setDlBlocked(true); }).catch(() => { if (live) setDlBlocked(true); });
+    return () => { live = false; };
+  }, []);
   const [dbSel, setDbSel] = useState<string>(() => (initial?.camp?.courseCode) || COURSES[0].code);
   const allVenues = useMemo<VenueRec[]>(() => [...VENUES, ...customVenues], [customVenues]);
 
@@ -131,7 +141,7 @@ export default function App() {
       const cl = (window as any).claude;
       const sample = cl && typeof cl.use === 'function' ? await cl.use('sample').catch(() => null) : null;
       if (stale()) return;
-      if (!sample) { applyBrief(mode); flash('หน้านี้ยังเรียก AI ไม่ได้ — ใช้การแปลงบรีฟแบบปกติแทน (เปิดบนลิงก์ claude.ai เพื่อใช้ AI ช่วยดึง)', false); return; }
+      if (!sample) { applyBrief(mode); return; } // เวอร์ชันเว็บ/ไม่มีสิทธิ์ AI → อ่านบรีฟแบบปกติ (ผลเหมือนปุ่มอ่านบรีฟ)
       flash('AI กำลังอ่านบรีฟและดึงข้อมูล...');
       const courseList = COURSES.map(c => `${c.code}=${c.name}`).join('; ');
       const prompt = `คุณเป็นผู้ช่วยฝ่ายขายค่ายวิชาการ อ่าน "บรีฟ" ภาษาไทยแบบอิสระด้านล่าง แล้วดึงข้อมูลเป็น JSON ออบเจ็กต์เดียวตามคีย์นี้ (เดาจากบริบทได้ ถ้าไม่พบให้ใส่ null — ห้ามแต่งข้อมูลที่ไม่มีในบรีฟ):
@@ -291,7 +301,7 @@ export default function App() {
         }
         // อยู่บน claude.ai แต่ยังไม่ได้สิทธิ์บันทึก → แจ้งให้ชัด (กันทีมงงว่าเซฟไม่ได้)
         anchorDownload(blob, name);
-        flash('ถ้าไฟล์ไม่เริ่มดาวน์โหลด ให้ลงชื่อเข้าใช้ claude.ai แล้วกด “อนุญาต” ตอนระบบขอบันทึกไฟล์', false);
+        flash(`หน้านี้บันทึกไฟล์ให้บัญชีคุณไม่ได้ — ใช้เวอร์ชันเว็บแทน: ${WEB_URL}`, false); setDlBlocked(true);
         logEvent('word', camp, dk); setBusy(false); return;
       }
       // เปิดจากไฟล์ standalone / เบราว์เซอร์ปกติ
@@ -473,7 +483,7 @@ export default function App() {
       if (downloads) {
         try { await downloads.save({ filename: name, data: blob }); logEvent('pdf', camp, 'program'); flash('บันทึก PDF เรียบร้อย' + photoWarn, !photoWarn); }
         catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); } }
-      } else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); }
+      } else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); if (IN_CLAUDE) { setDlBlocked(true); flash(`ถ้า PDF ไม่ดาวน์โหลด ให้ใช้เวอร์ชันเว็บ: ${WEB_URL}`, false); } else flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); }
     } catch (e) { flash('สร้าง PDF ไม่สำเร็จ: ' + (e as Error).message, false); }
     setBusy(false);
   };
@@ -539,6 +549,12 @@ export default function App() {
       </div>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-4">
+        {dlBlocked && (
+          <div className="mb-4 pl-4 pr-3 py-2.5 rounded-xl text-[14px] border border-amber-300 bg-white flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />หน้านี้บน claude.ai บันทึกไฟล์ได้เฉพาะผู้ที่ลงชื่อเข้าใช้ — ทีมงานทุกคนใช้เวอร์ชันเว็บได้ทันที ไม่ต้องลงชื่อ</span>
+            <a href={WEB_URL} target="_blank" rel="noopener" className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium">เปิดเวอร์ชันเว็บ</a>
+          </div>
+        )}
         {banner && (
           <div className={`mb-4 pl-4 pr-2 py-2.5 rounded-xl text-[14px] flex items-center justify-between gap-3 border bg-white ${banner.ok ? 'border-brand-mist text-brand-ink' : 'border-amber-300 text-brand-ink'}`}>
             <span className="flex items-start gap-2">{banner.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />}{banner.t}</span>
