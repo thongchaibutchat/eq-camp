@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Search, ExternalLink, FolderOpen, ArrowRight, MapPin, Phone, Image as ImageIcon, BookOpen, Building2, Tag, Layers } from 'lucide-react';
-import { COURSES, LIB, COURSE_PHOTOS, PRESETS, SUBJECTS, BRANCHES, SALES_KIT, driveFolder, money, Kind, Subject } from '../src/eqcamp-core';
+import { PHOTO_BASE } from './App';
+import { COURSES, LIB, coursePhotoIds, templatesOf, durKeyLabel, PRESETS, SUBJECTS, BRANCHES, SALES_KIT, driveFolder, money, Kind, Subject } from '../src/eqcamp-core';
 
 /* คลังข้อมูลขาย — ข้อมูลทั้งหมดที่เครื่องมือใช้ อยู่หน้าเดียว เปิดดู ค้นหา แล้วกดใช้สร้างเอกสารต่อได้ทันที
  * แหล่งแก้ไขจริง = ชุดข้อมูลขายใน Drive (SALES_KIT) — หน้านี้แสดงเวอร์ชันที่ฝังอยู่ในเครื่องมือตอนนี้ */
@@ -32,8 +33,8 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
 
   const courseActs = useMemo(() => Object.fromEntries(COURSES.map(c => [c.code, LIB.filter(a => a.courseCode === c.code)])), []);
   const totalActs = LIB.filter(a => a.courseCode).length;
-  const photoTotal = COURSES.reduce((n, c) => n + (COURSE_PHOTOS[c.code]?.length || 0), 0);
-  const coursesFull = COURSES.filter(c => (COURSE_PHOTOS[c.code]?.length || 0) >= 6).length;
+  const photoTotal = COURSES.reduce((n, c) => n + coursePhotoIds(c.code).length, 0);
+  const coursesFull = COURSES.filter(c => coursePhotoIds(c.code).length >= 6).length;
 
   const actRows = useMemo(() => {
     const k = q.trim().toLowerCase();
@@ -91,12 +92,12 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
                 </tr></thead>
                 <tbody>
                   {COURSES.slice().sort((a, b) => a.code.slice(-4).localeCompare(b.code.slice(-4))).map(c => {
-                    const nP = COURSE_PHOTOS[c.code]?.length || 0; const nm = splitName(c.name);
+                    const nP = coursePhotoIds(c.code).length; const nm = splitName(c.name);
                     return (
                       <tr key={c.code} className="border-b border-brand-mist/70 last:border-0">
                         <td className="py-2 px-1"><div className="font-medium">{nm.th}</div><div className="text-[12px] text-sub">{c.code}</div></td>
                         <td className="py-2 px-1">{courseActs[c.code].length}</td>
-                        <td className="py-2 px-1"><span className={nP >= 6 ? 'text-emerald-700 font-medium' : nP ? 'text-amber-700 font-medium' : 'text-rose-700 font-medium'}>{nP}/8</span></td>
+                        <td className="py-2 px-1"><span className={nP >= 6 ? 'text-emerald-700 font-medium' : nP ? 'text-amber-700 font-medium' : 'text-rose-700 font-medium'}>{nP}</span></td>
                         <td className="py-2 px-1 text-sub">0/{courseActs[c.code].length}</td>
                         <td className="py-2 px-1 text-right"><button onClick={() => { setOpen(c.code); go('courses'); }} className="tap text-[13px] text-brand-navy underline underline-offset-2">ดูข้อมูล</button></td>
                       </tr>
@@ -124,7 +125,7 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
       {sec === 'courses' && (
         <div className="space-y-2.5">
           {COURSES.slice().sort((a, b) => a.code.slice(-4).localeCompare(b.code.slice(-4))).map(c => {
-            const nm = splitName(c.name); const acts = courseActs[c.code]; const photos = COURSE_PHOTOS[c.code] || [];
+            const nm = splitName(c.name); const acts = courseActs[c.code]; const photos = coursePhotoIds(c.code); const tpls = templatesOf(c.code);
             const isOpen = open === c.code; const isCur = currentCourse === c.code;
             return (
               <section key={c.code} className={`${card} ${isCur ? 'ring-1 ring-brand-navy border-brand-navy' : ''}`}>
@@ -137,7 +138,7 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
                     <div className="text-[16px] font-semibold leading-snug mt-0.5">{nm.th}</div>
                     {nm.en && <div className="text-[13.5px] text-sub">{nm.en}</div>}
                   </div>
-                  <div className="text-right text-[12.5px] text-sub shrink-0 leading-relaxed">กิจกรรม {acts.length}<br />ภาพ {photos.length}/8</div>
+                  <div className="text-right text-[12.5px] text-sub shrink-0 leading-relaxed">แม่แบบ {tpls.length}<br />ภาพ {photos.length}</div>
                 </button>
                 {isOpen && (
                   <div className="px-4 pb-4 space-y-4 border-t border-brand-mist pt-4">
@@ -156,12 +157,14 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-[13.5px] font-semibold text-sub mb-1.5">ภาพกิจกรรมจริง {photos.length}/8 {photos.length < 6 && <span className="font-normal text-amber-700">· ต้องเติมอีก {6 - photos.length} รูปขึ้นไป</span>}</h4>
+                      <h4 className="text-[13.5px] font-semibold text-sub mb-1">แม่แบบโปรแกรมจริง {tpls.length} ชุด</h4>
+                      <ul className="text-[13.5px] mb-3 space-y-0.5">{tpls.map(t => <li key={t.id}>{durKeyLabel(t.dur)}{t.area.length ? ` · พื้นที่${t.area.join('/')}` : ''}{t.venue ? ` · ${t.venue}` : ''}{t.price ? ` · ราคาในแม่แบบ ${money(t.price.n)} → ${money(t.price.s)}` : ''}</li>)}</ul>
+                      <h4 className="text-[13.5px] font-semibold text-sub mb-1.5">ภาพกิจกรรมจากไฟล์ของค่ายนี้ {photos.length} รูป</h4>
                       {photos.length ? (
                         <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
-                          {photos.map((p: any, i: number) => <img key={i} src={`data:image/jpeg;base64,${p.b64}`} alt={`ภาพกิจกรรม ${nm.th} ที่ ${i + 1}`} className="w-full aspect-[4/3] object-cover rounded-md bg-paper" loading="lazy" />)}
+                          {photos.map((id, i) => <img key={id} src={`${PHOTO_BASE}t_${id}.jpg`} alt={`ภาพกิจกรรม ${nm.th} ที่ ${i + 1}`} className="w-full aspect-[4/3] object-cover rounded-md bg-paper" loading="lazy" />)}
                         </div>
-                      ) : <p className="text-[13.5px] text-sub">ยังไม่มีภาพ — ใส่ภาพในโฟลเดอร์ Drive ของหลักสูตรนี้</p>}
+                      ) : <p className="text-[13.5px] text-sub">ยังไม่มีภาพในไฟล์ของค่ายนี้</p>}
                     </div>
                     <div className="flex flex-wrap gap-2 pt-1">
                       <button onClick={() => onUseCourse(c.code)} className="tap inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-brand-navy text-white text-[14px] font-semibold hover:opacity-90">

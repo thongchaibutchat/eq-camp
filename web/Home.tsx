@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, Check, Search, Lock, Monitor, Smartphone, WifiOff, FileText, Receipt, Hotel, ClipboardList } from 'lucide-react';
-import { COURSES, LIB, COURSE_PHOTOS, SUBJECTS, Subject } from '../src/eqcamp-core';
+import { COURSES, LIB, coursePhotoIds, TEMPLATES, SUBJECTS, Subject } from '../src/eqcamp-core';
+import { PHOTO_BASE } from './App';
 import { BRAND } from '../src/brand-data';
 import { splitName } from './DataHub';
 import { IS_IOS } from './platform';
 
 /* หน้าแรก (เทมเพลตแนวเว็บคอร์สเรียน): เมนูบน → ฮีโร่ → แคตตาล็อกหลักสูตรพื้นกรมท่า (ชิปหมวด + การ์ด) → เอกสาร 4 ชิ้น → ขั้นตอน → อุปกรณ์ → ท้ายเว็บ
- * ทุกตัวเลข/ชื่อดึงจากข้อมูลจริงในระบบ (COURSES / LIB / COURSE_PHOTOS) — ไม่มีตัวเลขสมมติ */
+ * ทุกตัวเลข/ชื่อดึงจากข้อมูลจริงในระบบ (COURSES / LIB / TEMPLATES / ภาพจากไฟล์ของค่าย) — ไม่มีตัวเลขสมมติ */
 
 // สีปกการ์ดตามกลุ่มวิชา (โทนหม่น อ่านตัวขาวชัด) — ใช้แทนภาพเมื่อหลักสูตรยังไม่มีภาพจริง
 const TONE: Record<string, string> = { math: '#1F4E79', steam: '#1E6B5C', english: '#7A3B2E', ai: '#3B3F8F', chinese: '#8C2F39', leadership: '#8A6418' };
@@ -30,7 +31,7 @@ export default function Home({ onStartBrief, onUseCourse, onOpenCourse, installP
   const stats = useMemo(() => {
     const rows = COURSES.map(c => {
       const acts = LIB.filter(a => a.courseCode === c.code);
-      const photos = COURSE_PHOTOS[c.code] || [];
+      const photos = coursePhotoIds(c.code);
       return { c, nm: splitName(c.name), acts: acts.length, core: acts.filter(a => a.kind === 'core').length, photos };
     });
     const fams = Array.from(new Set(COURSES.map(c => c.family)));
@@ -102,7 +103,7 @@ export default function Home({ onStartBrief, onUseCourse, onOpenCourse, installP
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 className="text-[26px] sm:text-[32px] font-semibold leading-tight">{COURSES.length} หลักสูตรค่าย ใน {stats.fams.length} กลุ่มวิชา</h2>
-              <p className="mt-2 text-[15px] text-white/65">กิจกรรมในคลัง {stats.acts.toLocaleString()} รายการ (ทุกรายการรอทีมตรวจ) · ภาพกิจกรรมจริง {stats.photos} รูป</p>
+              <p className="mt-2 text-[15px] text-white/65">แม่แบบโปรแกรมจริง {TEMPLATES.length} ชุด · ภาพกิจกรรมจากไฟล์ของค่าย {stats.photos} รูป · กิจกรรมในคลัง {stats.acts.toLocaleString()} รายการ</p>
             </div>
             <label className="relative w-full sm:w-72">
               <span className="sr-only">ค้นหาหลักสูตร</span>
@@ -131,17 +132,17 @@ export default function Home({ onStartBrief, onUseCourse, onOpenCourse, installP
               {list.map(({ c, nm, acts, core, photos }) => (
                 <li key={c.code} className="bg-white text-brand-ink rounded-xl overflow-hidden flex sm:flex-col">
                   <button onClick={() => onOpenCourse(c.code)} className="block text-left shrink-0 w-[108px] sm:w-full" aria-label={`ดูข้อมูลหลักสูตร ${nm.th}`}>
-                    {photos.length ? (
-                      <img src={`data:image/jpeg;base64,${photos[0].b64}`} alt="" loading="lazy" className="w-full h-full sm:h-auto sm:aspect-[16/10] object-cover bg-paper" />
-                    ) : (
-                      <div className="w-full h-full sm:h-auto sm:aspect-[16/10] p-3 sm:p-4 flex flex-col justify-end sm:justify-between text-white" style={{ background: TONE[c.family] || '#0C2A41' }}>
+                    <div className="relative w-full h-full sm:h-auto sm:aspect-[16/10]">
+                      <div className="absolute inset-0 p-3 sm:p-4 flex flex-col justify-end sm:justify-between text-white" style={{ background: TONE[c.family] || '#0C2A41' }}>
                         <span className="hidden sm:block text-[13px] text-white/75">{famLabel(c.family)}</span>
                         <div>
                           <div className="text-[19px] sm:text-[30px] font-semibold leading-none tracking-tight">{shortCode(c.code)}</div>
                           <div className="hidden sm:block mt-2 text-[13px] text-white/85 truncate">{nm.en || nm.th}</div>
                         </div>
                       </div>
-                    )}
+                      {/* ภาพจากไฟล์โปรแกรมจริงของค่าย — โหลดไม่ได้ (ออฟไลน์) จะเห็นปกสีแทน */}
+                      {photos.length > 0 && <img src={`${PHOTO_BASE}t_${photos[0]}.jpg`} alt="" loading="lazy" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} className="absolute inset-0 w-full h-full object-cover" />}
+                    </div>
                   </button>
                   <div className="p-3.5 sm:p-4 flex-1 min-w-0 flex flex-col">
                     <div className="text-[13px] text-sub truncate">{c.code} · {famLabel(c.family)}</div>
@@ -150,7 +151,7 @@ export default function Home({ onStartBrief, onUseCourse, onOpenCourse, installP
                     <dl className="mt-3 grid grid-cols-2 gap-2 text-[13px]">
                       <div className="rounded-lg bg-paper px-2.5 py-1.5"><dt className="text-sub">กิจกรรม</dt><dd className="font-semibold">{acts} <span className="font-normal text-sub">(หลัก {core})</span></dd></div>
                       <div className="rounded-lg bg-paper px-2.5 py-1.5"><dt className="text-sub">ภาพจริง</dt>
-                        <dd className={`font-semibold ${photos.length >= PHOTO_TARGET ? '' : 'text-amber-700'}`}>{photos.length ? `${photos.length}/${PHOTO_TARGET}` : 'ยังไม่มี'}</dd></div>
+                        <dd className={`font-semibold ${photos.length >= 6 ? '' : 'text-amber-700'}`}>{photos.length ? `${photos.length} รูป` : 'ยังไม่มี'}</dd></div>
                     </dl>
                     <div className="mt-auto pt-3 sm:pt-4 flex gap-2">
                       <button onClick={() => onOpenCourse(c.code)} className="tap px-3 sm:px-3.5 py-2.5 rounded-lg border border-brand-mist hover:bg-paper text-[14px] font-medium">รายละเอียด</button>

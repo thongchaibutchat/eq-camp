@@ -1,6 +1,6 @@
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, coursePhotos, subjectPool, Camp, DocKind, COURSES } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
 
 const OUT = '/tmp/stress'; fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const kinds: DocKind[] = ['program', 'quotation', 'booking', 'runsheet'];
@@ -33,7 +33,16 @@ configs.push({ name:'zero_students', camp: mk({ subject:'math', school:'ร.ร.
 configs.push({ name:'weird_time', camp: mk({ subject:'ai', school:'ร.ร.', students:300, teachers:16, durationMode:'overnight', days:2, nights:1, venue:'ว', startTime:'เช้า', travelHours:NaN as any, normalPrice:9, specialPrice:9, costPerPerson:9 }) });
 configs.push({ name:'special_chars', camp: mk({ subject:'steam', school:'ร.ร. <A&B> "คำ" \u0000x', level:'ม.1&2', students:50, teachers:3, durationMode:'half', days:1, nights:0, venue:'โรงแรม <tag> & "ชื่อ"', venueVisit:'a<b>&c', normalPrice:2000, specialPrice:1500, costPerPerson:900 }) });
 configs.push({ name:'long_overnight_7d', camp: mk({ subject:'english', school:'ร.ร.ยาว', students:80, teachers:6, durationMode:'overnight', days:7, nights:6, venue:'ว', venueVisit:'x', normalPrice:9000, specialPrice:7000, costPerPerson:4000, startTime:'05.00', travelHours:8 }) });
-configs.push({ name:'photos_CUR014', camp: (()=>{ const c=mk({courseCode:'PL ENG 0104', school:'ร.ร.ภาพ', students:110, teachers:8, durationMode:'overnight', days:2, nights:1, venue:'ว', venueVisit:'x', normalPrice:4000, specialPrice:3000, costPerPerson:1800}); c.actImgs=coursePhotos('PL ENG 0104',4); return c; })() });
+const withPhotos = (c: Camp): Camp => { c.actImgs = photoIdsFor(c).map((id, i): Img => ({ data: new Uint8Array(fs.readFileSync('web/photos/' + id + '.jpg')), caption: photoCaption(c, i), src: id })); return c; };
+configs.push({ name:'photos_CUR014', camp: withPhotos(mk({courseCode:'PL ENG 0104', school:'ร.ร.ภาพ', students:110, teachers:8, durationMode:'overnight', days:2, nights:1, venue:'ว', venueVisit:'x', normalPrice:4000, specialPrice:3000, costPerPerson:1800})) });
+// 4. แม่แบบจริงทุกชุด (45) — บังคับเลือกด้วย templateId · ทั้งแบบมี/ไม่มีชื่อโรงเรียน-ที่พัก (ทดสอบตัวแปร ⟦…⟧)
+for (const t of TEMPLATES) {
+  const dm = t.dur.startsWith('day') ? 'day' : 'overnight';
+  const days = dm === 'day' ? +t.dur.slice(3) : +t.dur.charAt(1), nights = dm === 'day' ? 0 : +t.dur.slice(2);
+  const tag = t.id.replace(/\s+/g, '_');
+  configs.push({ name:`TPL_${tag}`, camp: withPhotos(mk({ courseCode:t.code, templateId:t.id, school:'โรงเรียนทดสอบแม่แบบ', students:95, teachers:7, durationMode:dm as any, days, nights, dates:'วันที่ 1 – 3 กุมภาพันธ์ 2570', province:'นครนายก', venue:'โรงแรมทดสอบ', normalPrice:4000, specialPrice:3000, costPerPerson:1800, startTime:'06.30' })) });
+  configs.push({ name:`TPLblank_${tag}`, camp: mk({ courseCode:t.code, templateId:t.id, school:'', students:40, teachers:0, durationMode:dm as any, days, nights, dates:'', province:'', venue:'', normalPrice:0, specialPrice:0, costPerPerson:0, startTime:'' }) });
+}
 
 let fail = 0, ok = 0;
 (async () => {
@@ -43,6 +52,14 @@ let fail = 0, ok = 0;
       const fn = `${cfg.name}__${kind}.docx`;
       try {
         const plan = buildSchedule(cfg.camp);
+        // ตรวจ: ห้ามมีตัวแปรแม่แบบค้าง/ชื่องานเดิมค้าง ในข้อความทุกส่วน
+        const k = compose(cfg.camp, plan);
+        const txt = JSON.stringify([plan.days, k.cover, k.budget, k.titleTh, k.titleEn]);
+        const leaked = [/\{[SVPY]\}/, /[⟦⟧]/, /Kiangtalay|Aurora Resort|Flora May|Khanom Sunrise|Phumork|Chiangkhan River|BCP Hotel Rayong|Bella Villa|Kasalong|จันทรา รีสอร์ท|ธรรมวิทยามูลนิธิ|วัดราชบพิธ|สิงห์บุรี|เลยพิทยาคม|สายธรรมจันทร์|สิงห์สมุทร|ดอนเมืองทหารอากาศ|กาญจนาภิเษก|หนองแค|ชะอวด/]
+          .filter(re => re.test(txt) && !(cfg.camp.venue && re.test(cfg.camp.venue)));
+        if (leaked.length) throw new Error('template leak: ' + leaked.map(String).join(' '));
+        if (plan.tpl && plan.tpl.exact && cfg.camp.durationMode !== 'overnight' && plan.days.some(d => d.items.some(r => /เช็คอิน|อาหารเย็น|พักผ่อนฝันดี|อาหารเช้า/.test(r.title)))) throw new Error('overnight row in day camp');
+        void check(cfg.camp, plan);
         // ตรวจ: ทุกวันต้องมีอย่างน้อย 1 แถว (ตารางว่าง = docx พัง)
         for (const d of plan.days) if (!d.items.length) throw new Error(`day ${d.day} has 0 rows`);
         const buf = Buffer.from(await packDocx(buildDoc(kind, cfg.camp, plan)));

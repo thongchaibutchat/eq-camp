@@ -54,6 +54,7 @@
         "activityIds": { "type": "array", "items": { "type": "string" }, "description": "id ของกิจกรรมที่เลือก (ทั้งจากคลังมาตรฐานและ extraActivities)" },
         "includeTeachers": { "type": "boolean", "description": "แสดงครูผู้ดูแลในเอกสาร; ขาด = อัตโนมัติ (overnight แสดง, half/day ตัดออก) — optional ไม่ต้อง migrate" },
         "budgetItems": { "type": "array", "items": { "type": "string" }, "description": "รายการงบประมาณที่ทีมแก้เอง (แสดงแบบ \"-  รายการ\"); ว่าง/ขาด = ระบบสร้างอัตโนมัติ (optional, backward-compatible ไม่ต้อง migrate)" },
+        "templateId": { "type": "string", "description": "แม่แบบเอกสารจริงของทีมที่เลือกเอง (id เช่น 'PL SEA 0103__o21sea'); ขาด/ว่าง = เลือกอัตโนมัติตามหลักสูตร+ระยะเวลา+พื้นที่, 'engine' = ไม่ใช้แม่แบบ (จัดอัตโนมัติ) — optional ไม่ต้อง migrate" },
         "coreSlotIds": { "type": "array", "items": { "type": "string" }, "description": "เลือกกิจกรรมรายช่วง (per-slot): ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม ('' = อัตโนมัติ); ว่าง/ขาด = ให้ระบบจัดอัตโนมัติทั้งหมด (backward-compatible, migrate เป็น [])" },
         "extraActivities": {
           "type": "array",
@@ -83,7 +84,8 @@
         "required": ["caption"],
         "properties": {
           "caption": { "type": "string" },
-          "data": { "type": "string", "description": "รูปภาพแบบ base64 (ไม่มี prefix) — ละไว้ได้ถ้าไม่มีรูป" }
+          "data": { "type": "string", "description": "รูปภาพแบบ base64 (ไม่มี prefix) — ละไว้ได้ถ้าไม่มีรูป" },
+          "src": { "type": "string", "description": "id ภาพจากไฟล์ต้นฉบับของค่าย (web/photos/<id>.jpg) — ระบบดึงให้อัตโนมัติ; ไม่มี = ภาพที่ทีมอัปโหลดเอง (optional)" }
         }
       }
     }

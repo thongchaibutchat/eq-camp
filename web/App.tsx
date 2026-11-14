@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotos, hasCoursePhotos, courseDataset, courseById, COURSE_PHOTOS, docCodeFor, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
   showTeachers
 } from '../src/eqcamp-core';
 
@@ -25,8 +25,17 @@ const LS_KEY = 'eqcamp.db.v1';
 // ---- portable "database" persistence (localStorage + JSON export/import) ----
 const u8ToB64 = (u8: Uint8Array) => { let s = ''; for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]); return btoa(s); };
 const b64ToU8 = (b: string) => { const bin = atob(b); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
-const imgsOut = (imgs: Img[]) => imgs.map(i => ({ caption: i.caption, data: i.data ? u8ToB64(i.data) : undefined }));
-const imgsIn = (arr: any[]): Img[] => (arr || []).map(i => ({ caption: i.caption || '', data: i.data ? b64ToU8(i.data) : undefined }));
+const imgsOut = (imgs: Img[]) => imgs.map(i => ({ caption: i.caption, data: i.data ? u8ToB64(i.data) : undefined, ...(i.src ? { src: i.src } : {}) }));
+const imgsIn = (arr: any[]): Img[] => (arr || []).map(i => ({ caption: i.caption || '', data: i.data ? b64ToU8(i.data) : undefined, ...(i.src ? { src: String(i.src) } : {}) }));
+// ภาพจากไฟล์ PDF/Word ของค่ายนั้น (web/photos/<id>.jpg ที่เผยแพร่คู่กับหน้าเว็บ) — โหลดครั้งเดียวต่อภาพ
+// เปิดไฟล์เดี่ยวแบบออฟไลน์ (file://) จะโหลดไม่ได้ → เอกสารยังสร้างได้ เพียงไม่มีหน้าภาพ + ขึ้นเตือนในหน้าตรวจ
+export const PHOTO_BASE = 'photos/';
+const photoCache = new Map<string, Promise<Uint8Array | null>>();
+const fetchPhoto = (id: string): Promise<Uint8Array | null> => {
+  if (!photoCache.has(id)) photoCache.set(id, fetch(PHOTO_BASE + id + '.jpg').then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))).then(b => new Uint8Array(b)).catch(() => { photoCache.delete(id); return null; }));
+  return photoCache.get(id)!;
+};
+const isAuto = (imgs: Img[]) => imgs.every(im => !!im.src || !im.data); // ภาพที่ระบบดึงให้/ช่องว่าง (ไม่ใช่ภาพที่ทีมอัปโหลดเอง)
 const snapshot = (camp: Camp, venues: VenueRec[], brief: string, withImages: boolean) => ({
   _app: 'EQ Camp Generator', _v: 2, savedAt: new Date().toISOString(),
   camp: { ...camp, actImgs: withImages ? imgsOut(camp.actImgs) : [], venueImgs: withImages ? imgsOut(camp.venueImgs) : [] },
@@ -124,6 +133,43 @@ export default function App() {
   const plan = useMemo(() => buildSchedule(camp), [camp]);
   const k = useMemo(() => compose(camp, plan), [camp, plan]);
   const checks = useMemo(() => check(camp, plan), [camp, plan]);
+  // ---- ภาพจากไฟล์ของค่ายนั้น: ดึงอัตโนมัติเมื่อหลักสูตร/ระยะเวลา/แม่แบบ/ที่พักเปลี่ยน (ไม่ทับภาพที่ทีมอัปโหลดเอง) ----
+  const [photoNonce, setPhotoNonce] = useState(0);
+  const [photoState, setPhotoState] = useState<'idle' | 'loading' | 'ok' | 'partial' | 'offline'>('idle');
+  const wantAct = photoIdsFor(camp).join(',');
+  const venueSet = venuePhotoSetFor(camp.venue);
+  const wantVen = venueSet ? venueSet.photos.join(',') : '';
+  useEffect(() => {
+    const ids = wantAct ? wantAct.split(',') : [];
+    const cur = camp.actImgs;
+    if (!isAuto(cur)) return;
+    if (cur.length === ids.length && cur.every((im, i) => im.src === ids[i] && im.data)) { setPhotoState(ids.length ? 'ok' : 'idle'); return; }
+    let live = true; setPhotoState(ids.length ? 'loading' : 'idle');
+    Promise.all(ids.map(fetchPhoto)).then(arr => {
+      if (!live) return;
+      const got = ids.map((id, i) => ({ id, d: arr[i] })).filter(x => x.d);
+      setCamp(c => (isAuto(c.actImgs) ? { ...c, actImgs: got.map((x, i) => ({ data: x.d!, caption: photoCaption(c, i), src: x.id })) } : c));
+      setPhotoState(!ids.length ? 'idle' : got.length === ids.length ? 'ok' : got.length ? 'partial' : 'offline');
+    });
+    return () => { live = false; };
+  }, [wantAct, photoNonce]);
+  useEffect(() => {
+    const ids = wantVen ? wantVen.split(',') : [];
+    if (!isAuto(camp.venueImgs)) return;
+    if (camp.venueImgs.length === ids.length && camp.venueImgs.every((im, i) => im.src === ids[i] && im.data)) return;
+    let live = true;
+    Promise.all(ids.map(fetchPhoto)).then(arr => {
+      if (!live) return;
+      const got = ids.map((id, i) => ({ id, d: arr[i] })).filter(x => x.d);
+      setCamp(c => (isAuto(c.venueImgs) ? { ...c, venueImgs: got.map((x, i) => ({ data: x.d!, caption: venueCaption(venueSet ? venueSet.name : '', i), src: x.id })) } : c));
+    });
+    return () => { live = false; };
+  }, [wantVen, photoNonce]);
+  // ราคาเริ่มต้นจากแม่แบบ (เฉพาะเมื่อบรีฟยังไม่มีราคา) — หน้าตรวจเตือนให้ยืนยันราคาจริง
+  const tplPrice = plan.tpl && plan.tpl.exact ? plan.tpl.price : undefined;
+  useEffect(() => {
+    if (tplPrice && !(camp.normalPrice > 0) && !(camp.specialPrice > 0)) set({ normalPrice: tplPrice.n, specialPrice: tplPrice.s });
+  }, [plan.tpl ? plan.tpl.id : '']);
   const ready = isReady(checks);
   const total = camp.students * camp.specialPrice;
   const cost = camp.students * camp.costPerPerson;
@@ -139,7 +185,6 @@ export default function App() {
     setCamp(c => {
       const base = mode === 'new' ? blankCamp() : c;
       const next = parseBrief(brief, base);
-      if (!next.actImgs.length && !next.venueImgs.length) { const f = autoImages(next); next.actImgs = f.act; next.venueImgs = f.ven; }
       return next;
     });
     if (!dur.resolved) flash('แปลงบรีฟแล้ว แต่อ่าน "ระยะเวลา" จากบรีฟไม่ออก — โปรดเลือกระยะเวลาเองในแท็บ 2 (ยังไม่ได้เปลี่ยนจากค่าเดิม)', false);
@@ -177,7 +222,6 @@ export default function App() {
       const r = await sample.json<any>(prompt, { modelTier: 'default', signal: ctl.signal });
       if (stale()) return;
       const res = applyExtraction(mode === 'new' ? blankCamp() : camp, r);
-      const f = autoImages(res.camp); res.camp.actImgs = f.act; res.camp.venueImgs = f.ven;
       setCamp(res.camp);
       const miss = res.missing.length ? ` · ยังขาด: ${res.missing.join(', ')}` : '';
       const warn = res.warnings.length ? ' ' + res.warnings[0] : '';
@@ -200,7 +244,7 @@ export default function App() {
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
     const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
     // ระยะเวลาเปลี่ยน → ค่าที่พัก/มื้ออาหารในงบเปลี่ยน: คืนรายการงบเป็นอัตโนมัติ กันตัวเลขค้างผิด
-    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined }));
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined }));
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — จัดกำหนดการใหม่แล้ว${hadBudget ? ' · รายการงบกลับเป็นอัตโนมัติ (แก้ได้อีกครั้งในขั้นราคา & งบ)' : ''}`);
   };
@@ -208,9 +252,9 @@ export default function App() {
   const changeCourse = (code: string) => {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    const photos = coursePhotos(code, 8);
-    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], ...(photos.length ? { actImgs: photos } : {}) });
-    flash(`เลือกหลักสูตร "${co.name}" (รหัส ${code}) — ดึงกิจกรรมจริง ${defaultCourseActs(code).length} รายการ${photos.length ? ` + ภาพจริง ${photos.length} รูป` : ''} (สถานะรอตรวจ ทีมยืนยันก่อนจัดจริง)`);
+    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined });
+    const nT = templatesOf(code).length;
+    flash(nT ? `เลือก "${co.name}" (${code}) — ใช้แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนี้` : `เลือก "${co.name}" (${code}) — ยังไม่มีแม่แบบจริง ระบบจัดจากคลังกิจกรรม (รอตรวจ)`);
   };
   const toggleAct = (id: string) => set({ activityIds: camp.activityIds.includes(id) ? camp.activityIds.filter(x => x !== id) : [...camp.activityIds, id] });
   const selectedCore = camp.activityIds.filter(id => subjectPool(camp).some(a => a.id === id && a.kind === 'core')).length;
@@ -235,14 +279,8 @@ export default function App() {
   const addImage = (group: 'actImgs' | 'venueImgs') => setCamp(c => ({ ...c, [group]: [...c[group], { caption: 'คำบรรยายภาพ...' } as Img] }));
   const removeImage = (group: 'actImgs' | 'venueImgs', idx: number) => setCamp(c => ({ ...c, [group]: c[group].filter((_, i) => i !== idx) }));
   const captionImage = (group: 'actImgs' | 'venueImgs', idx: number, v: string) => setCamp(c => { const arr = [...c[group]]; arr[idx] = { ...arr[idx], caption: v }; return { ...c, [group]: arr }; });
-  const autoFillImages = () => { const f = autoImages(camp); set({ actImgs: f.act, venueImgs: f.ven }); flash('เติมช่องภาพ + คำบรรยายตามบรีฟแล้ว — กด "ค้นรูป" แต่ละช่องเพื่อหาภาพจริงมาอัปโหลด'); };
-  // ดึงภาพกิจกรรมจริงของหลักสูตรจากคลังทีม (ฝังลงไฟล์ทันที) — เฉพาะหลักสูตรที่มีภาพแล้ว
-  const pullCoursePhotos = () => {
-    const photos = coursePhotos(camp.courseCode, 8);
-    if (!photos.length) { flash('หลักสูตรนี้ยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — อัปโหลดเองหรือให้ทีมเพิ่มใน Drive', false); return; }
-    set({ actImgs: photos });
-    flash(`ดึงภาพจริง ${photos.length} รูปจากคลังทีมมาฝังแล้ว สถานะลิขสิทธิ์เผยแพร่ยังรอทีมรับรองก่อนส่งลูกค้า`);
-  };
+  // ใช้ภาพจากไฟล์ของค่ายนี้อีกครั้ง (ล้างภาพที่อัปโหลดเอง แล้วดึงชุดของแม่แบบ)
+  const reloadPhotos = () => { setCamp(c => ({ ...c, actImgs: [], venueImgs: [] })); setPhotoNonce(n => n + 1); flash('ดึงภาพจากไฟล์ของค่ายนี้ใหม่แล้ว'); };
   // เลือกกิจกรรมรายช่วง (per-slot): '' = อัตโนมัติ, อื่น ๆ = id กิจกรรมในคลัง
   const setSlot = (idx: number, id: string) => setCamp(c => {
     const arr = [...(c.coreSlotIds || [])];
@@ -252,8 +290,6 @@ export default function App() {
   });
   const clearSlots = () => { set({ coreSlotIds: [] }); flash('ล้างการเลือกกิจกรรมรายช่วง — กลับไปจัดอัตโนมัติ'); };
   const coreOptions = subjectPool(camp).filter(a => a.kind === 'core');
-  // เปิดค้นหารูปจริงตามคำบรรยาย/บรีฟ (ผู้ใช้เลือกรูปที่มีสิทธิ์ใช้ → อัปโหลด → ฝังลงไฟล์)
-  const searchImage = (query: string) => { const q = encodeURIComponent(query.replace(/[“”"]/g, '').trim()); window.open(`https://www.google.com/search?tbm=isch&q=${q}`, '_blank', 'noopener'); };
 
   const addVenue = (v: VenueRec) => { setCustomVenues(s => [...s, v]); set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }); flash(`เพิ่มสถานที่ "${v.name}" เข้าคลังแล้ว`); };
 
@@ -442,17 +478,21 @@ export default function App() {
       };
 
       // ---- หน้าปก ----
-      await place(`<h1>${esc(kk.titleTh)}</h1><div class="en">${esc(kk.titleEn)}</div>`, { gap: 5 });
+      await place(`<h1>${esc(kk.titleTh)}</h1>${kk.titleEn ? `<div class="en">${esc(kk.titleEn)}</div>` : ''}`, { gap: 5 });
       // แพตเทิร์นเอกสารจริง: วัตถุประสงค์ย่อหน้าแรกเยื้อง · ข้อมูลจำนวน/วิทยากร/ระยะเวลาแบบแท็บ · รายการบูรณาการเยื้องทั้งบล็อก "1.ข้อความ"
       const fl = (a: string[]) => a.map((x, i) => `<div class="fl">${i + 1}.${esc(x)}</div>`).join('');
       const blk = (a: string[]) => a.map((x, i) => `<div class="blk">${i + 1}.${esc(x)}</div>`).join('');
-      await place(`<h2>วัตถุประสงค์การเรียนรู้</h2>${fl(kk.objectives)}` +
-        `<div class="kv"><b>จำนวน</b><span>${esc(kk.p1)}${kk.p2 ? '<br>' + esc(kk.p2) : ''}</span></div><div class="kv"><b>วิทยากร</b><span>${esc(kk.staff)} คน</span></div><div class="kv"><b>ระยะเวลาอบรม</b><span>${esc(kk.dur)}</span></div>`);
-      await place(`<h2>กิจกรรมเชิงบูรณาการ</h2>${blk(kk.acts)}`);
-      await place(`<h2>บูรณาการการเรียน (Instruction Integration)</h2>${blk(kk.integ)}`);
+      // หน้าปกตามลำดับหัวข้อของแม่แบบ (โครงเดียวกับ Word) — ข้อมูลจำนวน/วิทยากร/ระยะเวลาอยู่บล็อกเดียวกับหัวข้อก่อนหน้า
+      const bul = (x: string) => { const m = x.match(/^([-–•●])\s*(.*)$/); if (!m) return `<div class="blk">${esc(x)}</div>`; const l2 = m[1] === '•' || m[1] === '●'; return `<div class="dl" style="padding-left:${l2 ? 96 : 55}px"><span class="d">${l2 ? '•' : '-'}</span><span class="x">${esc(m[2])}</span></div>`; };
+      const secHtml = (sec: CoverSec) => sec.k === 'info'
+        ? (sec.rows || []).map(([lab, v]) => `<div class="kv"><b>${esc(lab)}</b><span>${v.map(esc).join('<br>')}</span></div>`).join('')
+        : (sec.h ? `<h2>${esc(sec.h)}</h2>` : '') + (sec.k === 'list' ? (sec.first ? fl : blk)(sec.items || []) : sec.k === 'para' ? (sec.items || []).map(x => `<div class="fl">${esc(x)}</div>`).join('') : (sec.items || []).map(bul).join(''));
+      let coverBuf = '';
+      for (const sec of kk.cover as CoverSec[]) { if (sec.k === 'info') { coverBuf += secHtml(sec); continue; } if (coverBuf) await place(coverBuf); coverBuf = secHtml(sec); }
+      if (coverBuf) await place(coverBuf);
 
       // ---- หน้ากำหนดการ: ขึ้นหน้าใหม่ · แต่ละวันเป็นบล็อก (ไม่ตัดข้ามหน้า) · ปิดด้วยหมายเหตุ ----
-      await place(`<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}<br>${esc(kk.titleEn)}` +
+      await place(`<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}${kk.titleEn ? '<br>' + esc(kk.titleEn) : ''}` +
         (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>', { newpage: true, gap: 6 });
       // หมายเหตุติดท้าย "วันสุดท้าย" ในบล็อกเดียวกัน → ไม่มีวันหลุดไปอยู่หน้าโดด ๆ
       for (const [i, d] of plan.days.entries()) {
@@ -479,7 +519,6 @@ export default function App() {
       const withData = camp.actImgs.filter(a => a.data);
       let actCells: string[] = [];
       if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : `ภาพกิจกรรมที่ ${i + 1}`));
-      else if (hasCoursePhotos(camp.courseCode)) actCells = COURSE_PHOTOS[camp.courseCode].slice(0, 8).map((p: any, i: number) => cell(`<img src="data:image/jpeg;base64,${p.b64}">`, i + 1, `ภาพกิจกรรมที่ ${i + 1}`));
       if (actCells.length) { photoCount += actCells.length; await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${gridOf(actCells)}`, { newpage: true }); }
       const venueData = camp.venueImgs.filter(a => a.data);
       if (venueData.length) {
@@ -487,7 +526,7 @@ export default function App() {
         photoCount += vCells.length;
         await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${gridOf(vCells)}`, { newpage: true });
       }
-      if (isSteamProgram(camp)) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
+      if (isSteamProgram(camp) && !plan.tpl) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
 
       // เลขหน้า "X / Y" ทุกหน้า (ล่างกลาง)
       const totPages = pdf.internal.getNumberOfPages();
@@ -724,7 +763,7 @@ export default function App() {
                     <SectionTitle title="ฐานข้อมูลค่าย (14 หลักสูตรจริง)" sub="เลือกค่าย → เห็นเฉพาะข้อมูลที่ผูกกับค่ายนั้น (วัตถุประสงค์ · กิจกรรม · ภาพ) แล้วกด 'ใช้หลักสูตรนี้' เพื่อโหลดเข้าเอกสาร" />
                     <div className="flex flex-wrap gap-1.5">
                       {COURSES.map(co => {
-                        const on = dbSel === co.code; const nPhoto = COURSE_PHOTOS[co.code]?.length || 0;
+                        const on = dbSel === co.code; const nPhoto = coursePhotoIds(co.code).length;
                         return <button key={co.code} onClick={() => setDbSel(co.code)} title={co.name} className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${on ? 'bg-brand text-white border-brand' : 'bg-slate-50 border-slate-200 text-sub'}`}>{co.code}{nPhoto ? '' : ''}</button>;
                       })}
                     </div>
@@ -759,14 +798,13 @@ export default function App() {
                             </div>}
                         </div>
                         <div>
-                          <div className="text-[13px] font-semibold text-sub mb-1">ภาพกิจกรรมจริง ({ds.photoCount})</div>
-                          {ds.photoCount === 0 ? <div className="text-[13px] text-slate-400">ยังไม่มีภาพในคลังสำหรับหลักสูตรนี้ — อัปโหลดเองในแท็บ 6 หรือให้ทีมเพิ่มใน Drive</div> :
-                            <>
-                              <div className="grid grid-cols-4 gap-1.5">
-                                {ds.photos.slice(0, 8).map((p, i) => <img key={i} src={`data:image/jpeg;base64,${p.b64}`} className="w-full h-14 object-cover rounded-md border border-slate-200" alt="" />)}
-                              </div>
-                              <div className="text-[11px] text-amber-600 mt-1">รอทีมรับรองสิทธิ์เผยแพร่ก่อนส่งลูกค้า</div>
-                            </>}
+                          <div className="text-[13px] font-semibold text-sub mb-1">แม่แบบโปรแกรมจริง ({ds.templates.length})</div>
+                          <div className="text-[13px] text-slate-700 mb-2">{ds.templates.length ? ds.templates.map(t => durKeyLabel(t.dur) + (t.area.length ? ` (${t.area.join('/')})` : '')).join(' · ') : 'ยังไม่มี'}</div>
+                          <div className="text-[13px] font-semibold text-sub mb-1">ภาพกิจกรรมจากไฟล์ของค่ายนี้ ({ds.photoCount})</div>
+                          {ds.photoCount === 0 ? <div className="text-[13px] text-slate-400">ยังไม่มีภาพในไฟล์ของค่ายนี้</div> :
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {ds.photos.slice(0, 12).map(id => <img key={id} src={`${PHOTO_BASE}t_${id}.jpg`} loading="lazy" className="w-full h-14 object-cover rounded-md border border-slate-200 bg-slate-100" alt="" />)}
+                            </div>}
                         </div>
                       </div>
                     )}
@@ -799,18 +837,19 @@ export default function App() {
                       </button>
                       {COURSES.map(co => {
                         const on = camp.courseCode === co.code; const m = co.name.replace(/^หลักสูตร/, '').match(/^(.*?)\s*\(([^)]*)\)\s*$/);
-                        const nP = coursePhotos(co.code, 8).length;
+                        const nP = coursePhotoIds(co.code).length; const nT = templatesOf(co.code).length;
                         return (
                           <button key={co.code} role="radio" aria-checked={on} onClick={() => changeCourse(co.code)}
                             className={`tap text-left p-3 rounded-xl border ${on ? 'border-brand-navy ring-1 ring-brand-navy bg-white' : 'border-brand-mist bg-white hover:border-brand/40'}`}>
-                            <div className="flex items-center justify-between gap-2 text-[12px] text-sub"><span className="font-medium">{co.code}</span><span>{nP ? `ภาพจริง ${nP}` : 'ยังไม่มีภาพ'}</span></div>
+                            <div className="flex items-center justify-between gap-2 text-[12px] text-sub"><span className="font-medium">{co.code}</span><span>{nT ? `แม่แบบ ${nT} · ภาพ ${nP}` : 'ยังไม่มีแม่แบบ'}</span></div>
                             <div className="text-[14px] font-semibold leading-snug mt-1">{m ? m[1] : co.name}</div>
                             {m && <div className="text-[12.5px] text-sub leading-snug">{m[2]}</div>}
                           </button>
                         );
                       })}
                     </div>
-                    {camp.courseCode && <div className="text-[12px] text-amber-700 mt-1">กิจกรรมจากคลังนี้สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
+                    {camp.courseCode && (plan.tpl ? <div className="text-[12px] text-sub mt-1">ใช้แม่แบบโปรแกรมจริงของทีม: <b className="text-brand-ink">{plan.tpl.source.replace('__', ' · ')}</b>{plan.tpl.exact ? '' : ` (ยังไม่มีแม่แบบ ${durKeyLabel(durKeyOf(camp))} — กำหนดการจัดอัตโนมัติ)`}</div>
+                      : <div className="text-[12px] text-amber-700 mt-1">กิจกรรมจากคลังนี้สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>)}
                   </Field>
                   <div className="text-[13px] text-sub -mt-1">หลักสูตร: <b>{k.titleTh}</b> {k.titleEn}</div>
                   <Field label="ชื่อโรงเรียน"><input value={camp.school} onChange={e => set({ school: e.target.value })} className={inp} /></Field>
@@ -884,6 +923,7 @@ export default function App() {
               {tab === 'activities' && (
                 <div className="space-y-3">
                   <SectionTitle title={`เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
+                  {plan.tpl && plan.tpl.exact && <div className="text-[13px] text-brand-ink bg-paper border border-brand-mist rounded-lg px-3 py-2">ค่ายนี้ใช้กิจกรรมและกำหนดการจากแม่แบบจริงของทีม ({plan.tpl.source.replace('__', ' · ')}) — รายการด้านล่างใช้เมื่อเลือก “จัดอัตโนมัติ” ในขั้นกำหนดการ</div>}
                   <div className="flex items-center justify-between text-[13px]">
                     <span className="text-sub">ตารางต้องการ <b className="text-brand">{plan.coreSlots}</b> ช่องกิจกรรมหลัก · เลือกไว้ <b className="text-brand">{selectedCore}</b></span>
                     <div className="flex gap-2">
@@ -926,11 +966,26 @@ export default function App() {
 
               {tab === 'schedule' && (
                 <div className="space-y-3">
-                  <SectionTitle title="กำหนดการ (สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา)" sub="ช่อง 'กิจกรรมหลัก' เลือกกิจกรรมจากฐานได้รายช่วง (เมนูด้านล่างหัวข้อ) — เลือก 'อัตโนมัติ' ให้ระบบจัดเอง" />
-                  <div className="flex items-center justify-between text-[13px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                  <SectionTitle title="กำหนดการ" sub={plan.tpl && plan.tpl.exact ? 'ตามแม่แบบโปรแกรมจริงของทีม — ชื่อโรงเรียน/ที่พัก/ปี/จำนวนคน/งบ แทนด้วยข้อมูลจากบรีฟแล้ว' : "สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา · ช่อง 'กิจกรรมหลัก' เลือกจากคลังได้รายช่วง"} />
+                  {camp.courseCode && (templatesOf(camp.courseCode).length > 0) && (
+                    <div className="border border-brand-mist rounded-xl p-3 space-y-2 bg-white">
+                      <div className="text-[13px] text-sub">แม่แบบที่ใช้</div>
+                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, budgetItems: undefined })} className={inp}>
+                        {plan.tpl && plan.tpl.exact
+                          ? plan.tpl.options.map(o => <option key={o.id} value={o.id}>แม่แบบจริง · {o.label}</option>)
+                          : <option value="">ไม่มีแม่แบบ {durKeyLabel(durKeyOf(camp))} — หน้าปกจาก {plan.tpl ? plan.tpl.source.replace('__', ' · ') : '-'}</option>}
+                        <option value="engine">จัดอัตโนมัติจากคลังกิจกรรม (ไม่ใช้แม่แบบ)</option>
+                      </select>
+                      {plan.tpl && plan.tpl.exact && plan.tpl.locRows.length > 0 && plan.tpl.areaOK !== true && (
+                        <div className="text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                          แม่แบบนี้มีกิจกรรมนอกสถานที่ของพื้นที่ <b>{plan.tpl.area.join('/') || 'เดิม'}</b> — ตรวจว่าเหมาะกับพื้นที่ค่าย{camp.province ? ` จ.${camp.province}` : ''} ก่อนส่ง:
+                          <ul className="list-disc ml-5 mt-1">{plan.tpl.locRows.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                        </div>)}
+                    </div>)}
+                  {plan.coreSlots > 0 && <div className="flex items-center justify-between text-[13px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
                     <span className="text-sub">ช่องกิจกรรมหลักทั้งหมด <b className="text-brand">{plan.days.reduce((n, d) => n + d.items.filter(r => r.slot !== undefined).length, 0)}</b> ช่อง · เลือกเอง <b className="text-brand">{(camp.coreSlotIds || []).filter(Boolean).length}</b></span>
                     <button onClick={clearSlots} className="font-semibold text-slate-400 hover:text-sub">ล้างเป็นอัตโนมัติทั้งหมด</button>
-                  </div>
+                  </div>}
                   {plan.days.map(d => (
                     <div key={d.day} className="border border-slate-200 rounded-xl overflow-hidden">
                       <div className="bg-brand text-white text-[13.5px] font-semibold px-3 py-1.5">วันที่ {d.day}</div>
@@ -957,7 +1012,7 @@ export default function App() {
                     </div>
                   ))}
                   <div className="text-[13px] text-sub">มื้ออาหาร: เช้า {plan.meals.b} · กลางวัน {plan.meals.l} · เย็น {plan.meals.d} · ว่าง {plan.meals.s}</div>
-                  <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">กิจกรรมที่มีเครื่องหมาย มาจากคลัง 14 หลักสูตร สถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>
+                  {!(plan.tpl && plan.tpl.exact) && <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">กิจกรรมจากคลัง 14 หลักสูตรมีสถานะ "รอตรวจ" — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
                 </div>
               )}
 
@@ -988,16 +1043,19 @@ export default function App() {
 
               {tab === 'images' && (
                 <div className="space-y-4">
-                  <SectionTitle title="ภาพกิจกรรม & ภาพที่พัก (ดึงภาพจริงตามบรีฟ)" sub="กด 'เติมช่องภาพตามบรีฟ' เพื่อสร้างช่อง+คำบรรยายจากกิจกรรม/สถานที่ → กด 'ค้นรูป' แต่ละช่องเพื่อเปิดค้นหาภาพจริง → เลือกรูปที่มีสิทธิ์ใช้แล้วอัปโหลด รูปจะฝังลงไฟล์ Word ทันที" />
+                  <SectionTitle title="ภาพกิจกรรม & ภาพที่พัก" sub="ภาพกิจกรรมดึงจากไฟล์ PDF/Word โปรแกรมจริงของค่ายนี้เท่านั้น (6–8 รูป) · ภาพที่พักดึงให้เมื่อชื่อที่พักตรงกับโรงแรมในไฟล์ทีม · อัปโหลดแทนได้เฉพาะภาพของทีมเอง" />
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button onClick={pullCoursePhotos} disabled={!hasCoursePhotos(camp.courseCode)}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white text-[13px] font-semibold flex items-center gap-1">
-                      <ImageIcon className="w-3.5 h-3.5" />ดึงภาพจริงของหลักสูตร{hasCoursePhotos(camp.courseCode) ? ` (${(COURSES.find(c=>c.code===camp.courseCode)?.name)||camp.courseCode})` : ''}
+                    <button onClick={reloadPhotos} disabled={!wantAct && !wantVen}
+                      className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:bg-slate-200 disabled:text-slate-400 text-white text-[13px] font-semibold flex items-center gap-1">
+                      <RefreshCw className="w-3.5 h-3.5" />ใช้ภาพจากไฟล์ของค่ายนี้
                     </button>
-                    <button onClick={autoFillImages} className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[13px] font-semibold flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" />เติมช่องภาพตามบรีฟ</button>
+                    <span className="text-[12.5px] text-sub">
+                      {!camp.courseCode ? 'ยังไม่ได้เลือกหลักสูตร — ไม่มีไฟล์ต้นฉบับให้ดึงภาพ'
+                        : photoState === 'loading' ? 'กำลังโหลดภาพ…'
+                        : photoState === 'offline' ? 'โหลดภาพไม่ได้ (ออฟไลน์/เปิดไฟล์ในเครื่อง) — เปิดผ่านลิงก์เว็บเพื่อให้ภาพขึ้น'
+                        : plan.tpl ? `ภาพจากไฟล์ ${plan.tpl.source.replace('__', ' · ')}` : ''}
+                    </span>
                   </div>
-                  <div className="text-[12px] text-sub">{hasCoursePhotos(camp.courseCode) ? 'หลักสูตรนี้มีภาพกิจกรรมจริงของทีมในคลัง — กดปุ่มเขียวเพื่อฝังลงไฟล์ทันที' : 'หลักสูตรที่เลือกยังไม่มีภาพจริงในคลังทีม (ยังขาด: ธรณีวิทยา, นิติวิทยาศาสตร์, Pre-genius) — ใช้ "เติมช่องภาพตามบรีฟ" แล้วอัปโหลดภาพที่มีสิทธิ์เอง'}</div>
-                  <div className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">ภาพจากคลังทีมยังรอทีมรับรองสิทธิ์เผยแพร่ก่อนส่งลูกค้า · ภาพที่พักให้ใช้สื่อทางการของโรงแรม เพื่อความถูกต้องของลิขสิทธิ์ในเอกสารขาย</div>
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
                       <div className="flex items-center justify-between mb-1.5">
@@ -1008,17 +1066,17 @@ export default function App() {
                         {camp[group].map((im, i) => (
                           <div key={i} className="border border-slate-200 rounded-xl p-2 space-y-1.5">
                             <label className="block aspect-[8/5] rounded-lg bg-paper border border-dashed border-slate-300 overflow-hidden cursor-pointer grid place-items-center text-[12px] text-slate-400">
-                              {im.data ? <span className="text-emerald-600 font-semibold">✓ ฝังรูปแล้ว</span> : 'คลิกเพื่ออัปโหลด'}
+                              {im.data ? (im.src ? <img src={`${PHOTO_BASE}t_${im.src}.jpg`} className="w-full h-full object-cover" alt="" /> : <span className="text-emerald-600 font-semibold">✓ ฝังภาพของทีมแล้ว</span>) : 'คลิกเพื่ออัปโหลดภาพของทีม'}
                               <input type="file" accept="image/*" className="hidden" onChange={e => onImage(group, i, e.target.files?.[0])} />
                             </label>
-                            <input value={im.caption} onChange={e => captionImage(group, i, e.target.value)} className="w-full px-2 py-1 rounded border border-slate-200 text-[12px]" placeholder="คำบรรยาย (ใช้เป็นคำค้นรูปด้วย)" />
+                            <input value={im.caption} onChange={e => captionImage(group, i, e.target.value)} className="w-full px-2 py-1 rounded border border-slate-200 text-[12px]" placeholder="คำบรรยายภาพ" />
                             <div className="flex items-center justify-between">
-                              <button onClick={() => searchImage(im.caption || camp.venue)} className="text-[12px] font-semibold text-brand flex items-center gap-0.5"><ImageIcon className="w-3 h-3" />ค้นรูป</button>
+                              <span className="text-[11.5px] text-sub">{im.src ? 'จากไฟล์ของค่าย' : im.data ? 'อัปโหลดเอง' : ''}</span>
                               <button onClick={() => removeImage(group, i)} className="text-[12px] text-rose-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" />ลบ</button>
                             </div>
                           </div>
                         ))}
-                        {!camp[group].length && <div className="col-span-2 text-[13px] text-slate-400 py-3 text-center">ยังไม่มีช่องภาพ — กด "เติมช่องภาพตามบรีฟ" ด้านบน หรือ "เพิ่มช่อง"</div>}
+                        {!camp[group].length && <div className="col-span-2 text-[13px] text-slate-400 py-3 text-center">{group === 'actImgs' ? 'ยังไม่มีภาพกิจกรรม' : 'ไม่มีภาพที่พักของโรงแรมนี้ในไฟล์ทีม — เอกสารจะไม่มีหน้าภาพที่พัก (อัปโหลดภาพทางการของโรงแรมได้ด้วย "เพิ่มช่อง")'}</div>}
                       </div>
                     </div>
                   ))}
@@ -1101,27 +1159,6 @@ function VenueAdd({ onAdd }: { onAdd: (v: VenueRec) => void }) {
   );
 }
 
-// สร้างช่องภาพ + คำบรรยายจากบรีฟ (วิชา/กิจกรรมที่เลือก/สถานที่) เพื่อจัดวางตามบรีฟ
-function autoImages(c: Camp): { act: Img[]; ven: Img[] } {
-  // ถ้าหลักสูตรมีภาพจริงของทีมในคลัง → ฝังภาพจริงให้เลย (ไม่งั้นสร้างช่อง+คำบรรยายตามกิจกรรม)
-  const photos = coursePhotos(c.courseCode, 8);
-  if (photos.length) {
-    const ven: Img[] = [
-      { caption: `บรรยากาศที่พัก ${c.venue}${c.province ? ' จังหวัด' + c.province : ''}` } as Img,
-      { caption: c.venueVisit ? `แหล่งทัศนศึกษา ${c.venueVisit}` : `ห้องประชุมสัมมนา ${c.venue}` } as Img
-    ];
-    return { act: photos, ven };
-  }
-  const acts = subjectPool(c).filter(a => c.activityIds.includes(a.id) && a.kind === 'core').slice(0, 4);
-  const act: Img[] = (acts.length ? acts : [{ title: `กิจกรรมค่าย${SUBJECTS[c.subject].label}` } as any]).map(a =>
-    ({ caption: `บรรยากาศ${(a.title || '').replace(/^กิจกรรม\s*/, '')}`.slice(0, 80) } as Img));
-  while (act.length < 2) act.push({ caption: `บรรยากาศกิจกรรมค่าย${SUBJECTS[c.subject].label}` } as Img);
-  const ven: Img[] = [
-    { caption: `บรรยากาศที่พัก ${c.venue}${c.province ? ' จังหวัด' + c.province : ''}` } as Img,
-    { caption: c.venueVisit ? `แหล่งทัศนศึกษา ${c.venueVisit}` : `ห้องประชุมสัมมนา ${c.venue}` } as Img
-  ];
-  return { act, ven };
-}
 
 const inp = 'w-full px-3 py-2.5 rounded-xl border border-brand-mist bg-white text-[15px] focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15';
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -1342,15 +1379,10 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
     <div className="text-[13px] leading-relaxed">
       <div className="text-right font-bold text-sky-800">{c.docCode}</div>
       <div className="text-center font-extrabold text-lg text-sky-900">{k.titleTh}</div>
-      <div className="text-center font-bold text-sky-600 mb-3">{k.titleEn}</div>
-      <H>วัตถุประสงค์การเรียนรู้</H><OL items={k.objectives} />
-      <table className="w-full my-2 text-[12px]"><tbody>
-        <tr><td className="font-bold text-sky-800 align-top w-24 py-0.5">จำนวน</td><td>{k.p1}<br />{k.p2}</td></tr>
-        <tr><td className="font-bold text-sky-800 py-0.5">วิทยากร</td><td>{k.staff} คน</td></tr>
-        <tr><td className="font-bold text-sky-800 py-0.5">ระยะเวลา</td><td>{k.dur}</td></tr>
-      </tbody></table>
-      <H>กิจกรรมเชิงบูรณาการ</H><OL items={k.acts} />
-      <H>บูรณาการการเรียน (Instruction Integration)</H><OL items={k.integ} />
+      {k.titleEn && <div className="text-center font-bold text-sky-600 mb-3">{k.titleEn}</div>}
+      {(k.cover as CoverSec[]).map((sec, i) => sec.k === 'info'
+        ? <table key={i} className="w-full my-2 text-[12px]"><tbody>{(sec.rows || []).map(([lab, v]) => <tr key={lab}><td className="font-bold text-sky-800 align-top w-32 py-0.5">{lab}</td><td>{v.map((x, j) => <div key={j}>{x}</div>)}</td></tr>)}</tbody></table>
+        : <div key={i}>{sec.h && <H>{sec.h}</H>}{sec.k === 'list' ? <OL items={sec.items || []} /> : (sec.items || []).map((x, j) => <p key={j} className={sec.k === 'para' ? 'indent-8 my-0.5' : 'pl-6 my-0'}>{x}</p>)}</div>)}
       <div className="my-3 border-t pt-2 text-center font-extrabold text-sky-900">กำหนดการ</div>
       <Sched plan={plan} />
       <div className="mt-4 pt-3 border-t">ราคาปกติ {money(c.normalPrice)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(c.specialPrice)} บ./ท่าน</span></div>
