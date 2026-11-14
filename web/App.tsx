@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DataHub from './DataHub';
+import Home from './Home';
+import { IN_APP, IS_IOS, externalBrowserUrl, copyText } from './platform';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
   CheckCircle2, AlertTriangle, Lock, BookOpen, Layers, ChevronRight, Wand2, Eye,
-  BarChart3, History, RefreshCw, Users, X, Check, Info
+  BarChart3, History, RefreshCw, Users, X, Check, Info, ExternalLink, Copy
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
@@ -48,7 +50,22 @@ export default function App() {
   const [camp, setCamp] = useState<Camp>(() => initial?.camp ?? fromPreset('pl0109'));
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
-  const [view, setView] = useState<'build' | 'hub'>('build');
+  // หน้า: home (หน้าแรก/แคตตาล็อก) · build (สร้างเอกสาร) · hub (คลังข้อมูล) — ผูกกับ #ลิงก์ ให้ปุ่มย้อนกลับ/บุ๊กมาร์กทำงานทุกเบราว์เซอร์
+  type View = 'home' | 'build' | 'hub';
+  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') ? 'build' : h.startsWith('#/data') ? 'hub' : 'home'; };
+  const [view, setViewState] = useState<View>(fromHash);
+  const [hubInit, setHubInit] = useState<{ key: number; sec?: 'overview' | 'courses'; course?: string }>({ key: 0 });
+  const setView = (v: View) => {
+    setViewState(v);
+    const h = v === 'build' ? '#/build' : v === 'hub' ? '#/data' : '#/';
+    try { if (location.hash !== h) history.pushState(null, '', h); } catch { /* sandbox */ }
+    try { window.scrollTo(0, 0); } catch { /* ignore */ }
+  };
+  useEffect(() => { const on = () => setViewState(fromHash()); window.addEventListener('popstate', on); window.addEventListener('hashchange', on); return () => { window.removeEventListener('popstate', on); window.removeEventListener('hashchange', on); }; }, []);
+  // ติดตั้งลงหน้าจอหลัก (Android/คอม Chrome/Edge)
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  useEffect(() => { const on = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', on); return () => window.removeEventListener('beforeinstallprompt', on); }, []);
+  const [inAppHide, setInAppHide] = useState(false);
   const [tab, setTab] = useState<'brief' | 'db' | 'header' | 'activities' | 'schedule' | 'price' | 'images' | 'stats'>('brief');
   const [brief, setBrief] = useState(initial?.brief ?? 'PL 0109/2569 โรงเรียนอำนาจเจริญ ม.1-2 จำนวน 72 คน ครู 6 คน ค่ายคณิตศาสตร์ Math Camp 3 วัน 2 คืน วันที่ 18 – 20 พฤศจิกายน 2569 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท ราคาปกติ 4,590 ลดเหลือเพียง 3,290 บ./ท่าน');
   const [banner, setBanner] = useState<{ t: string; ok: boolean } | null>(null);
@@ -507,47 +524,98 @@ export default function App() {
     { id: 'images', label: `ภาพ (${camp.actImgs.length + camp.venueImgs.length})` }
   ] as const;
   const AUX = TABS.filter(t => t.id === 'db' || t.id === 'stats');
+  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }] as const;
+  const navOn = (id: string) => id === view;
+  const goNav = (id: string) => {
+    if (id === 'catalog') { setView('home'); window.setTimeout(() => { try { document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); } catch { /* ignore */ } }, 60); return; }
+    if (id === 'hub') setHubInit(h => ({ key: h.key + 1 }));
+    setView(id as 'home' | 'build' | 'hub');
+  };
   const stepIdx = STEPS.findIndex(s => s.id === tab);
 
   return (
-    <div className="min-h-screen bg-paper text-brand-ink pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-30 brandbar text-white shadow-lift">
-        <div className="max-w-7xl mx-auto px-4 py-2 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/20 grid place-items-center font-display font-semibold text-[15px] text-white tracking-tight">EQ</div>
-            <div>
-              <h1 className="font-display font-semibold text-[17px] sm:text-[18px] leading-tight tracking-tight">EQ Camp</h1>
-              <p className="text-[13px] text-white/70">เอกสารขายค่ายวิชาการ</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => download(kind)} disabled={busy}
-              className="tap px-4 py-2 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[13.5px] font-semibold shadow-lift flex items-center gap-1.5">
-              <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : <>ดาวน์โหลด<span className="hidden sm:inline"> {DOC_TYPES.find(d => d.id === kind)!.label}</span></>}
-            </button>
-            <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
-              className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-[13.5px] font-medium flex items-center gap-1.5">
-              <Layers className="w-4 h-4" />ครบชุด<span className="hidden sm:inline"> 4 ไฟล์</span>
-            </button>
-            <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF"
-              className="tap px-3 py-2 rounded-xl bg-white/10 ring-1 ring-white/25 enabled:hover:bg-white/20 disabled:opacity-40 text-white text-[13.5px] font-medium flex items-center gap-1.5">
-              <FileText className="w-4 h-4" /><span className="hidden sm:inline">บันทึก </span>PDF
-            </button>
+    <div className={`min-h-screen bg-paper text-brand-ink ${view === 'home' ? '' : 'pb-20'}`}>
+      {/* เมนูบน (แนวเว็บคอร์สเรียน): โลโก้ · เมนูหลัก · ปุ่มหลัก — มือถือมีเมนูแถวที่สอง */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-brand-mist">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-3">
+          <button onClick={() => setView('home')} className="tap flex items-center gap-2.5 shrink-0 rounded-lg" aria-label="EQ Camp หน้าแรก">
+            <img src={`data:image/png;base64,${BRAND.logoB64}`} alt="" className="h-9 w-auto" />
+            <span className="leading-tight text-left"><span className="block text-[16px] font-semibold">EQ Camp</span><span className="hidden sm:block text-[12.5px] text-sub">เอกสารขายค่ายวิชาการ</span></span>
+          </button>
+          <nav aria-label="เมนูหลัก" className="hidden lg:flex items-center gap-1 ml-6">
+            {NAV.map(n => (
+              <button key={n.id} onClick={() => goNav(n.id)} aria-current={navOn(n.id) ? 'page' : undefined}
+                className={`tap px-3 py-2 rounded-lg text-[15px] ${navOn(n.id) ? 'text-brand-navy font-semibold bg-paper' : 'text-sub hover:text-brand-ink hover:bg-paper font-medium'}`}>{n.label}</button>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-2">
+            {view === 'build' ? (<>
+              <button onClick={() => download(kind)} disabled={busy}
+                className="tap px-3.5 sm:px-4 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14px] font-semibold flex items-center gap-1.5">
+                <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : <>ดาวน์โหลด<span className="hidden lg:inline"> {DOC_TYPES.find(d => d.id === kind)!.label}</span></>}
+              </button>
+              <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
+                className="tap hidden sm:flex px-3 py-2.5 rounded-xl border border-brand-mist enabled:hover:bg-paper disabled:opacity-40 text-[14px] font-medium items-center gap-1.5">
+                <Layers className="w-4 h-4" />ครบชุด<span className="hidden lg:inline"> 4 ไฟล์</span>
+              </button>
+              <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF"
+                className="tap px-3 py-2.5 rounded-xl border border-brand-mist enabled:hover:bg-paper disabled:opacity-40 text-[14px] font-medium flex items-center gap-1.5">
+                <FileText className="w-4 h-4" />PDF
+              </button>
+            </>) : (
+              <button onClick={() => setView('build')} className="tap px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-deep text-white text-[14px] font-semibold">สร้างเอกสาร</button>
+            )}
           </div>
         </div>
+        <nav aria-label="เมนูหลัก (มือถือ)" className="lg:hidden border-t border-brand-mist">
+          <div className="flex px-2 overflow-x-auto noscrollbar">
+            {NAV.map(n => (
+              <button key={n.id} onClick={() => goNav(n.id)} aria-current={navOn(n.id) ? 'page' : undefined}
+                className={`tap shrink-0 px-3 py-2.5 text-[14.5px] border-b-2 -mb-px ${navOn(n.id) ? 'border-brand-navy text-brand-ink font-semibold' : 'border-transparent text-sub font-medium'}`}>{n.label}</button>
+            ))}
+          </div>
+        </nav>
       </header>
 
-      {/* สลับโหมด: สร้างเอกสาร ↔ คลังข้อมูลขาย (ข้อมูลทั้งหมดอยู่เว็บเดียว) */}
-      <div className="bg-white border-b border-brand-mist">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 flex gap-6" role="tablist" aria-label="โหมด">
-          {([['build', 'สร้างเอกสาร'], ['hub', 'คลังข้อมูลขาย']] as const).map(([id, l]) => (
-            <button key={id} role="tab" aria-selected={view === id} onClick={() => setView(id)}
-              className={`tap py-3 text-[15px] border-b-2 -mb-px ${view === id ? 'border-brand-navy text-brand-ink font-semibold' : 'border-transparent text-sub hover:text-brand-ink font-medium'}`}>{l}</button>
-          ))}
-        </div>
-      </div>
+      {/* เปิดลิงก์จากแอป (LINE/Facebook ฯลฯ): เบราว์เซอร์ในแอปมักดาวน์โหลดไฟล์ไม่ได้ → พาไปเบราว์เซอร์จริง */}
+      {IN_APP && !inAppHide && (() => {
+        const ext = externalBrowserUrl();
+        return (
+          <div className="bg-amber-50 border-b border-amber-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-[14px]">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700" />
+              <span className="flex-1 min-w-[14rem]">เปิดจาก {IN_APP} อาจดาวน์โหลดไฟล์ไม่ได้{ext ? '' : IS_IOS ? ' — กดปุ่ม ⋯ หรือ ↗ มุมจอ แล้วเลือก “เปิดใน Safari”' : ' — กดเมนู ⋮ แล้วเลือก “เปิดในเบราว์เซอร์”'}</span>
+              {ext ? (
+                <a href={ext} className="tap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-semibold"><ExternalLink className="w-4 h-4" />เปิดในเบราว์เซอร์</a>
+              ) : (
+                <button onClick={async () => flash(await copyText(location.href) ? 'คัดลอกลิงก์แล้ว — วางในเบราว์เซอร์ Safari หรือ Chrome' : 'คัดลอกไม่ได้ — กดค้างที่แถบที่อยู่เพื่อคัดลอก', true)}
+                  className="tap inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-300 bg-white text-[13.5px] font-semibold"><Copy className="w-4 h-4" />คัดลอกลิงก์</button>
+              )}
+              <button onClick={() => setInAppHide(true)} aria-label="ปิดข้อความนี้" className="p-1 rounded-md text-amber-800/70 hover:text-amber-900"><X className="w-4 h-4" /></button>
+            </div>
+          </div>
+        );
+      })()}
 
+      {view === 'home' && (
+        <>
+          {banner && (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
+              <div className={`pl-4 pr-2 py-2.5 rounded-xl text-[14px] flex items-center justify-between gap-3 border bg-white ${banner.ok ? 'border-brand-mist' : 'border-amber-300'}`}>
+                <span>{banner.t}</span><button onClick={() => setBanner(null)} aria-label="ปิดข้อความ" className="text-sub p-1"><X className="w-4 h-4" /></button>
+              </div>
+            </div>
+          )}
+          <Home
+            onStartBrief={() => { setTab('brief'); setView('build'); }}
+            onUseCourse={code => { changeCourse(code); setKind('program'); setTab('header'); setView('build'); }}
+            onOpenCourse={code => { setHubInit(h => ({ key: h.key + 1, sec: 'courses', course: code })); setView('hub'); }}
+            installPrompt={installPrompt}
+            onInstall={async () => { try { installPrompt.prompt(); await installPrompt.userChoice; } catch { /* ignore */ } setInstallPrompt(null); }} />
+        </>
+      )}
+
+      {view !== 'home' && (
       <div className="max-w-7xl mx-auto px-3 sm:px-6 pt-4">
         {dlBlocked && (
           <div className="mb-4 pl-4 pr-3 py-2.5 rounded-xl text-[14px] border border-amber-300 bg-white flex flex-wrap items-center justify-between gap-2">
@@ -563,7 +631,7 @@ export default function App() {
         )}
 
         {view === 'hub' ? (
-          <DataHub venues={allVenues} currentCourse={camp.courseCode} currentVenue={camp.venue}
+          <DataHub key={hubInit.key} initialSec={hubInit.sec} venues={allVenues} currentCourse={hubInit.course || camp.courseCode} currentVenue={camp.venue}
             onUseCourse={code => { changeCourse(code); setKind('program'); setTab('header'); setView('build'); }}
             onUseVenue={v => { set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }); setView('build'); setTab('header'); flash(`ใช้ที่พัก "${v.name}" ในเอกสารแล้ว`); }}
             onUsePreset={id => { loadPreset(id); setTab('brief'); setView('build'); }} />
@@ -984,11 +1052,15 @@ export default function App() {
             <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold shadow-lift tap flex items-center justify-center gap-2">
               <Download className="w-5 h-5" />{busy ? 'กำลังสร้างไฟล์...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} เป็นไฟล์ Word (.docx)`}
             </button>
+            <button onClick={downloadAll} disabled={busy} className="w-full py-3 rounded-xl border border-brand-mist bg-white enabled:hover:bg-paper disabled:opacity-40 font-semibold tap flex items-center justify-center gap-2 -mt-1">
+              <Layers className="w-5 h-5" />ดาวน์โหลดครบชุด 4 ไฟล์ (Word)
+            </button>
             {!ready && <div className="text-[13px] text-amber-700 text-center -mt-1">ยังมีข้อมูลไม่ครบ ดาวน์โหลดเป็นฉบับร่างได้ ควรเติมให้ครบก่อนส่งลูกค้า</div>}
           </div>
         </div>
         </>)}
       </div>
+      )}
     </div>
   );
 }

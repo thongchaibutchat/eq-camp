@@ -112,6 +112,15 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - **อัปเดตทุกครั้ง**: `npm run build && bash scripts/deploy-pages.sh` + republish artifact (ให้สองลิงก์ตรงกัน). เว็บนี้สาธารณะ → ห้ามใส่ต้นทุนจริง/ข้อมูลโฟลเดอร์ 99 ลง bundle
 - ทดสอบดาวน์โหลดด้วย Playwright ต้องตั้ง `LANG=C.UTF-8` ไม่งั้น Chromium ตั้งชื่อไฟล์ภาษาไทยเป็น "download" (ปัญหาเครื่องทดสอบ ไม่ใช่ของจริง)
 
+## ทุกแพลตฟอร์ม + หน้าเว็บเทมเพลตแนว FutureSkill (14 พ.ย. 2569)
+- **ไฟล์เดียวไม่พึ่งเว็บภายนอก**: build.sh คอมไพล์ Tailwind (`web/tailwind.config.cjs` + `web/styles.css`, เลิก CDN runtime) + ฝังฟอนต์ IBM Plex Sans Thai/Sarabun base64 (`scripts/fonts-css.cjs`, @fontsource OFL) + ฝัง jsPDF/html2canvas จาก node_modules + bundle `--minify --target=es2019,safari13` (iOS 13+/Android เก่า). ด่านกัน: build ล้มถ้ามี `<script src=http…>`/`<link href=http…>`. ทดสอบปิดเน็ตทั้งหมดแล้ว ใช้งาน/ดาวน์โหลดได้ครบ
+- CSS ที่เคยอยู่ใน index.html (รวมตัวแก้ html2canvas probe GIF — **ห้ามลบ**) ย้ายไป `web/styles.css`
+- **PWA บน GitHub Pages**: `web/pwa/` (manifest, sw.js network-first, ไอคอนจากโลโก้) — deploy-pages.sh คัดลอกให้; entry.tsx ลงทะเบียน SW เฉพาะ `*.github.io`. ปุ่ม "เพิ่มลงหน้าจอหลัก" (beforeinstallprompt) / คำแนะนำ iOS
+- **เบราว์เซอร์ในแอป** (`web/platform.ts`): LINE/Facebook/Messenger/IG/TikTok/webview → แถบเตือน + ปุ่มเปิดเบราว์เซอร์ (LINE `?openExternalBrowser=1`, Android `intent://…package=com.android.chrome`, iOS อื่น ๆ = คัดลอกลิงก์ + บอกเมนู)
+- **หน้าแรก `web/Home.tsx`** (view `home`, ผูก hash `#/` `#/build` `#/data` → ปุ่มย้อนกลับ/บุ๊กมาร์กใช้ได้): เมนูบนขาว (โลโก้ · หน้าแรก/หลักสูตร/สร้างเอกสาร/คลังข้อมูล · ปุ่มส้ม; <lg เมนูแถวที่สอง) → ฮีโร่กรมท่า + ตัวอย่างปกเอกสารจริงย่อส่วน → แคตตาล็อกพื้น `brand-deep` (ชิปกลุ่มวิชา + ค้นหา + การ์ดหลักสูตร: ภาพจริง/ปกสีตามกลุ่ม `TONE`, จำนวนกิจกรรม, ภาพจริง n/6, ปุ่ม รายละเอียด→คลังข้อมูล / สร้างเอกสาร→builder) → เอกสาร 4 ชิ้น (ใครได้รับ/มีอะไร/ไฟล์อะไร) → 3 ขั้น → ใช้ได้ทุกอุปกรณ์ → ท้ายเว็บ (BRAND). ตัวเลขทุกตัวคำนวณจากข้อมูลจริง
+- `CARD_ONLY` เพิ่ม **PL ENG 0104** (ภาพทั้ง 4 เป็นการ์ดรายชื่อกิจกรรม/ใบงาน) → ภาพถ่ายจริงเหลือ 9 หลักสูตร × 4 รูป = 36
+- ตรวจแล้ว: 1360/768/390 ไม่มี overflow/error; iPhone ปิดเน็ต ดาวน์โหลด Word/ครบชุด/PDF ครบ 6 ไฟล์; stress 264 + xmllint ผ่าน
+
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)
 

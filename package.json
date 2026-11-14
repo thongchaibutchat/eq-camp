@@ -10,16 +10,21 @@
     "stress": "node scripts/run-stress.mjs"
   },
   "dependencies": {
-    "docx": "8.5.0",
-    "buffer": "^6.0.3"
+    "buffer": "^6.0.3",
+    "docx": "8.5.0"
   },
   "devDependencies": {
+    "@fontsource/ibm-plex-sans-thai": "^5.2.5",
+    "@fontsource/sarabun": "^5.2.5",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
     "esbuild": "^0.21.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "lucide-react": "^0.400.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "lucide-react": "^0.400.0",
-    "typescript": "^5.4.0",
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1"
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.4.0"
   }
 }

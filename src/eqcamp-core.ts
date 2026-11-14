@@ -13,7 +13,7 @@ export type { Course } from './eqcamp-data';
 import { COURSE_PHOTOS as RAW_COURSE_PHOTOS } from './course-photos-data';
 // ภาพของ PL STM 0101 ในชุดข้อมูลเป็น "การ์ดรายชื่อกิจกรรม" ไม่ใช่ภาพถ่ายบรรยากาศ → ห้ามนำไปแสดงเป็น "ตัวอย่างภาพกิจกรรม" (ไม่ปลอมภาพ)
 // เมื่อทีมเติมภาพถ่ายจริงของหลักสูตรนี้แล้ว ให้ลบรหัสออกจากชุดนี้
-const CARD_ONLY = new Set(['PL STM 0101']);
+const CARD_ONLY = new Set(['PL STM 0101', 'PL ENG 0104']); // ภาพของ 2 หลักสูตรนี้เป็นการ์ดรายชื่อกิจกรรม/ใบงาน ไม่ใช่ภาพถ่ายกิจกรรม
 export const COURSE_PHOTOS: typeof RAW_COURSE_PHOTOS = Object.fromEntries(Object.entries(RAW_COURSE_PHOTOS).filter(([k]) => !CARD_ONLY.has(k))) as any;
 import { STEAM_GALLERY } from './steam-gallery-data';
 export { STEAM_GALLERY } from './steam-gallery-data';
