@@ -24,10 +24,10 @@ html,body{width:1250px;height:155px}
 .row{position:absolute;left:24px;right:20px;top:10px;height:118px;display:flex;align-items:center}
 .logo{height:112px;flex:0 0 auto}
 .name{margin-left:16px}
-.name .t{font-weight:700;font-size:40px;color:#1b1b1b;line-height:1}
-.name .a{font-weight:400;font-size:25px;color:#333;margin-top:2px}
+.name .t{font-weight:700;font-size:48px;color:#1b1b1b;line-height:1} /* 18 pt (1 pt ≈ 2.66 px ที่ความกว้างหน้ากระดาษ) */
+.name .a{font-weight:400;font-size:37px;color:#333;margin-top:2px;white-space:nowrap} /* 14 pt */
 .contact{margin-left:auto;display:flex;align-items:center;gap:10px}
-.clines{text-align:right;font-weight:400;font-size:22px;color:#333;line-height:1.12}
+.clines{text-align:right;font-weight:400;font-size:34px;color:#333;line-height:1.06} /* ~13 pt */
 .icons{height:70px}
 .line{position:absolute;left:0;right:0;bottom:8px;height:3px;background:#155D90}
 </style></head><body><div class="wrap">
