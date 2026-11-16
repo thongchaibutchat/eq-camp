@@ -10,9 +10,10 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
   showTeachers
 } from '../src/eqcamp-core';
+import { FONT_REG_B64 } from '../src/font-data';
 
 const KIND_ICON: Record<DocKind, React.ComponentType<{ className?: string }>> = {
   program: FileText, quotation: Calculator, booking: BookOpen, runsheet: Lock
@@ -276,7 +277,7 @@ export default function App() {
     };
     r.readAsArrayBuffer(file);
   };
-  const addImage = (group: 'actImgs' | 'venueImgs') => setCamp(c => ({ ...c, [group]: [...c[group], { caption: 'คำบรรยายภาพ...' } as Img] }));
+  const addImage = (group: 'actImgs' | 'venueImgs') => setCamp(c => ({ ...c, [group]: [...c[group], { caption: '' } as Img] }));
   const removeImage = (group: 'actImgs' | 'venueImgs', idx: number) => setCamp(c => ({ ...c, [group]: c[group].filter((_, i) => i !== idx) }));
   const captionImage = (group: 'actImgs' | 'venueImgs', idx: number, v: string) => setCamp(c => { const arr = [...c[group]]; arr[idx] = { ...arr[idx], caption: v }; return { ...c, [group]: arr }; });
   // ใช้ภาพจากไฟล์ของค่ายนี้อีกครั้ง (ล้างภาพที่อัปโหลดเอง แล้วดึงชุดของแม่แบบ)
@@ -458,9 +459,12 @@ export default function App() {
       const lhH = contentW * (lh.h / lh.w);
       const topGap = 10, bottomM = 14;
       const codeStr = String(camp.docCode || '');
+      // ตัวอักษรที่ jsPDF วาดเอง (รหัสเอกสาร/เลขหน้า) ใช้ TH Sarabun New เดียวกับเนื้อหา — ไม่ใช่ Helvetica
+      let docFont = 'helvetica';
+      try { pdf.addFileToVFS('THSarabunNew.ttf', FONT_REG_B64); pdf.addFont('THSarabunNew.ttf', 'THSarabunNew', 'normal'); docFont = 'THSarabunNew'; } catch { /* ใช้ฟอนต์สำรอง */ }
       const drawHead = () => {
         pdf.addImage(lhData, 'PNG', M, topGap, contentW, lhH, 'eqlh', 'FAST');
-        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(120);
+        pdf.setFont(docFont, 'normal'); pdf.setFontSize(docFont === 'helvetica' ? 8 : 12); pdf.setTextColor(120);
         // รหัสเอกสาร (เช่น PL FOR 0110/2569) แสดงเฉพาะหน้าแรกเท่านั้น
         if (pdf.getNumberOfPages() === 1) pdf.text(codeStr, pageW - M, topGap + lhH + 4.5, { align: 'right' });
       };
@@ -511,18 +515,19 @@ export default function App() {
 
       // ---- ภาพประกอบ 6–8 รูป: กริด 2 คอลัมน์ มีกรอบ + หมายเลข + คำบรรยายใต้รูป · แต่ละชุดขึ้นหน้าใหม่ ----
       const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
-      const realCap = (c?: string) => !!(c && c.trim() && !/\.\.\./.test(c));
-      const cell = (src: string, n: number, cap: string) => `<div class="pcell"><div class="pf"><span class="num">${n}</span>${src}</div><div class="cap">${esc(cap)}</div></div>`;
+      const realCap = realCaption;
+      // ภาพจากไฟล์ค่าย: ไม่มีเลข/ข้อความใต้ภาพ — แสดงคำบรรยายเฉพาะที่ทีมพิมพ์เอง
+      const cell = (src: string, _n: number, cap: string) => `<div class="pcell"><div class="pf">${src}</div>${cap ? `<div class="cap">${esc(cap)}</div>` : ''}</div>`;
       // >4 รูป → สัดส่วน 16/9 ให้ครบ 8 รูปพอดีหน้าเดียว; ≤4 รูป → 4/3
       const gridOf = (cells: string[]) => { const a = cells.length > 4 ? '16/9' : '4/3'; return `<div class="pgrid" style="--a:${a}">${cells.slice(0, 8).join('')}</div>`; };
       let photoCount = 0;
       const withData = camp.actImgs.filter(a => a.data);
       let actCells: string[] = [];
-      if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : `ภาพกิจกรรมที่ ${i + 1}`));
+      if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : ''));
       if (actCells.length) { photoCount += actCells.length; await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${gridOf(actCells)}`, { newpage: true }); }
       const venueData = camp.venueImgs.filter(a => a.data);
       if (venueData.length) {
-        const vCells = venueData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : `ภาพบรรยากาศที่พักที่ ${i + 1}`));
+        const vCells = venueData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : ''));
         photoCount += vCells.length;
         await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${gridOf(vCells)}`, { newpage: true });
       }
@@ -530,7 +535,7 @@ export default function App() {
 
       // เลขหน้า "X / Y" ทุกหน้า (ล่างกลาง)
       const totPages = pdf.internal.getNumberOfPages();
-      for (let i = 1; i <= totPages; i++) { pdf.setPage(i); pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(140); pdf.text(`${i} / ${totPages}`, pageW / 2, pageH - 7, { align: 'center' }); }
+      for (let i = 1; i <= totPages; i++) { pdf.setPage(i); pdf.setFont(docFont, 'normal'); pdf.setFontSize(docFont === 'helvetica' ? 9 : 13); pdf.setTextColor(140); pdf.text(`${i} / ${totPages}`, pageW / 2, pageH - 7, { align: 'center' }); }
       const blob: Blob = pdf.output('blob');
       const name = fileName('program', camp).replace(/\.docx$/, '.pdf');
       const cl = (window as any).claude;
@@ -1069,7 +1074,7 @@ export default function App() {
                               {im.data ? (im.src ? <img src={`${PHOTO_BASE}t_${im.src}.jpg`} className="w-full h-full object-cover" alt="" /> : <span className="text-emerald-600 font-semibold">✓ ฝังภาพของทีมแล้ว</span>) : 'คลิกเพื่ออัปโหลดภาพของทีม'}
                               <input type="file" accept="image/*" className="hidden" onChange={e => onImage(group, i, e.target.files?.[0])} />
                             </label>
-                            <input value={im.caption} onChange={e => captionImage(group, i, e.target.value)} className="w-full px-2 py-1 rounded border border-slate-200 text-[12px]" placeholder="คำบรรยายภาพ" />
+                            <input value={im.caption} onChange={e => captionImage(group, i, e.target.value)} className="w-full px-2 py-1 rounded border border-slate-200 text-[12px]" placeholder="คำบรรยาย (ไม่ใส่ก็ได้)" />
                             <div className="flex items-center justify-between">
                               <span className="text-[11.5px] text-sub">{im.src ? 'จากไฟล์ของค่าย' : im.data ? 'อัปโหลดเอง' : ''}</span>
                               <button onClick={() => removeImage(group, i)} className="text-[12px] text-rose-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" />ลบ</button>
@@ -1105,7 +1110,7 @@ export default function App() {
 
             <div className="bg-white rounded-2xl border border-brand-mist shadow-card overflow-hidden">
               <div className="bg-brand-navy text-white px-4 py-2.5 text-[13.5px] font-semibold flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />พรีวิว: {DOC_TYPES.find(d => d.id === kind)!.label}</div>
-              <div className="p-5 max-h-[70vh] overflow-y-auto font-doc"><Preview kind={kind} camp={camp} plan={plan} k={k} total={total} cost={cost} profit={profit} margin={margin} /></div>
+              <div className="p-5 max-h-[70vh] overflow-y-auto font-doc doc-preview"><style>{FONT_FACE_CSS + ".doc-preview{font-family:'EQSarabun','TH Sarabun New',Sarabun,sans-serif;font-size:17px;line-height:1.3;color:#111}"}</style><Preview kind={kind} camp={camp} plan={plan} k={k} total={total} cost={cost} profit={profit} margin={margin} /></div>
             </div>
             <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold shadow-lift tap flex items-center justify-center gap-2">
               <Download className="w-5 h-5" />{busy ? 'กำลังสร้างไฟล์...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} เป็นไฟล์ Word (.docx)`}
@@ -1376,22 +1381,24 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
 function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
   const c: Camp = camp;
   if (kind === 'program') return (
-    <div className="text-[13px] leading-relaxed">
-      <div className="text-right font-bold text-sky-800">{c.docCode}</div>
-      <div className="text-center font-extrabold text-lg text-sky-900">{k.titleTh}</div>
-      {k.titleEn && <div className="text-center font-bold text-sky-600 mb-3">{k.titleEn}</div>}
+    <div>
+      <div className="text-right">{c.docCode}</div>
+      <div className="text-center font-bold text-[20px]">{k.titleTh}</div>
+      {k.titleEn && <div className="text-center font-bold text-[20px] mb-2">{k.titleEn}</div>}
       {(k.cover as CoverSec[]).map((sec, i) => sec.k === 'info'
-        ? <table key={i} className="w-full my-2 text-[12px]"><tbody>{(sec.rows || []).map(([lab, v]) => <tr key={lab}><td className="font-bold text-sky-800 align-top w-32 py-0.5">{lab}</td><td>{v.map((x, j) => <div key={j}>{x}</div>)}</td></tr>)}</tbody></table>
+        ? <table key={i} className="w-full my-1"><tbody>{(sec.rows || []).map(([lab, v]) => <tr key={lab}><td className="font-bold align-top w-36">{lab}</td><td>{v.map((x, j) => <div key={j}>{x}</div>)}</td></tr>)}</tbody></table>
         : <div key={i}>{sec.h && <H>{sec.h}</H>}{sec.k === 'list' ? <OL items={sec.items || []} /> : (sec.items || []).map((x, j) => <p key={j} className={sec.k === 'para' ? 'indent-8 my-0.5' : 'pl-6 my-0'}>{x}</p>)}</div>)}
       <div className="my-3 border-t pt-2 text-center font-extrabold text-sky-900">กำหนดการ</div>
       <Sched plan={plan} />
       <div className="mt-4 pt-3 border-t">ราคาปกติ {money(c.normalPrice)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(c.specialPrice)} บ./ท่าน</span></div>
       <div>รายละเอียดงบประมาณมีดังนี้</div>
       {k.budget.map((b: string, i: number) => <div key={i} className="flex"><span className="w-8 shrink-0 pl-1">-</span><span>{b}</span></div>)}
+      <PreviewPhotos title="ตัวอย่างภาพกิจกรรม" imgs={c.actImgs} />
+      {c.venueImgs.some(im => im.data) && <PreviewPhotos title={`ตัวอย่างภาพบรรยากาศที่พัก ${c.venue || ''}`} imgs={c.venueImgs} />}
     </div>
   );
   if (kind === 'quotation') return (
-    <div className="text-[13px] leading-relaxed">
+    <div>
       <div className="text-right font-bold text-sky-800">QT {c.docCode.replace(/^PL\s*/, '')}</div>
       <div className="text-center font-extrabold text-lg">ใบเสนอราคา</div><div className="text-center font-bold text-sky-600 mb-3">QUOTATION</div>
       <div className="mb-2"><b className="text-sky-800">เรียน</b> ผู้อำนวยการ{c.school}<br /><b className="text-sky-800">เรื่อง</b> เสนอราคา{k.titleTh.replace('หลักสูตร ', '')}</div>
@@ -1408,7 +1415,7 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
   if (kind === 'booking') {
     const m = plan.meals;
     return (
-      <div className="text-[13px] leading-relaxed">
+      <div>
         <div className="text-right font-bold text-sky-800">BK {c.docCode.replace(/^PL\s*/, '')}</div>
         <div className="text-center font-extrabold text-lg mb-3">หนังสือขอใบเสนอราคาและยืนยันห้องพัก/ห้องประชุม</div>
         <div><b>เรียน</b> ฝ่ายขาย/ฝ่ายจัดเลี้ยง {c.venue}</div>
@@ -1421,7 +1428,7 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
     );
   }
   return (
-    <div className="text-[13px] leading-relaxed">
+    <div>
       <div className="text-center font-bold text-amber-700">[เอกสารภายใน EQ CAMP — ห้ามส่งลูกค้า]</div>
       <div className="text-right font-bold text-sky-800">RD {c.docCode.replace(/^PL\s*/, '')}</div>
       <div className="my-2 bg-amber-50 border-2 border-amber-400 rounded-lg p-3 text-[12px]">
@@ -1434,7 +1441,21 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
     </div>
   );
 }
-const H = ({ children }: { children: React.ReactNode }) => <div className="font-bold text-sky-800 mt-2 mb-0.5">{children}</div>;
+const H = ({ children }: { children: React.ReactNode }) => <div className="font-bold mt-1.5">{children}</div>;
+// หน้าภาพในพรีวิว = ภาพชุดเดียวกับที่ฝังลงไฟล์ (ไม่มีข้อความใต้ภาพ เว้นแต่ทีมพิมพ์เอง)
+function PreviewPhotos({ title, imgs }: { title: string; imgs: Img[] }) {
+  const list = imgs.filter(im => im.data).slice(0, 8);
+  const urls = useMemo(() => list.map(im => (im.src ? `${PHOTO_BASE}t_${im.src}.jpg` : URL.createObjectURL(new Blob([im.data!], { type: im.data![0] === 0x89 ? 'image/png' : 'image/jpeg' })))), [list.map(im => im.src || im.data!.length).join(',')]);
+  useEffect(() => () => urls.forEach(u => { if (u.startsWith('blob:')) URL.revokeObjectURL(u); }), [urls]);
+  if (!list.length) return <div className="mt-4 pt-3 border-t text-center text-[14px] text-sub">ยังไม่มีภาพ — เอกสารจะไม่มีหน้าภาพ</div>;
+  return (
+    <div className="mt-4 pt-3 border-t">
+      <div className="text-center font-bold mb-2">{title}</div>
+      <div className="grid grid-cols-2 gap-2">{list.map((im, i) => (
+        <figure key={i} className="m-0"><img src={urls[i]} alt="" loading="lazy" className="w-full aspect-[4/3] object-cover rounded" />{realCaption(im.caption) && <figcaption className="text-center text-[14px] text-sub">{im.caption}</figcaption>}</figure>))}</div>
+    </div>
+  );
+}
 const OL = ({ items }: { items: string[] }) => <div>{items.map((x, i) => <div key={i} className="pl-4 -indent-4 ml-4">{i + 1}. {x}</div>)}</div>;
 function Sched({ plan, extra }: { plan: any; extra?: boolean }) {
   return <div className="space-y-2">{plan.days.map((d: any) => (

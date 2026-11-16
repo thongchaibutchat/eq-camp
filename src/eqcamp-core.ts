@@ -610,8 +610,8 @@ export const venuePhotoSetFor = (venue?: string) => {
   return VENUE_PHOTOS.find(v => { const n = placeKey(v.name); return k.includes(n) || n.includes(k); });
 };
 // คำบรรยายสั้น (หมายเลขภาพ + หัวข้อหน้าบอกค่าย/ที่พักอยู่แล้ว) — ไม่ล้นเป็น 2 บรรทัดในกริด
-export const photoCaption = (_c: Camp, _i: number): string => 'บรรยากาศกิจกรรม';
-export const venueCaption = (_name: string, _i: number): string => 'บรรยากาศที่พัก';
+export const photoCaption = (_c: Camp, _i: number): string => '';
+export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
   const p = templateFor(c);
   if (p && p.exact) return planFromTemplate(c, p);
@@ -993,7 +993,7 @@ export const xmlSafe = (t: any): string => (t === null || t === undefined ? '' :
 const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; const tab = text.startsWith('\t'); const t = xmlSafe(tab ? text.slice(1) : text);
   return new TextRun({ ...(tab ? { children: [new Tab(), t] } : { text: t }), font: FONT, language: LANG, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i, underline: o.u ? { type: UnderlineType.SINGLE } : undefined }); };
 const P = (t: string | TextRun[], o: RO & { al?: (typeof AlignmentType)[keyof typeof AlignmentType]; before?: number; after?: number; indent?: number; hang?: number; first?: number; tab?: number; keep?: boolean; pb?: boolean; hd?: (typeof HeadingLevel)[keyof typeof HeadingLevel] } = {}) =>
-  new Paragraph({ heading: o.hd, alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 300 }, indent: o.indent !== undefined || o.first !== undefined ? { left: (o.indent || 0) * 567, hanging: o.hang ? o.hang * 567 : undefined, firstLine: o.first ? o.first * 567 : undefined } : undefined, tabStops: o.tab ? [{ type: TabStopType.LEFT, position: o.tab }] : undefined, keepNext: o.keep, pageBreakBefore: o.pb,
+  new Paragraph({ heading: o.hd, alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 240, lineRule: LineRuleType.AUTO }, indent: o.indent !== undefined || o.first !== undefined ? { left: (o.indent || 0) * 567, hanging: o.hang ? o.hang * 567 : undefined, firstLine: o.first ? o.first * 567 : undefined } : undefined, tabStops: o.tab ? [{ type: TabStopType.LEFT, position: o.tab }] : undefined, keepNext: o.keep, pageBreakBefore: o.pb,
     children: typeof t === 'string' ? [R(t, o)] : t });
 const CTR = AlignmentType.CENTER, RGT = AlignmentType.RIGHT;
 const code = (t: string) => P(t, { color: '000000', al: RGT }); // รหัสเอกสารชิดขวา ตัวปกติ สีดำ (ตามเอกสารจริง)
@@ -1019,7 +1019,7 @@ const coverParas = (cover: CoverSec[]): Paragraph[] => cover.flatMap(sec => {
     return P([R(l2 ? '•' : '-'), R('\t' + m[2])], { indent: l2 ? 2.54 : 1.9, hang: 0.63, after: 0 });
   })];
 });
-const numbered = (a: string[]) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
+const numbered = (a: string[], keep = false) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1, keep }));
 const dashed = (a: string[], keep = false) => a.map((x, i) => P([R('-'), R('\t' + x)], { indent: 1.27, hang: 1.27, after: 0, keep: keep && i < a.length - 1 }));
 const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const LB = { style: BorderStyle.SINGLE, size: 4, color: 'CBD5E1' };
@@ -1102,7 +1102,7 @@ const imgSize = (d: Uint8Array): { w: number; h: number } | null => {
 const BOX_W = 312, BOX_H = 234;
 // 7–8 รูป → กรอบเล็กลง (4:3 = 236×177) ให้ทั้งชุดอยู่หน้าเดียว ไม่ล้นไปหน้าถัดไป
 const fitBox = (d: Uint8Array, many = false) => {
-  const BW = many ? 236 : BOX_W, BH = many ? 177 : BOX_H;
+  const BW = many ? 248 : BOX_W, BH = many ? 186 : BOX_H;
   const s = imgSize(d); if (!s || !s.w || !s.h) return { width: BW, height: Math.round(BW * 0.68) };
   let w = BW, h = Math.round(s.h * BW / s.w);
   if (h > BH) { h = BH; w = Math.round(s.w * BH / s.h); }
@@ -1111,13 +1111,15 @@ const fitBox = (d: Uint8Array, many = false) => {
 // กริดภาพ 2 คอลัมน์ (6–8 รูป) — มีกรอบ + หมายเลข + คำบรรยายใต้รูป (ตามสเปกเอกสารราชการ)
 // ย่อหน้าที่มีภาพ ต้องใช้ระยะบรรทัด single เสมอ — ถ้าใช้ 1.25 (ค่าเริ่มของเอกสาร) LibreOffice/WPS/Google Docs จะตัดภาพเหลือแถบบาง ๆ
 const IMG_SP = { line: 240, lineRule: LineRuleType.AUTO };
-const photoGrid = (imgs: Img[], fallbackN: number, label = 'ภาพกิจกรรม') => {
+// คำบรรยายแสดงเฉพาะที่ทีมพิมพ์เอง — ภาพที่ระบบดึงจากไฟล์ค่ายไม่มีข้อความใต้ภาพ (ตามเอกสารจริงของทีม)
+export const realCaption = (c?: string): boolean => !!(c && c.trim() && !c.includes('...') && !/^บรรยากาศ(กิจกรรม|ที่พัก)$/.test(c.trim()));
+const photoGrid = (imgs: Img[], fallbackN: number, _label = 'ภาพกิจกรรม') => {
   const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, () => ({ caption: '' } as Img))).slice(0, 8);
   const rows: TableRow[] = [];
-  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; const n = i + j + 1; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); const cap = im.caption && im.caption.trim() && !im.caption.includes('...') ? im.caption : `${label}ที่ ${n}`; return cell([
-    im.data ? new Paragraph({ alignment: CTR, keepNext: true, spacing: { before: 20, after: 8, ...IMG_SP }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data, list.length > 6) })] })
+  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; const n = i + j + 1; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); void n; const cap = realCaption(im.caption) ? im.caption.trim() : ''; return cell([
+    im.data ? new Paragraph({ alignment: CTR, keepNext: kp || !!cap, spacing: { before: 40, after: cap ? 8 : 100, ...IMG_SP }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data, list.length > 6) })] })
       : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 70, after: 70, keep: true }),
-    new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 30 }, children: [R(`${n}  `, { b: true, sz: 13, color: BLUE }), R(cap, { sz: 13, color: '48484A' })] })], W / 2, { border: 'none' }); }) })); }
+    ...(cap ? [new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 60, ...IMG_SP }, children: [R(cap, { sz: 14, color: '48484A' })] })] : [])], W / 2, { border: 'none' }); }) })); }
   return tbl(rows, [W / 2, W / 2]);
 };
 // ภาพประกอบ STEAM (คอลลาจ) — ใช้ซ้ำได้ทุกเอกสารของค่าย STEAM
@@ -1137,6 +1139,13 @@ const photoSection = (c: Camp, opts: { venue?: boolean } = {}): (Paragraph | Tab
   return out;
 };
 const sign = (l: string, who: string) => cell([P('', { after: 18, keep: true }), P('ลงชื่อ ....................................................', { al: CTR, after: 0, keep: true }), P(`( ${who} )`, { al: CTR, after: 0, keep: true }), P(l, { al: CTR, after: 0, keep: true })], W / 2);
+// ช่องลงนามแบบย่อหน้า + แท็บกึ่งกลาง (ไม่ใช่ตาราง) → "ผูกกับย่อหน้าก่อนหน้า" ได้จริงทั้ง Word/LibreOffice ไม่หลุดไปหน้าเปล่า
+const signLines = (cols: ([string, string] | null)[]): Paragraph[] => {
+  const stops = [{ type: TabStopType.CENTER, position: Math.round(W / 4) }, { type: TabStopType.CENTER, position: Math.round(W * 3 / 4) }];
+  const line = (f: (x: [string, string]) => string, last: boolean) => new Paragraph({ tabStops: stops, keepNext: !last, keepLines: true, spacing: { after: 0, line: 240, lineRule: LineRuleType.AUTO },
+    children: cols.flatMap(x => [new TextRun({ text: '\t' + (x ? f(x) : ''), font: FONT, language: LANG, size: 32, sizeComplexScript: 32 })]) });
+  return [P('', { after: 18, keep: true }), line(() => 'ลงชื่อ ....................................................', false), line(x => `( ${x[1]} )`, false), line(x => x[0], true)];
+};
 const thDate = () => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`; };
 // base64 → Uint8Array (ทำงานทั้งเบราว์เซอร์และ node)
 const b64bytes = (b64: string): Uint8Array => {
@@ -1163,10 +1172,10 @@ const brandHeader = (r: Region): Header => {
 };
 const letterheadFooter = (r: Region): Footer => {
   const lh = LETTERHEADS[r];
-  const pn = (child: any) => new TextRun({ children: [child], font: FONT, size: 28, sizeComplexScript: 28, color: '8E8E93' });
-  const pnTxt = (t: string) => new TextRun({ text: t, font: FONT, size: 28, sizeComplexScript: 28, color: '8E8E93' });
+  const pn = (child: any) => new TextRun({ children: [child], font: FONT, size: 24, sizeComplexScript: 24, color: '8E8E93' });
+  const pnTxt = (t: string) => new TextRun({ text: t, font: FONT, size: 24, sizeComplexScript: 24, color: '8E8E93' });
   return new Footer({ children: [
-    new Paragraph({ alignment: CTR, spacing: { after: 20 }, children: [pnTxt('หน้า '), pn(PageNumber.CURRENT), pnTxt(' / '), pn(PageNumber.TOTAL_PAGES)] }),
+    new Paragraph({ alignment: CTR, spacing: { after: 0, ...IMG_SP }, children: [pnTxt('หน้า '), pn(PageNumber.CURRENT), pnTxt(' / '), pn(PageNumber.TOTAL_PAGES)] }),
     new Paragraph({ alignment: CTR, spacing: { before: 0, ...IMG_SP },
       children: [new ImageRun({ type: 'png', data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
 };
@@ -1185,7 +1194,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       ...photoSection(c, { venue: true })];
   } else if (kind === 'quotation') {
     const cols = [900, 4100, 1100, 1600, 1700];
-    const hd = ['ลำดับ', 'รายการ', 'จำนวน', 'ราคา/ท่าน (บาท)', 'รวม (บาท)'];
+    const hd = ['ลำดับ', 'รายการ', 'จำนวน', 'ราคา/ท่าน', 'รวม (บาท)'];
     body = [code(`QT ${c.docCode.replace(/^PL\s*/, '')}`), ...title('ใบเสนอราคา', 'QUOTATION'),
       P(`วันที่ ${thDate()}`, { al: RGT }),
       infoRows([['เรียน', [`ผู้อำนวยการ${c.school}`]], ['เรื่อง', [`เสนอราคา${k.titleTh.replace(/^หลักสูตร\s*/, '')} ${k.titleEn}`]], ['อ้างอิง', [`โปรแกรมเลขที่ ${c.docCode} / ${c.dates}`]], ['สถานที่', [`${c.venue} จังหวัด${c.province}`]]]),
@@ -1200,8 +1209,11 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
         new TableRow({ children: [cell([P('ยอดรวมสุทธิ (บาท)', { b: true, al: RGT, after: 0 })], cols[0] + cols[1] + cols[2] + cols[3], { fill: 'F0F9FF', border: 'box', span: 4 }), cell([P(money(total), { b: true, al: RGT, after: 0 })], cols[4], { fill: 'F0F9FF', border: 'box' })] })], cols),
       P(`ราคาปกติ ${money(c.normalPrice)} บาท/ท่าน ลดเหลือพิเศษ ${money(c.specialPrice)} บาท/ท่าน (ประหยัด ${money(c.normalPrice - c.specialPrice)} บาท/ท่าน)`, { before: 6 }),
       H('รายละเอียดที่รวมอยู่ในราคา'), ...dashed(k.budget, true),
-      H('เงื่อนไข'), ...numbered([`ราคานี้ยืนยันภายใน ${c.validDays} วัน นับจากวันที่เสนอราคา`, c.payTerms, 'กำหนดการอาจเปลี่ยนแปลงตามความเหมาะสม โดยไม่กระทบเนื้อหาการเรียนรู้']),
-      P('', { after: 6 }), tbl([new TableRow({ cantSplit: true, children: [sign('ผู้เสนอราคา', c.contactName), sign('ผู้อนุมัติ / ตัวแทนโรงเรียน', `ผู้อำนวยการ${c.school}`)] })], [W / 2, W / 2]),
+      // เงื่อนไข + ช่องลงนามอยู่หน้าเดียวกันเสมอ (ไม่ให้ช่องลงนามหลุดไปอยู่หน้าเปล่า)
+      // ทั้งก้อนอยู่ในแถวตารางเดียว (cantSplit, ไม่มีเส้น) → ย้ายหน้าไปด้วยกันเสมอ ทั้ง Word/LibreOffice/Google Docs
+      tbl([new TableRow({ cantSplit: true, children: [cell([
+        H('เงื่อนไข'), ...numbered([`ราคานี้ยืนยันภายใน ${c.validDays} วัน นับจากวันที่เสนอราคา`, c.payTerms, 'กำหนดการอาจเปลี่ยนแปลงตามความเหมาะสม โดยไม่กระทบเนื้อหาการเรียนรู้'], true),
+        ...signLines([['ผู้เสนอราคา', c.contactName], ['ผู้อนุมัติ / ตัวแทนโรงเรียน', `ผู้อำนวยการ${c.school}`]])], W, { border: 'none' })] })], [W]),
       ...photoSection(c)];
   } else if (kind === 'booking') {
     const supplier = c.supplierNote || VENUES.find(x => x.name === c.venue)?.note || ''; const m = plan.meals, tch = showTeachers(c) ? c.teachers : 0, ppl = c.students + tch;
@@ -1220,7 +1232,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       supplier ? P(`ข้อมูลประสานงานเดิมในระบบ: ${supplier}`, { sz: 14, color: '64748B' }) : P('', { after: 0 }),
       H('รายละเอียดกำหนดการสำหรับห้องประชุมและมื้ออาหาร'), ...plan.days.flatMap((d, di) => { const rows = d.items.filter(r => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title)); const lastDay = di === plan.days.length - 1;
         return [P([R(`วันที่ ${d.day}`, { u: true })], { keep: true, before: 4, after: 0 }), ...rows.map((r, i) => P([R(r.time, { sz: 14 }), R('\t' + r.title, { sz: 14 })], { tab: 567 + TAB_SCHED, indent: 1 + TAB_SCHED / 567, hang: TAB_SCHED / 567, after: 0, keep: lastDay ? i >= rows.length - 3 : i < rows.length - 1 }))]; }),
-      P('จึงเรียนมาเพื่อโปรดพิจารณาและตอบกลับ ขอขอบคุณอย่างสูง', { before: 8, first: 1.27, keep: true }), P('', { after: 6, keep: true }), tbl([new TableRow({ cantSplit: true, children: [cell([P('', { keep: true })], W / 2), sign('ผู้ประสานงาน EQ Camp', c.contactName)] })], [W / 2, W / 2]),
+      P('จึงเรียนมาเพื่อโปรดพิจารณาและตอบกลับ ขอขอบคุณอย่างสูง', { before: 8, first: 1.27, keep: true }), ...signLines([null, ['ผู้ประสานงาน EQ Camp', c.contactName]]),
       ...photoSection(c, { venue: true })];
   } else {
     body = [P('[เอกสารภายใน EQ CAMP — ห้ามส่งลูกค้า]', { b: true, color: 'B45309', al: CTR }), code(`RD ${c.docCode.replace(/^PL\s*/, '')}`),
@@ -1237,13 +1249,13 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
     // ขนาดเนื้อความ 16 pt ตามแนวพิมพ์หนังสือราชการ, หัวเรื่องมี outlineLevel → ขึ้นในบานหน้าต่างนำทาง/สารบัญ
     styles: {
       default: {
-        document: { run: { font: FONT, language: LANG, size: 32, sizeComplexScript: 32 }, paragraph: { spacing: { line: 300, after: 40 } } },
-        heading1: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 40, sizeComplexScript: 40, color: '0F3D63' }, paragraph: { alignment: AlignmentType.CENTER, outlineLevel: 0, keepNext: true, spacing: { line: 300, before: 0, after: 0 } } },
-        heading2: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 34, sizeComplexScript: 34, color: BLUE }, paragraph: { outlineLevel: 1, keepNext: true, spacing: { line: 300, before: 120, after: 40 } } }
+        document: { run: { font: FONT, language: LANG, size: 32, sizeComplexScript: 32 }, paragraph: { spacing: { line: 240, lineRule: LineRuleType.AUTO, after: 40 } } },
+        heading1: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 40, sizeComplexScript: 40, color: '0F3D63' }, paragraph: { alignment: AlignmentType.CENTER, outlineLevel: 0, keepNext: true, spacing: { line: 240, lineRule: LineRuleType.AUTO, before: 0, after: 0 } } },
+        heading2: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 34, sizeComplexScript: 34, color: BLUE }, paragraph: { outlineLevel: 1, keepNext: true, spacing: { line: 240, lineRule: LineRuleType.AUTO, before: 60, after: 0 } } }
       }
     },
     sections: [{
-      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1780, bottom: 1060, left: 1253, right: 1253, header: 360, footer: 280 } } },
+      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1600, bottom: 980, left: 1253, right: 1253, header: 300, footer: 200 } } },
       headers: { default: brandHeader(region) },
       footers: { default: letterheadFooter(region) },
       children: body
