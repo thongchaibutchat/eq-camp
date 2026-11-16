@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
   showTeachers
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
@@ -136,6 +136,7 @@ export default function App() {
   const checks = useMemo(() => check(camp, plan), [camp, plan]);
   // ---- ภาพจากไฟล์ของค่ายนั้น: ดึงอัตโนมัติเมื่อหลักสูตร/ระยะเวลา/แม่แบบ/ที่พักเปลี่ยน (ไม่ทับภาพที่ทีมอัปโหลดเอง) ----
   const [photoNonce, setPhotoNonce] = useState(0);
+  const [briefReport, setBriefReport] = useState<{ fields: BriefField[]; by: string } | null>(null);
   const [photoState, setPhotoState] = useState<'idle' | 'loading' | 'ok' | 'partial' | 'offline'>('idle');
   const wantAct = photoIdsFor(camp).join(',');
   const venueSet = venuePhotoSetFor(camp.venue);
@@ -182,12 +183,10 @@ export default function App() {
 
   // mode: 'new' = เริ่มจากค่าว่าง (กันข้อมูลงานเก่าปน), 'update' = แก้งานปัจจุบัน
   const applyBrief = (mode: 'new' | 'update') => {
-    const dur = parseDuration(brief);
-    setCamp(c => {
-      const base = mode === 'new' ? blankCamp() : c;
-      const next = parseBrief(brief, base);
-      return next;
-    });
+    const dur = parseDuration(cleanBrief(brief).ar);
+    const r = readBrief(brief, mode === 'new' ? blankCamp() : camp);
+    setCamp(r.camp);
+    setBriefReport({ fields: r.fields, by: 'ระบบอ่านบรีฟ' });
     if (!dur.resolved) flash('แปลงบรีฟแล้ว แต่อ่าน "ระยะเวลา" จากบรีฟไม่ออก — โปรดเลือกระยะเวลาเองในแท็บ 2 (ยังไม่ได้เปลี่ยนจากค่าเดิม)', false);
     else if (dur.ambiguous) flash('แปลงบรีฟแล้ว ' + (dur.note || 'ระบุจำนวนวันแต่ไม่บอกจำนวนคืน โปรดยืนยันในแท็บ 2'), false);
     else flash(`แปลงบรีฟเรียบร้อย (${mode === 'new' ? 'งานใหม่' : 'อัปเดตงานปัจจุบัน'}) · ระยะเวลา: ${dur.mode === 'half' ? 'ครึ่งวัน' : dur.mode === 'day' ? `${dur.days} วัน ไป-กลับ` : `${dur.days} วัน ${dur.nights} คืน`} + เตรียมช่องภาพให้แล้ว`);
@@ -207,6 +206,10 @@ export default function App() {
       if (!sample) { applyBrief(mode); return; } // เวอร์ชันเว็บ/ไม่มีสิทธิ์ AI → อ่านบรีฟแบบปกติ (ผลเหมือนปุ่มอ่านบรีฟ)
       flash('AI กำลังอ่านบรีฟและดึงข้อมูล...');
       const courseList = COURSES.map(c => `${c.code}=${c.name}`).join('; ');
+      // อ่านแบบกติกาก่อน → ส่งให้ AI ตรวจทาน/เติมส่วนที่ขาด (AI ไม่ต้องเริ่มจากศูนย์ และผลสุดท้ายไม่แย่กว่าตัวอ่านปกติ)
+      const pre = readBrief(brief, mode === 'new' ? blankCamp() : camp);
+      const preJson = JSON.stringify(Object.fromEntries(pre.fields.filter(f => f.ok).map(f => [f.label, f.value])));
+      const clean = cleanBrief(brief).th;
       const prompt = `คุณเป็นผู้ช่วยฝ่ายขายค่ายวิชาการ อ่าน "บรีฟ" ภาษาไทยแบบอิสระด้านล่าง แล้วดึงข้อมูลเป็น JSON ออบเจ็กต์เดียวตามคีย์นี้ (เดาจากบริบทได้ ถ้าไม่พบให้ใส่ null — ห้ามแต่งข้อมูลที่ไม่มีในบรีฟ):
 {"docCode":string|null,"courseCode":string|null,"subject":"math"|"steam"|"english"|"ai"|"chinese"|"leadership"|null,"school":string|null,"level":string|null,"students":number|null,"teachers":number|null,"durationMode":"half"|"day"|"overnight"|null,"days":number|null,"nights":number|null,"dates":string|null,"province":string|null,"venue":string|null,"venueVisit":string|null,"startTime":string|null,"travelHours":number|null,"normalPrice":number|null,"specialPrice":number|null}
 กติกา:
@@ -215,15 +218,25 @@ export default function App() {
 - durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง); ถ้าบรีฟไม่บอกระยะเวลาเลย ใส่ durationMode/days/nights เป็น null
 - รองรับเลขไทยและคำไทย (เช่น "สองวันหนึ่งคืน"=2วัน1คืน)
 - ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท); ไม่พบให้ null
-- students/teachers: ดึงเฉพาะตัวเลขจำนวนคน; ไม่พบให้ null (ห้ามเดาเป็น 0)
+- students/teachers: ดึงเฉพาะตัวเลขจำนวนคน (นักเรียน/ผู้เข้าร่วม = students; ครู/ครูผู้ควบคุม/อาจารย์ = teachers); ไม่พบให้ null (ห้ามเดาเป็น 0)
+- ตัวเลขไทย ๐-๙ แปลงเป็นตัวเลขอารบิกในช่องที่เป็นตัวเลข แต่ชื่อเฉพาะ (school/venue) ให้คงตัวอักษรตามบรีฟทุกตัว รวมวงเล็บและเลขไทย เช่น "โรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี) ๔"
+- school: เริ่มด้วยคำว่า "โรงเรียน" ตัดคำบอกเล่าท้ายออก (เช่น "ส่วนนี้คือชื่อโรงเรียน", "ต้องการติดต่อ")
+- venue: ชื่อโรงแรม/สถานที่จัด ตามที่เขียน (หลัง "ณ", "จัดที่", "สถานที่", "พักที่") ไม่ต้องใส่คำว่า ณ/ที่
+- province: จังหวัดของสถานที่จัดค่าย (ไม่ใช่ของโรงเรียน) — ถ้าบอกเมือง เช่น พัทยา/บางแสน → "ชลบุรี", หัวหิน → "ประจวบคีรีขันธ์", เขาใหญ่/โคราช → "นครราชสีมา"
+- level: "ม.1-3" / "ป.4-6" (มัธยมต้น = ม.1-3, มัธยมปลาย = ม.4-6); ไม่บอกระดับชั้นให้ null (คำว่า "ห้องเรียนพิเศษ" ไม่ใช่ระดับชั้น)
+- dates: คงรูปแบบตามบรีฟ ขึ้นต้น "วันที่" เช่น "วันที่ 14 – 16 ธ.ค. 2569"
+- ข้อความในบรีฟอาจมีเครื่องหมายคำพูดครอบ ขึ้นบรรทัดกลางประโยค หรือเว้นวรรคผิด ให้อ่านตามความหมาย
+- ระบบอ่านเบื้องต้นได้ดังนี้ (อาจผิด/ไม่ครบ ให้ตรวจกับบรีฟแล้วแก้): ${preJson}
 ตอบเป็น JSON อย่างเดียว ไม่มีข้อความอื่น
 
-บรีฟ:
-"""${brief}"""`;
+บรีฟ (ทำความสะอาดแล้ว):
+"""${clean}"""`;
       const r = await sample.json<any>(prompt, { modelTier: 'default', signal: ctl.signal });
       if (stale()) return;
-      const res = applyExtraction(mode === 'new' ? blankCamp() : camp, r);
+      // ฐาน = ผลตัวอ่านปกติ → AI แก้/เติมเฉพาะช่องที่ให้ค่ามา (ช่องที่ AI ไม่พบ ใช้ผลตัวอ่านปกติ)
+      const res = applyExtraction(pre.camp, r);
       setCamp(res.camp);
+      setBriefReport({ fields: briefFields(res.camp, Array.from(new Set([...pre.found, ...res.applied]))), by: 'AI + ระบบอ่านบรีฟ' });
       const miss = res.missing.length ? ` · ยังขาด: ${res.missing.join(', ')}` : '';
       const warn = res.warnings.length ? ' ' + res.warnings[0] : '';
       flash(`AI ดึงได้ ${res.applied.length} ช่อง (${res.applied.join(', ')})${miss}${warn} — ตรวจในแท็บ 2-5 ก่อนสร้างไฟล์`, res.warnings.length === 0);
@@ -746,6 +759,20 @@ export default function App() {
                     <button onClick={() => applyBrief('update')} className="tap py-2.5 rounded-xl bg-white border border-brand-mist text-brand-ink hover:bg-paper font-medium text-[14px]">อ่านบรีฟ · แก้งานเดิม</button>
                   </div>
                   <button onClick={() => aiExtract('new')} disabled={busy} className="tap text-[13.5px] text-brand-navy underline underline-offset-4 disabled:opacity-40">{busy ? 'กำลังอ่านบรีฟ…' : 'บรีฟเขียนอิสระ อ่านไม่ครบ? ให้ Claude ช่วยอ่าน'}</button>
+                  {briefReport && (
+                    <div className="rounded-xl border border-brand-mist overflow-hidden" aria-live="polite">
+                      <div className="flex items-center justify-between px-3.5 py-2 bg-paper text-[13.5px]">
+                        <span className="font-semibold">ข้อมูลที่อ่านได้จากบรีฟ</span>
+                        <span className="text-sub">{briefReport.fields.filter(f => f.ok).length}/{briefReport.fields.length} ช่อง · {briefReport.by}</span>
+                      </div>
+                      <dl className="divide-y divide-brand-mist text-[14px]">
+                        {briefReport.fields.map(f => (
+                          <div key={f.key} className="grid grid-cols-[7.5rem_1fr] gap-2 px-3.5 py-1.5">
+                            <dt className="text-sub">{f.label}</dt>
+                            <dd className={f.ok ? '' : 'text-amber-700'}>{f.ok ? f.value : (f.key === 'venuePhotos' ? 'ไม่มีภาพโรงแรมนี้ในไฟล์ทีม' : 'ไม่พบในบรีฟ — กรอกในขั้นถัดไป')}</dd>
+                          </div>))}
+                      </dl>
+                    </div>)}
                   <div className="pt-4 border-t border-brand-mist space-y-2">
                     <h3 className="text-[15px] font-semibold">หรือเริ่มจากงานที่เคยทำ</h3>
                     {PRESETS.map(p => (

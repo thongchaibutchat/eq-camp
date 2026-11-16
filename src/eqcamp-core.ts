@@ -337,26 +337,84 @@ export function migrateCamp(raw: any): Camp {
 }
 
 /* ===================== BRIEF PARSER ===================== */
-export function parseBrief(t: string, base: Camp): Camp {
+// จังหวัด 77 + เมืองท่องเที่ยวที่มักเขียนแทนชื่อจังหวัด (เพื่อหา "พื้นที่" ของค่ายจากชื่อโรงแรม/สถานที่)
+const PROVINCES = ['กรุงเทพมหานคร', 'กระบี่', 'กาญจนบุรี', 'กาฬสินธุ์', 'กำแพงเพชร', 'ขอนแก่น', 'จันทบุรี', 'ฉะเชิงเทรา', 'ชลบุรี', 'ชัยนาท', 'ชัยภูมิ', 'ชุมพร', 'เชียงราย', 'เชียงใหม่', 'ตรัง', 'ตราด', 'ตาก', 'นครนายก', 'นครปฐม', 'นครพนม', 'นครราชสีมา', 'นครศรีธรรมราช', 'นครสวรรค์', 'นนทบุรี', 'นราธิวาส', 'น่าน', 'บึงกาฬ', 'บุรีรัมย์', 'ปทุมธานี', 'ประจวบคีรีขันธ์', 'ปราจีนบุรี', 'ปัตตานี', 'พระนครศรีอยุธยา', 'พะเยา', 'พังงา', 'พัทลุง', 'พิจิตร', 'พิษณุโลก', 'เพชรบุรี', 'เพชรบูรณ์', 'แพร่', 'ภูเก็ต', 'มหาสารคาม', 'มุกดาหาร', 'แม่ฮ่องสอน', 'ยโสธร', 'ยะลา', 'ร้อยเอ็ด', 'ระนอง', 'ระยอง', 'ราชบุรี', 'ลพบุรี', 'ลำปาง', 'ลำพูน', 'เลย', 'ศรีสะเกษ', 'สกลนคร', 'สงขลา', 'สตูล', 'สมุทรปราการ', 'สมุทรสงคราม', 'สมุทรสาคร', 'สระแก้ว', 'สระบุรี', 'สิงห์บุรี', 'สุโขทัย', 'สุพรรณบุรี', 'สุราษฎร์ธานี', 'สุรินทร์', 'หนองคาย', 'หนองบัวลำภู', 'อ่างทอง', 'อำนาจเจริญ', 'อุดรธานี', 'อุตรดิตถ์', 'อุทัยธานี', 'อุบลราชธานี'];
+const PLACE_PROVINCE: [RegExp, string][] = [
+  [/พัทยา|บางแสน|ศรีราชา|สัตหีบ|บางเสร่|pattaya/i, 'ชลบุรี'], [/หัวหิน|ปราณบุรี|hua\s*hin/i, 'ประจวบคีรีขันธ์'], [/ชะอำ|cha[-\s]?am/i, 'เพชรบุรี'],
+  [/เขาใหญ่|ปากช่อง|โคราช|korat|khao\s*yai/i, 'นครราชสีมา'], [/เชียงคาน/, 'เลย'], [/เขาค้อ|khao\s*kho/i, 'เพชรบูรณ์'], [/ขนอม|khanom/i, 'นครศรีธรรมราช'],
+  [/เสม็ด|แม่รำพึง|rayong/i, 'ระยอง'], [/เกาะช้าง/, 'ตราด'], [/อัมพวา/, 'สมุทรสงคราม'], [/สวนผึ้ง/, 'ราชบุรี'], [/วังน้ำเขียว/, 'นครราชสีมา'],
+  [/หาดใหญ่/, 'สงขลา'], [/เกาะสมุย|สมุย/, 'สุราษฎร์ธานี'], [/ปาย\b/, 'แม่ฮ่องสอน'], [/กรุงเทพ|bangkok/i, 'กรุงเทพมหานคร']
+];
+export const provinceIn = (s: string): string => {
+  for (const [re, pv] of PLACE_PROVINCE) if (re.test(s)) return pv;
+  const hits = PROVINCES.filter(p => s.includes(p)).sort((a, b) => b.length - a.length);   // ชื่อยาวก่อน (สิงห์บุรี ≠ บุรี)
+  return hits[0] || '';
+};
+const MONTHS = 'มกราคม|กุมภาพันธ์|มีนาคม|เมษายน|พฤษภาคม|มิถุนายน|กรกฎาคม|สิงหาคม|กันยายน|ตุลาคม|พฤศจิกายน|ธันวาคม|ม\\.ค\\.|ก\\.พ\\.|มี\\.ค\\.|เม\\.ย\\.|พ\\.ค\\.|มิ\\.ย\\.|ก\\.ค\\.|ส\\.ค\\.|ก\\.ย\\.|ต\\.ค\\.|พ\\.ย\\.|ธ\\.ค\\.';
+// ทำความสะอาดบรีฟ: ตัดเครื่องหมายคำพูด, รวมบรรทัดที่ขาดกลางวลี ("3\nวัน 2 คืน"), สระ/วรรณยุกต์ที่เผลอเว้นวรรค ("ค่ ะ")
+// คืนสองชุดที่ตำแหน่งตัวอักษรตรงกัน: th = คงเลขไทย (ใช้ตัดชื่อเฉพาะ เช่น "…สิงหเสนี) ๔"), ar = เลขอารบิก (ใช้อ่านตัวเลข)
+export const cleanBrief = (raw: string): { th: string; ar: string } => {
+  const th = String(raw || '').replace(/[“”"«»‘’']/g, ' ').replace(/\r?\n+/g, ' ').replace(/[ \t ​]+/g, ' ')
+    .replace(/([ก-ฮ])\s+(?=[ะาำิีึืุู่้๊๋็์ั])/g, '$1').trim();
+  return { th, ar: toArabic(th) };
+};
+export interface BriefField { key: string; label: string; value: string; ok: boolean }
+export interface BriefRead { camp: Camp; fields: BriefField[]; found: string[] }
+// อ่านบรีฟภาษาคน (ตัวเลขไทย/อารบิก, มีหรือไม่มีเครื่องหมายคำพูด, ขึ้นบรรทัดกลางประโยค) → ข้อมูลค่าย + รายงานรายช่อง
+export function readBrief(raw: string, base: Camp): BriefRead {
+  const { th, ar: t } = cleanBrief(raw);
   const c = { ...base };
+  const found: string[] = [];
   const num = (s: string) => Number(s.replace(/,/g, ''));
   let m: RegExpMatchArray | null;
   // รหัสเอกสาร: รองรับทั้งแบบเก่า (PL 0109/2569) และแบบอ้างรหัสหลักสูตรจริง (PL STM 0101/2569)
-  if ((m = t.match(/(PL\s*[A-Z]{2,4}\s*\d{3,4}\s*\/\s*\d{4}|PL\s*\d+\s*\/\s*\d{4})/i))) c.docCode = m[1].toUpperCase().replace(/\s+/g, ' ').replace(/\s*\/\s*/, '/');
-  if ((m = t.match(/โรงเรียน\S+(?:\s(?!ม\.|ครู|จำนวน|ค่าย|นักเรียน|ระดับ)[^\s\d]+)?/))) c.school = m[0].trim();
-  if ((m = t.match(/ม\.\s*\d(?:\s*[-–]\s*\d)?/))) c.level = m[0].replace(/\s/g, '');
-  if ((m = t.match(/(?:นักเรียน\S*\s*)?จำนวน\s*([\d,]+)\s*คน/))) c.students = num(m[1]);
-  if ((m = t.match(/ครู\S*\s*([\d,]+)\s*(?:คน|ท่าน)/))) c.teachers = num(m[1]);
-  if ((m = t.match(/วันที่\s*\d+[^ณ\n]*?(?:25\d\d|26\d\d)/))) c.dates = m[0].trim();
-  const dur = parseDuration(t);
-  if (dur.resolved) { c.durationMode = dur.mode; c.days = dur.days; c.nights = dur.nights; }
-  if ((m = t.match(/ราคาปกติ\s*([\d,]+)/))) c.normalPrice = num(m[1]);
-  if ((m = t.match(/(?:ลดเหลือเพียง|ลดเหลือ|ราคาพิเศษ)\s*([\d,]+)/))) c.specialPrice = num(m[1]);
-  // ---- สถานที่/โรงแรม: ดึงจากข้อความ "ณ ..." ก่อน รองรับชื่อที่ไม่อยู่ในคลัง ----
-  let venueText = '';
-  if ((m = t.match(/\sณ\s+(.+?)(?=\s*(?:ราคา|งบประมาณ|งบ|โทร|ติดต่อ|โดย|จังหวัด|จ\.|$)|[\n,])/))) {
-    venueText = m[1].replace(/[.\s]+$/, '').trim();
+  if ((m = t.match(/(PL\s*[A-Z]{2,4}\s*\d{3,4}\s*\/\s*\d{4}|PL\s*\d+\s*\/\s*\d{4})/i))) { c.docCode = m[1].toUpperCase().replace(/\s+/g, ' ').replace(/\s*\/\s*/, '/'); found.push('docCode'); }
+  // โรงเรียน: "โรงเรียน" + ชื่อ (รวมวงเล็บ/เลขรุ่น เช่น "บดินทรเดชา (สิงห์ สิงหเสนี) ๔") จนถึงคำที่ไม่ใช่ชื่อ — ตัดจากข้อความที่คงเลขไทย
+  const SCHOOL_STOP = /\s*(?:ส่วนนี้|ซึ่ง|ต้องการ|ประสงค์|มีความ|ขอ|ติดต่อ|สนใจ|อยาก|จะจัด|จัด|ม\.\s*\d|ป\.\s*\d|มัธยม|ประถม|ระดับ|ชั้น|จำนวน|นักเรียน|ครู|ค่าย|วันที่|ณ\s|ราคา|เป็นเวลา|รวม|จังหวัด|จ\.\s|อำเภอ|อ\.\s|\d+\s*(?:คน|ท่าน|วัน)|[,;:]|$)/;
+  const si = t.search(/โรงเรียน(?=\S)/);
+  if (si >= 0) {
+    const rest = t.slice(si);
+    let cut = rest.length;
+    const re = new RegExp(SCHOOL_STOP.source, 'g'); let mm: RegExpExecArray | null;
+    re.lastIndex = 'โรงเรียน'.length + 1;
+    while ((mm = re.exec(rest))) { if (mm.index > 'โรงเรียน'.length) { cut = mm.index; break; } if (mm[0] === '') { re.lastIndex++; } }
+    let name = th.slice(si, si + cut).replace(/[\s.]+$/, '').trim();
+    const op = (name.match(/\(/g) || []).length, cl = (name.match(/\)/g) || []).length;
+    if (op > cl) name += ')';                                                     // วงเล็บถูกตัดกลาง → ปิดให้
+    if (name.length > 'โรงเรียน'.length + 1) { c.school = name.replace(/\s*\(\s*/g, ' (').replace(/\s*\)/g, ')').replace(/\s{2,}/g, ' '); found.push('school'); }
   }
+  // ระดับชั้น: ม.1-3 / ป.4-6 / มัธยมศึกษาปีที่ 1-3 / ประถมศึกษาปีที่ 4-6 / มัธยมต้น-ปลาย
+  if ((m = t.match(/([มป])\.\s*(\d)(?:\s*[-–]\s*(?:[มป]\.\s*)?(\d))?/))) { c.level = `${m[1]}.${m[2]}${m[3] ? '-' + m[3] : ''}`; found.push('level'); }
+  else if ((m = t.match(/(มัธยม|ประถม)ศึกษาปีที่\s*(\d)(?:\s*[-–]\s*(\d))?/))) { c.level = `${m[1] === 'มัธยม' ? 'ม' : 'ป'}.${m[2]}${m[3] ? '-' + m[3] : ''}`; found.push('level'); }
+  else if (/มัธยม(?:ศึกษา)?\s*ตอนต้น|ม\.\s*ต้น/.test(t)) { c.level = 'ม.1-3'; found.push('level'); }
+  else if (/มัธยม(?:ศึกษา)?\s*ตอนปลาย|ม\.\s*ปลาย/.test(t)) { c.level = 'ม.4-6'; found.push('level'); }
+  else if (base.school === 'โรงเรียน...') c.level = '';            // งานใหม่ไม่มีระดับชั้น → ว่าง (ไม่เดา)
+  // จำนวนคน
+  if ((m = t.match(/นักเรียน[^\d]{0,25}?([\d,]+)\s*(?:คน|ท่าน)/)) || (m = t.match(/จำนวน\s*([\d,]+)\s*คน/))) { c.students = num(m[1]); found.push('students'); }
+  else {   // "ม.ต้น 60 คน" — ตัวเลข "…คน" ตัวแรกที่ไม่ได้อยู่หลังคำว่า ครู/อาจารย์/วิทยากร/รวม
+    const re = /([\d,]+)\s*คน/g; let x: RegExpExecArray | null;
+    while ((x = re.exec(t))) { if (!/(ครู|อาจารย์|วิทยากร|ทีมงาน|รวม)[^\d]{0,15}$/.test(t.slice(Math.max(0, x.index - 20), x.index))) { c.students = num(x[1]); found.push('students'); break; } }
+  }
+  if ((m = t.match(/(?:ครู|อาจารย์)[^\d]{0,20}?([\d,]+)\s*(?:คน|ท่าน)/))) { c.teachers = num(m[1]); found.push('teachers'); }
+  // วันที่: "วันที่ 14-16 ธ.ค. 2569" หรือ "14 – 16 ธันวาคม 2569"
+  if ((m = t.match(new RegExp(`(?:วันที่\\s*)?\\d{1,2}(?:\\s*[-–]\\s*\\d{1,2})?\\s*(?:${MONTHS})(?:\\s*[-–]\\s*\\d{1,2}\\s*(?:${MONTHS}))?\\s*(?:พ\\.ศ\\.\\s*)?(?:25|26)\\d\\d`)))
+    || (m = t.match(/วันที่\s*\d+[^ณ]*?(?:25\d\d|26\d\d)/))) {
+    const d = m[0].trim().replace(/\s*[-–]\s*/g, ' – ');
+    c.dates = /^วันที่/.test(d) ? d : 'วันที่ ' + d; found.push('dates');
+  }
+  const dur = parseDuration(t);
+  if (dur.resolved) { c.durationMode = dur.mode; c.days = dur.days; c.nights = dur.nights; found.push('duration'); }
+  // ราคา: "ราคาปกติ / ราคาขายปกติ / ปกติ X" · "ลดเหลือ(เพียง) / ราคาพิเศษ / เหลือ / โปร X"
+  if ((m = t.match(/(?:ราคา\s*(?:ขาย\s*)?ปกติ|ปกติ)\s*(?:ท่านละ|คนละ|หัวละ)?\s*([\d,]{3,})/))) { c.normalPrice = num(m[1]); found.push('normalPrice'); }
+  if ((m = t.match(/(?:ลด\s*เหลือ(?:\s*เพียง)?|ราคา\s*พิเศษ|เหลือ(?:\s*เพียง)?|โปรโมชั่น|โปร)\s*(?:ท่านละ|คนละ|หัวละ)?\s*([\d,]{3,})/))) { c.specialPrice = num(m[1]); found.push('specialPrice'); }
+  if (!found.includes('normalPrice') && !found.includes('specialPrice') && (m = t.match(/(?:ราคา(?:ขาย)?|ท่านละ|คนละ|หัวละ)\s*([\d,]{3,})\s*บาท/))) { c.normalPrice = c.specialPrice = num(m[1]); found.push('normalPrice', 'specialPrice'); }
+  // ---- สถานที่/โรงแรม: "ณ …" / "จัดที่ …" / "สถานที่ …" / "พักที่ …" / หรือคำว่า โรงแรม…/…รีสอร์ท ----
+  const VSTOP = '(?=\\s*(?:ราคา|งบประมาณ|งบ|โทร|ติดต่อ|โดย|จังหวัด|จ\\.|อำเภอ|วันที่|นักเรียน|จำนวน|ครู|เป็นเวลา|ค่ะ|ครับ|นะคะ|$)|[,;])';
+  let venueText = '';
+  if ((m = t.match(new RegExp(`(?:\\sณ|จัด(?:ค่าย)?(?:ที่|ณ)|สถานที่(?:จัด)?(?:ค่าย)?|ที่พัก(?:คือ)?|พักที่)\\s*:?\\s*(.+?)${VSTOP}`))) && m[1].trim().length >= 3) venueText = m[1];
+  else if ((m = t.match(/([A-Z][\w&'.-]*(?:\s+[A-Z][\w&'.-]*)*\s+(?:Hotel|Resort|Spa|Villa|Inn|Lodge)\b(?:\s+(?:and\s+)?[A-Z][\w&'.-]*)*)/))) venueText = m[1];   // ชื่ออังกฤษ เช่น Fortune Hotel Korat
+  else if ((m = t.match(new RegExp(`((?:โรงแรม|รีสอร์ท|resort|hotel)\\S*(?:\\s(?!ราคา|จังหวัด|วันที่)\\S+){0,3}?)${VSTOP}`, 'i')))) venueText = m[1];
+  venueText = venueText.replace(/^(ที่|ณ)\s*/, '').replace(/[.\s]+$/, '').trim();
   // จับคู่กับคลัง: จากชื่อในข้อความ หรือจากทั้งบรีฟ เพื่อเติมทัศนศึกษา/ผู้ติดต่อ/จังหวัด
   // จับคู่ด้วย "ชื่อเฉพาะ" (ตัดคำนำหน้าทั่วไป โรงแรม/รีสอร์ท ออกก่อน) — กันจับผิด เช่น เชียงใหม่ฮิลล์ ≠ เชียงคานฮิลล์
   const core = (s: string) => s.replace(/^(โรงแรม|รีสอร์ท|ณ)\s*/g, '').replace(/\s+/g, '');
@@ -368,18 +426,21 @@ export function parseBrief(t: string, base: Camp): Camp {
   });
   if (known) {
     c.venue = venueText || known.name; c.province = known.province; c.venueVisit = known.visit;
-    c.supplierNote = c.supplierNote || known.note;
+    c.supplierNote = c.supplierNote || known.note; found.push('venue');
   } else if (venueText) {
     // โรงแรมใหม่ที่ยังไม่อยู่ในคลัง — ใช้ตามบรีฟ และล้างทัศนศึกษา/ผู้ติดต่อ/จังหวัดของที่เดิมทิ้ง (ให้กรอกเองในแท็บ 2)
-    c.venue = venueText; c.venueVisit = ''; c.supplierNote = ''; c.province = '';
+    c.venue = venueText; c.venueVisit = ''; c.supplierNote = ''; c.province = ''; found.push('venue');
   }
-  // จังหวัด: ระบุชัดในบรีฟ > จังหวัดที่พบในข้อความ (เฉพาะเมื่อยังไม่ได้จากคลัง)
-  if ((m = t.match(/จังหวัด\s*([^\s,\n]+)/)) || (m = t.match(/จ\.\s*([^\s,\n]+)/))) c.province = m[1];
-  else if (!known && !c.province) { const kp = VENUES.find(x => t.includes(x.province)); if (kp) c.province = kp.province; }
+  // จังหวัด: ระบุชัดในบรีฟ > จากชื่อสถานที่ (พัทยา→ชลบุรี) > ชื่อจังหวัดที่อยู่นอกชื่อโรงเรียน
+  const noSchool = c.school && found.includes('school') ? t.replace(toArabic(c.school), ' ') : t;
+  if ((m = t.match(/(?:จังหวัด|จ\.)\s*([ก-๙]+)/)) && PROVINCES.includes(m[1])) c.province = m[1];
+  else if (venueText && provinceIn(venueText)) c.province = provinceIn(venueText);
+  else if (!known && !c.province && provinceIn(noSchool)) c.province = provinceIn(noSchool);
+  if (c.province && c.province !== base.province) found.push('province');
   // ตรวจจับหลักสูตร (ธีม) จริงจากบรีฟก่อน — ได้คลังกิจกรรมตรงธีม
-  const course = detectCourse(t);
+  const course = detectCourse(noSchool);
   const prev = c.subject, prevCourse = c.courseCode;
-  if (course) { c.courseCode = course.code; c.subject = course.family as Subject; }
+  if (course) { c.courseCode = course.code; c.subject = course.family as Subject; found.push('course'); }
   else {
     if (/steam|สะตีม|สะเต็ม|วิทย์/i.test(t)) c.subject = 'steam';
     else if (/จีน|chinese|แมนดาริน/i.test(t)) c.subject = 'chinese';
@@ -392,8 +453,31 @@ export function parseBrief(t: string, base: Camp): Camp {
   else if (!c.courseCode && (!base.activityIds.length || c.subject !== prev)) { c.activityIds = defaultActs(c.subject); c.coreSlotIds = []; }
   // รหัสเอกสารต้องอ้างจากรหัสหลักสูตรจริงเท่านั้น (ห้ามเดา) — ผูกหลักสูตรแล้วตั้ง docCode จากรหัสนั้น ถ้าบรีฟยังไม่ได้ระบุรหัสเอง
   if (c.courseCode && (!/^PL\s/i.test(c.docCode) || c.docCode === base.docCode)) c.docCode = docCodeFor(c.courseCode);
-  return c;
+  if (c.courseCode !== prevCourse || c.durationMode !== base.durationMode || c.days !== base.days) { c.templateId = undefined; c.budgetItems = undefined; }
+  return { camp: c, found, fields: briefFields(c, found) };
 }
+// รายงานผลอ่านบรีฟ (ใช้ทั้งตัวอ่านปกติและ AI) — แสดงให้ฝ่ายขายเห็นว่าระบบเข้าใจบรีฟอย่างไร ก่อนสร้างไฟล์
+export function briefFields(c: Camp, found: string[]): BriefField[] {
+  const has = (k: string) => found.includes(k);
+  const co = c.courseCode ? courseById(c.courseCode) : undefined;
+  const vs = venuePhotoSetFor(c.venue);
+  const durL = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน (ไป-กลับ)` : `${c.days} วัน ${c.nights} คืน`;
+  return [
+    { key: 'school', label: 'โรงเรียน', value: has('school') ? c.school : '', ok: has('school') },
+    { key: 'level', label: 'ระดับชั้น', value: has('level') ? c.level : '', ok: has('level') },
+    { key: 'students', label: 'นักเรียน', value: has('students') ? `${c.students} คน` : '', ok: has('students') },
+    { key: 'teachers', label: 'ครูผู้ดูแล', value: has('teachers') ? `${c.teachers} คน` : '', ok: has('teachers') },
+    { key: 'course', label: 'หลักสูตร', value: co ? `${co.code} · ${co.name}` : '', ok: !!co },
+    { key: 'duration', label: 'ระยะเวลา', value: has('duration') ? durL : '', ok: has('duration') },
+    { key: 'dates', label: 'วันที่', value: has('dates') ? c.dates : '', ok: has('dates') },
+    { key: 'venue', label: 'สถานที่/โรงแรม', value: has('venue') ? c.venue : '', ok: has('venue') },
+    { key: 'province', label: 'จังหวัด', value: c.province || '', ok: !!c.province },
+    { key: 'normalPrice', label: 'ราคาปกติ', value: has('normalPrice') ? `${money(c.normalPrice)} บาท` : '', ok: has('normalPrice') },
+    { key: 'specialPrice', label: 'ราคาพิเศษ', value: has('specialPrice') ? `${money(c.specialPrice)} บาท/ท่าน` : '', ok: has('specialPrice') },
+    { key: 'venuePhotos', label: 'ภาพโรงแรม', value: vs ? `${vs.photos.length} รูป (${vs.name})` : '', ok: !!vs }
+  ];
+}
+export function parseBrief(t: string, base: Camp): Camp { return readBrief(t, base).camp; }
 // ตรวจจับหลักสูตร (ธีม) จากข้อความบรีฟ ด้วยคีย์เวิร์ดเฉพาะธีม
 const COURSE_KEYS: [string, RegExp][] = [
   ['PL SEA 0103', /ทะเล|marine|ชายหาด|ปะการัง|ใต้ท้องทะเล/i],
@@ -605,11 +689,18 @@ function budgetFromTemplate(lines: string[], c: Camp, plan: Plan, staff: string)
 // ภาพที่ระบบดึงให้ค่ายนี้: ภาพกิจกรรมจากไฟล์ของแม่แบบที่ใช้ (6–8 รูป) · ภาพที่พักเฉพาะเมื่อที่พักในบรีฟตรงกับโรงแรมในไฟล์ทีม
 // (core ไม่โหลดไฟล์เอง — เว็บ fetch จาก photos/<id>.jpg, สคริปต์ node อ่านจาก web/photos)
 export const photoIdsFor = (c: Camp): string[] => { const p = templateFor(c); return p ? p.tpl.photos.slice(0, 8) : []; };
+// ชื่อไทย/สะกดต่างที่ฝ่ายขายใช้บ่อย → โรงแรมในไฟล์ทีม (เช่น "กาสะรอง/กาสะลอง" = Kasalong Resort and Spa)
+const VENUE_ALIAS: [RegExp, string][] = [
+  [/กาสะ\s*[ลร]อง|kasalong/i, 'Kasalong Resort and Spa'], [/ฟอร์จู?น|fortune/i, 'Fortune Hotel Korat'], [/เลย\s*พาเลซ|loei\s*palace/i, 'Loei Palace Hotel'],
+  [/ฟาว(?:น์)?เท(?:่)?น\s*ทรี|fountain\s*tree/i, 'Fountain Tree Resort'], [/บีซีพี|bcp/i, 'BCP Hotel Rayong'], [/เบลล่า\s*วิลล่า|bella\s*villa/i, 'Bella Villa Cabana Pattaya'],
+  [/จันทรา\s*รีสอร์ท/, 'โรงแรมจันทรา รีสอร์ท']
+];
 export const venuePhotoSetFor = (venue?: string) => {
-  const k = placeKey(venue); if (k.length < 5) return undefined;
-  return VENUE_PHOTOS.find(v => { const n = placeKey(v.name); return k.includes(n) || n.includes(k); });
+  const v = String(venue || '');
+  for (const [re, name] of VENUE_ALIAS) if (re.test(v)) { const hit = VENUE_PHOTOS.find(x => x.name === name); if (hit) return hit; }
+  const k = placeKey(v); if (k.length < 5) return undefined;
+  return VENUE_PHOTOS.find(x => { const n = placeKey(x.name); return k.includes(n) || n.includes(k); });
 };
-// คำบรรยายสั้น (หมายเลขภาพ + หัวข้อหน้าบอกค่าย/ที่พักอยู่แล้ว) — ไม่ล้นเป็น 2 บรรทัดในกริด
 export const photoCaption = (_c: Camp, _i: number): string => '';
 export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
@@ -891,7 +982,7 @@ export function compose(c: Camp, plan: Plan) {
   const nm = rawName.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
   const nameTh = nm ? nm[1].trim() : rawName;      // ชื่อไทยล้วน (ไม่มีวงเล็บอังกฤษ)
   const enName = nm ? nm[2].trim() : S.en;          // อังกฤษในวงเล็บ (หรือชื่อ EN มาตรฐานของวิชา)
-  const p1 = `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`;
+  const p1 = `นักเรียนห้องเรียนพิเศษ${c.level ? ` ระดับชั้น ${c.level}` : ''} จำนวน ${c.students} คน`;
   const p2 = showTeachers(c) ? `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน` : '';
   const dur = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน`;
   const base = { objectives, acts, integ, budget, autoBudget, staff, p1, p2, dur };
@@ -962,7 +1053,8 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     { ok: c.specialPrice > c.costPerPerson, msg: 'ราคาขายสูงกว่าต้นทุน/ท่าน' },
     { ok: durOK, msg: c.durationMode === 'overnight' ? `พักค้าง ${c.nights} คืน (สอดคล้องกับรูปแบบค่าย)` : `ค่าย${c.durationMode === 'half' ? 'ครึ่งวัน' : 'ไป-กลับ'} — ไม่มีการพักค้าง` },
     { ok: noStrayOvernight, msg: 'กำหนดการสอดคล้องรูปแบบ (ไม่มีรายการพักค้างในค่ายไป-กลับ)' },
-    { ok: hasAAR, msg: 'มีกิจกรรมถอดบทเรียน (AAR)' },
+    // แม่แบบจริงหลายหลักสูตร (CHI/COD/ENG/FOR/ITD/LEA/TI) ไม่มี AAR ในต้นฉบับ → ยึดแม่แบบทีม แจ้งเป็นข้อสังเกต ไม่ถือว่าผิด
+    tp && tp.exact && !hasAAR ? { ok: true, soft: true, msg: 'กิจกรรมตามแม่แบบทีม (ต้นฉบับไม่มี AAR)' } : { ok: hasAAR, msg: 'มีกิจกรรมถอดบทเรียน (AAR)' },
     { ok: noGap, msg: 'ทุกช่วงเวลามีกิจกรรมจริง (ไม่มีช่องว่าง)' },
     { ok: unique, soft: true, msg: unique ? `กิจกรรมหลักพอทุกช่องไม่ซ้ำ (ใช้ ${plan.coreSlots} ช่อง · คลังมี ${coreAvail})` : `ค่ายยาว ใช้ ${plan.coreSlots} ช่อง แต่คลังมี ${coreAvail} — ระบบวนใช้ซ้ำแบบติดป้าย “(ต่อยอด)” หรือเพิ่มกิจกรรมเองในแท็บ 3` },
     { ok: pendingCount === 0, soft: true, msg: pendingCount === 0 ? 'ไม่มีกิจกรรมสถานะรอตรวจ' : `⚠ มีกิจกรรม "รอตรวจ" ${pendingCount} รายการ (จากคลัง 14 หลักสูตร) — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง` },
@@ -1202,7 +1294,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       tbl([new TableRow({ tableHeader: true, children: hd.map((h, i) => cell([P(h, { b: true, color: 'FFFFFF', al: CTR, after: 0 })], cols[i], { fill: BLUE, border: 'box' })) }),
         new TableRow({ children: [
           cell([P('1', { al: CTR, after: 0 })], cols[0], { border: 'box' }),
-          cell([P(k.titleTh, { after: 0 }), P(`${k.dur} · ${c.dates}`, { sz: 14, after: 0 }), P(`นักเรียน ${c.level} · รวมที่พัก อาหาร วิทยากร อุปกรณ์ ตามรายละเอียดในโปรแกรม`, { sz: 14, after: 0 })], cols[1], { border: 'box' }),
+          cell([P(k.titleTh, { after: 0 }), P(`${k.dur} · ${c.dates}`, { sz: 14, after: 0 }), P(`นักเรียน${c.level ? ' ' + c.level : ''} · รวมที่พัก อาหาร วิทยากร อุปกรณ์ ตามรายละเอียดในโปรแกรม`, { sz: 14, after: 0 })], cols[1], { border: 'box' }),
           cell([P(String(c.students), { al: CTR, after: 0 })], cols[2], { border: 'box' }),
           cell([P(money(c.specialPrice), { al: RGT, after: 0 })], cols[3], { border: 'box' }),
           cell([P(money(total), { al: RGT, after: 0 })], cols[4], { border: 'box' })] }),
