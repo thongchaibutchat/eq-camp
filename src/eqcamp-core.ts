@@ -1143,7 +1143,7 @@ const sign = (l: string, who: string) => cell([P('', { after: 18, keep: true }),
 const signLines = (cols: ([string, string] | null)[]): Paragraph[] => {
   const stops = [{ type: TabStopType.CENTER, position: Math.round(W / 4) }, { type: TabStopType.CENTER, position: Math.round(W * 3 / 4) }];
   const line = (f: (x: [string, string]) => string, last: boolean) => new Paragraph({ tabStops: stops, keepNext: !last, keepLines: true, spacing: { after: 0, line: 240, lineRule: LineRuleType.AUTO },
-    children: cols.flatMap(x => [new TextRun({ text: '\t' + (x ? f(x) : ''), font: FONT, language: LANG, size: 32, sizeComplexScript: 32 })]) });
+    children: cols.map(x => R('\t' + (x ? f(x) : ''))) });   // R() = xmlSafe + ฟอนต์/ภาษาไทย
   return [P('', { after: 18, keep: true }), line(() => 'ลงชื่อ ....................................................', false), line(x => `( ${x[1]} )`, false), line(x => x[0], true)];
 };
 const thDate = () => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`; };
