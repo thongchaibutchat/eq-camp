@@ -79,6 +79,15 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   const t4 = parseBrief('โรงเรียนพัทยาวิทยา ม.1-3 จำนวน 90 คน ครู 7 คน ค่ายวิทยาศาสตร์และสิ่งแวดล้อมทางทะเล 2 วัน 1 คืน วันที่ 15 – 16 มกราคม 2570 ณ Bella Villa Cabana Pattaya จังหวัดชลบุรี ราคาปกติ 3,190 ลดเหลือเพียง 2,590', blankCamp());
   await write('14_program_TEMPLATE_SEA_pattaya.docx', 'program', withPhotos(t4));
   await write('14b_booking_TEMPLATE_SEA_pattaya.docx', 'booking', withPhotos(t4));
+  // 15: บรีฟจริงแบบเขียนอิสระ (เครื่องหมายคำพูด, ขึ้นบรรทัดกลางวลี, เลขไทยในชื่อโรงเรียน, "จัดที่", "ราคาขายปกติ", ชื่อโรงแรมภาษาไทย → ภาพโรงแรมในไฟล์ทีม)
+  const t5 = parseBrief(`"โรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี) ๔ "  ส่วนนี้คือชื่อโรงเรียน
+ต้องการติดต่อจัด "ค่าย Robotics Camp ให้นักเรียนห้องเรียนพิเศษ เป็นเวลา 3
+วัน 2 คืน " ค่ะ
+" นักเรียนจำนวน 18 คน และครูผู้ควบคุม 3 คน " ค่ ะ
+จัดกิจกรรมไว้ประมาณ " วันที่ 14-16 ธ.ค. 2569 "
+จัดที่ " โรงแรมกาสะรองรีสอร์ทพัทยา "
+" ราคาขายปกติ 5990 ลดเหลือเพียง 4790 บาทต่อท่าน "`, blankCamp());
+  await write('15_program_BRIEF_freeform_robotics.docx', 'program', withPhotos(t5));
   console.log('  (แม่แบบทั้งหมด', TEMPLATES.length, 'ชุด)');
 
   // sample.export.json (ตาม schema.json)
