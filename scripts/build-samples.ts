@@ -3,14 +3,23 @@
 import { Packer } from 'docx';
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  buildDoc, fromPreset, blankCamp, defaultActs, parseBrief, DocKind, Camp
+import { packDocx,
+  buildDoc, fromPreset, blankCamp, defaultActs, parseBrief, DocKind, Camp,
+  buildSchedule, subjectPool, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, Img, TEMPLATES
 } from '../src/eqcamp-core';
+// ภาพจากไฟล์ของค่ายนั้น (web/photos) — เหมือนที่เว็บโหลดให้
+const withPhotos = (c: Camp): Camp => {
+  const rd = (id: string) => new Uint8Array(fs.readFileSync(path.resolve(process.cwd(), 'web/photos', id + '.jpg')));
+  const act: Img[] = photoIdsFor(c).map((id, i) => ({ data: rd(id), caption: photoCaption(c, i), src: id }));
+  const vs = venuePhotoSetFor(c.venue);
+  const ven: Img[] = vs ? vs.photos.map((id, i) => ({ data: rd(id), caption: venueCaption(vs.name, i), src: id })) : [];
+  return { ...c, actImgs: act, venueImgs: ven };
+};
 
 const OUT = path.resolve(process.cwd(), 'samples');
 
 async function write(name: string, kind: DocKind, camp: Camp) {
-  fs.writeFileSync(path.join(OUT, name), await Packer.toBuffer(buildDoc(kind, camp)));
+  fs.writeFileSync(path.join(OUT, name), Buffer.from(await packDocx(buildDoc(kind, camp))));
   console.log('  ✓', name);
 }
 
@@ -51,6 +60,26 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   // 9: หลักสูตรจริงจากคลัง — ค่ายวิทยาศาสตร์ทางทะเล (CUR-003) กิจกรรมจริงเฉพาะธีม
   const sea = parseBrief('PL 0140/2569 โรงเรียนสาธิตชลบุรี ม.1-3 จำนวน 90 คน ครู 7 คน ค่ายวิทยาศาสตร์และสิ่งแวดล้อมทางทะเล 2 วัน 1 คืน วันที่ 15 – 16 มกราคม 2570 ณ โรงแรมพัทยาบีช จังหวัดชลบุรี ราคาปกติ 3,900 ลดเหลือเพียง 2,990', blankCamp());
   await write('9_program_CUR003_marine.docx', 'program', sea);
+
+  // 10: หลักสูตรจริง CUR-014 (อังกฤษ) — ฝังภาพจริงของทีม + เลือกกิจกรรมรายช่วง (per-slot override)
+  const eng = parseBrief('PL 0150/2569 โรงเรียนสาธิตนานาชาติ ม.1-3 จำนวน 110 คน ครู 8 คน ค่ายภาษาอังกฤษ English Camp 2 วัน 1 คืน วันที่ 20 – 21 มกราคม 2570 ณ โรงแรมเชียงคานฮิลล์รีสอร์ท จังหวัดเลย ราคาปกติ 3,900 ลดเหลือเพียง 2,990', blankCamp());
+  Object.assign(eng, withPhotos(eng)); // ภาพจากไฟล์โปรแกรมจริงของค่ายอังกฤษ
+  // เลือกกิจกรรมช่องแรกด้วยมือ: หยิบ core ตัวที่ 2 ในคลังมาใส่ช่อง #1 (พิสูจน์ per-slot picker)
+  const cores = subjectPool(eng).filter(a => a.kind === 'core');
+  if (cores[1]) eng.coreSlotIds = [cores[1].id];
+  await write('10_program_CUR014_english_photos_slot.docx', 'program', eng);
+
+  // 11-14: แม่แบบจริงของทีม (หลักสูตร + ระยะเวลาตรง) — ข้อมูลบรีฟแทนชื่อโรงเรียน/ที่พัก/ปีของงานเดิม + ภาพจากไฟล์ของค่ายนั้น
+  const t1 = parseBrief('โรงเรียนบ้านหนองแวง ม.1-3 จำนวน 80 คน ครู 6 คน ค่ายคณิตศาสตร์ Math Camp 2 วัน 1 คืน วันที่ 10 – 11 กุมภาพันธ์ 2570 ณ โรงแรมพัทยาบีช จังหวัดชลบุรี', blankCamp());
+  await write('11_program_TEMPLATE_MAT_2d1n.docx', 'program', withPhotos(t1));
+  const t2 = parseBrief('โรงเรียนกาญจนานุเคราะห์ ม.4-5 จำนวน 72 คน ครู 6 คน ค่ายธรณีวิทยา 3 วัน 2 คืน วันที่ 3 – 5 มีนาคม 2570 ณ ออโรร่า รีสอร์ท จังหวัดกาญจนบุรี ราคาปกติ 5,290 ลดเหลือเพียง 4,590', blankCamp());
+  await write('12_program_TEMPLATE_GEO_3d2n.docx', 'program', withPhotos(t2));
+  const t3 = parseBrief('โรงเรียนสาธิตชลบุรี ม.1-3 จำนวน 60 คน ครู 5 คน ค่ายภาษาจีน 1 วัน ไป-กลับ วันที่ 20 มกราคม 2570 ราคาปกติ 1,290 ลดเหลือเพียง 990', blankCamp());
+  await write('13_program_TEMPLATE_CHI_day.docx', 'program', withPhotos(t3));
+  const t4 = parseBrief('โรงเรียนพัทยาวิทยา ม.1-3 จำนวน 90 คน ครู 7 คน ค่ายวิทยาศาสตร์และสิ่งแวดล้อมทางทะเล 2 วัน 1 คืน วันที่ 15 – 16 มกราคม 2570 ณ Bella Villa Cabana Pattaya จังหวัดชลบุรี ราคาปกติ 3,190 ลดเหลือเพียง 2,590', blankCamp());
+  await write('14_program_TEMPLATE_SEA_pattaya.docx', 'program', withPhotos(t4));
+  await write('14b_booking_TEMPLATE_SEA_pattaya.docx', 'booking', withPhotos(t4));
+  console.log('  (แม่แบบทั้งหมด', TEMPLATES.length, 'ชุด)');
 
   // sample.export.json (ตาม schema.json)
   const snap = { _app: 'EQ Camp Generator', _v: 2, savedAt: new Date().toISOString(),

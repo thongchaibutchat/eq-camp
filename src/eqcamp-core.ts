@@ -1,6 +1,6 @@
 import {
   Document, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType,
-  ShadingType, BorderStyle, ImageRun, PageBreak, VerticalAlign, Header, Footer
+  ShadingType, BorderStyle, ImageRun, LineRuleType, PageBreak, VerticalAlign, Header, Footer, PageNumber, HeadingLevel, TableLayoutType, TabStopType, Tab, UnderlineType
 } from 'docx';
 import { LETTERHEADS, regionOf, Region } from './letterheads-data';
 export { LETTERHEADS, regionOf } from './letterheads-data';
@@ -10,20 +10,41 @@ export type { Region } from './letterheads-data';
 import { COURSES, REF_ACTIVITIES, Course } from './eqcamp-data';
 export { COURSES } from './eqcamp-data';
 export type { Course } from './eqcamp-data';
+// แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนั้นเท่านั้น (สร้างจาก scripts/gen-course-templates.py)
+import { TEMPLATES, PHOTO_META, VENUE_PHOTOS } from './course-templates-data';
+import type { CourseTemplate, TplSec } from './course-templates-data';
+export { TEMPLATES, PHOTO_META, VENUE_PHOTOS } from './course-templates-data';
+export type { CourseTemplate } from './course-templates-data';
+import { STEAM_GALLERY } from './steam-gallery-data';
+export { STEAM_GALLERY } from './steam-gallery-data';
+import { BRAND } from './brand-data';
+import { FULL_HEADERS } from './letterhead-full-data';
+import { FONT_NAME, FONT_REG_B64, FONT_BOLD_B64 } from './font-data';
+import JSZip from 'jszip';
+import { Packer } from 'docx';
+export { BRAND } from './brand-data';
 export type Subject = 'math' | 'steam' | 'english' | 'ai' | 'chinese' | 'leadership';
 export type DocKind = 'program' | 'quotation' | 'booking' | 'runsheet';
 // รูปแบบระยะเวลา: half = ครึ่งวัน, day = ไป-กลับเต็มวัน, overnight = พักค้าง
 export type DurationMode = 'half' | 'day' | 'overnight';
-export interface Img { data?: Uint8Array; caption: string }
-export interface Row { time: string; title: string; sub?: string[] }
+// src = id ภาพจากไฟล์ต้นฉบับของค่าย (web/photos/<id>.jpg) ที่ระบบดึงให้ · ไม่มี src = ภาพที่ทีมอัปโหลดเอง
+export interface Img { data?: Uint8Array; caption: string; src?: string }
+// slot = ดัชนีช่อง "กิจกรรมหลัก" (core) ทั่วทั้งกำหนดการ (0..N-1) ใช้ผูกกับ coreSlotIds เพื่อเลือกกิจกรรมรายช่วง
+export interface Row { time: string; title: string; sub?: string[]; slot?: number }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
+  /** รายการงบประมาณที่ทีมแก้เอง (ว่าง = ระบบสร้างอัตโนมัติจากที่พัก/มื้ออาหาร/ทีมงาน) */
+  budgetItems?: string[];
+  /** แสดงครูผู้ดูแลในเอกสาร — ไม่ระบุ = อัตโนมัติ (พักค้าง: แสดง · Day Camp/ครึ่งวัน: ตัดออก เพราะไม่ต้องดูแลครู) */
+  includeTeachers?: boolean;
   students: number; teachers: number; days: number; nights: number; durationMode: DurationMode;
   dates: string; province: string; region?: Region; venue: string; venueVisit: string; startTime: string; travelHours: number;
   normalPrice: number; specialPrice: number; costPerPerson: number;
   contactName: string; supplierNote: string; validDays: number; payTerms: string;
-  activityIds: string[]; actImgs: Img[]; venueImgs: Img[];
+  /** แม่แบบเอกสารจริงที่เลือกเอง (id) · ว่าง = อัตโนมัติ (หลักสูตร+ระยะเวลา+พื้นที่) · 'engine' = ไม่ใช้แม่แบบ */
+  templateId?: string;
+  activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
 }
 
@@ -55,6 +76,13 @@ export interface Activity { id: string; subjects: Subject[]; kind: Kind; title: 
 const ALL: Subject[] = ['math', 'steam', 'english', 'ai', 'chinese', 'leadership'];
 // คลังกิจกรรมมาตรฐาน EQ Camp — ครบทุกวิชา กิจกรรมหลักมากพอเติมค่าย 4 วันโดยไม่ซ้ำ
 // (ชุดคณิต/STEAM ดึงจากไฟล์จริง PL 0109 / PL 0110 ; อังกฤษ/AI เป็นชุดมาตรฐานพร้อมใช้ แก้ชื่อได้)
+// จัดรูปชื่อกิจกรรมให้เรียบร้อยแบบเอกสารทางการ: เครื่องหมายคำพูดไทย “ ” ไม่มีช่องว่างเกิน
+export function tidyTitle(t: string): string {
+  let n = 0;
+  let s = t.replace(/"/g, () => (n++ % 2 === 0 ? '“' : '”'));
+  s = s.replace(/“\s+/g, '“').replace(/\s+”/g, '”').replace(/([^\s(])“/g, '$1 “').replace(/”(?=[^\s.,)])/g, '” ');
+  return s.replace(/\s{2,}/g, ' ').replace(/\s*EP\.\s*(\d+)/gi, ' EP.$1').trim();
+}
 export const LIB: Activity[] = [
   /* ---------- เปิดค่าย ---------- */
   { id: 'o-door', subjects: ['math', 'english', 'ai'], kind: 'opening', title: 'กิจกรรม “เปิดประตู สู่ห้องเรียน”' },
@@ -104,10 +132,37 @@ export const LIB: Activity[] = [
   { id: 'x-boost', subjects: ALL, kind: 'recreation', title: 'กิจกรรม “Boost Up Learning” สันทนาการ' },
   { id: 'x-next', subjects: ALL, kind: 'closing', title: 'กิจกรรม “The Next Step”' },
   /* ---------- กิจกรรมจริงจากคลัง 14 หลักสูตร (รหัส ref-, สถานะ "รอตรวจ") ---------- */
-  ...REF_ACTIVITIES.map(a => ({ id: a.id, subjects: [a.family as Subject], kind: a.kind as Kind, title: a.title, courseCode: a.course, draft: true }))
+  ...REF_ACTIVITIES.map(a => ({ id: a.id, subjects: [a.family as Subject], kind: a.kind as Kind, title: tidyTitle(a.title), courseCode: a.course, draft: true }))
 ];
 // หลักสูตร (ธีม) จริง 14 รายการ — ใช้เลือกคลังกิจกรรมเฉพาะธีม
 export const courseById = (code?: string): Course | undefined => COURSES.find(c => c.code === code);
+// รหัสเอกสารอ้างจากรหัสหลักสูตรจริง (เช่น PL STM 0101 → "PL STM 0101/2569") — ไม่เดา/ไม่มั่ว
+export const showTeachers = (c: Pick<Camp, 'includeTeachers' | 'durationMode'>): boolean => c.includeTeachers ?? (c.durationMode === 'overnight');
+export const docCodeFor = (code?: string): string => code ? `${code}/2569` : '';
+// ภาพกิจกรรมของหลักสูตร = ภาพที่อยู่ในไฟล์ PDF/Word โปรแกรมจริงของค่ายนั้น (ทุกระยะเวลา ไม่ซ้ำ) — ไม่ใช้ภาพจากแหล่งอื่น
+export const coursePhotoIds = (code?: string): string[] => {
+  const out: string[] = [];
+  for (const t of TEMPLATES) if (t.code === code) for (const h of t.photos) if (!out.includes(h)) out.push(h);
+  return out;
+};
+export const hasCoursePhotos = (code?: string): boolean => coursePhotoIds(code).length > 0;
+// สรุป "ฐานข้อมูลของค่าย/หลักสูตร" หนึ่งรายการ — รวมทุกอย่างที่ผูกกับ CUR นั้น (ใช้ในหน้าฐานข้อมูลค่าย)
+export interface CourseDataset { course: Course; actsByKind: { kind: Kind; items: Activity[] }[]; total: number; draftCount: number; photoCount: number; photos: string[]; templates: CourseTemplate[] }
+export function courseDataset(code: string): CourseDataset | undefined {
+  const course = courseById(code); if (!course) return undefined;
+  const acts = LIB.filter(a => a.courseCode === code);
+  const kinds: Kind[] = ['opening', 'core', 'night', 'recreation', 'closing'];
+  const photos = coursePhotoIds(code);
+  return {
+    course,
+    actsByKind: kinds.map(kind => ({ kind, items: acts.filter(a => a.kind === kind) })).filter(g => g.items.length),
+    total: acts.length,
+    draftCount: acts.filter(a => a.draft).length,
+    photoCount: photos.length,
+    photos,
+    templates: TEMPLATES.filter(t => t.code === code)
+  };
+}
 export const VENUES = [
   { province: 'เลย', name: 'โรงแรมเชียงคานฮิลล์รีสอร์ท', visit: 'ถนนวัฒนธรรมเชียงคาน / ชมวิวทะเลหมอก ณ ภูทอก อำเภอเชียงคาน จังหวัดเลย', note: 'พร้อมห้องประชุมและสระว่ายน้ำ' },
   { province: 'ระยอง', name: 'โรงแรมโกลเด้น ซิตี้ ระยอง', visit: 'ศูนย์การเรียนรู้ด้านพลังงาน / สถานแสดงพันธุ์สัตว์น้ำระยอง', note: 'คุณทราย 088-6171446 (ห้องประชุมจุได้สูงสุด 1,800 คน)' },
@@ -116,6 +171,40 @@ export const VENUES = [
   { province: 'ชลบุรี', name: 'สวนนงนุช พัทยา รีสอร์ท', visit: 'ทัศนศึกษาสวนนงนุชและหุบเขาไดโนเสาร์', note: 'คุณฟ้า 092-2928296' },
   { province: 'กาญจนบุรี', name: 'เฟลิกซ์ ริเวอร์แคว รีสอร์ท', visit: 'พิพิธภัณฑ์ธรณีศาสตร์ ม.มหิดล กาญจนบุรี / ถ้ำกระแซ', note: 'คุณปุ้ย 062-3599138' }
 ];
+// สาขา/ที่อยู่รายภาค — แหล่งเดียวกับหัวกระดาษ (ภาคใต้: จากภาพหัวกระดาษภาคใต้ของทีมใน Drive)
+export const BRANCHES: { region: string; address: string; phone?: string; note?: string }[] = [
+  { region: 'ภาคกลาง (กรุงเทพฯ)', address: '523 ม.4 แขวงบางปะกอก เขตราษฎร์บูรณะ กรุงเทพมหานคร 10140', note: 'จากเอกสารจริงของทีม' },
+  { region: 'ภาคอีสาน (สำนักงานใหญ่)', address: '289/69 ไพรเวท พาร์ค วิลล์ ม.4 ต.หนองบัว อ.เมือง จ.อุดรธานี 41000', phone: '065 4919415 / 099 2394747' },
+  { region: 'ภาคเหนือ (เชียงใหม่)', address: '62 ม.10 ต.ป่าไผ่ อ.สันทราย จ.เชียงใหม่ 50210' },
+  { region: 'ภาคใต้ (ภูเก็ต)', address: '118/73 ตึก C ม.1 ถ.วิชิตสงคราม ต.กะทู้ จ.ภูเก็ต 83120', note: 'จากหัวกระดาษภาคใต้ของทีม' }
+];
+// ชุดข้อมูลขายบน Drive (ทีมแก้ที่นี่ แล้วสั่ง "อัปเดตข้อมูล") — ไม่ใส่ลิงก์โฟลเดอร์ต้นทุน (99) ในเว็บ
+export const SALES_KIT = {
+  folder: 'https://drive.google.com/drive/folders/16dCNDLqlhF41TvGaJV9v8DxUfetc-xaE',
+  sheets: [
+    { label: 'วิธีใช้', url: 'https://docs.google.com/document/d/1e6TCfp_o3sPTrzLqPiD-3cxyIFRg81yvxOs_2Ygb9BY/edit' },
+    { label: 'หลักสูตร', url: 'https://docs.google.com/spreadsheets/d/1AnEwrclPR8awYijL9Ya4rp8vno7U4fzs7CmHkGG4oZo/edit' },
+    { label: 'กิจกรรม', url: 'https://docs.google.com/spreadsheets/d/1Q5OxyIc4Hso9Jg9ckOkMlu8jNVIcxZlglFQmiGwP16c/edit' },
+    { label: 'ที่พัก', url: 'https://docs.google.com/spreadsheets/d/1llVOOIK7q_oZigDqdKYUNfmeTSu-JhRkJTY3_ybZ4mM/edit' },
+    { label: 'ราคาขาย', url: 'https://docs.google.com/spreadsheets/d/1mBUpngNJrpFtxZdfNELjB4PQFVwWE8To_6uwHhJzx1w/edit' },
+    { label: 'ภาพ', url: 'https://docs.google.com/spreadsheets/d/15N65FFPhhq5gFUDtneJ1Gv2IkELSYsuF91-2rhtresA/edit' },
+    { label: 'บริษัท-สาขา', url: 'https://docs.google.com/spreadsheets/d/1GxlcaIskicpT_u8Csd4SfzcqaH-wj7PIG1Iquj2sLQg/edit' },
+    { label: 'บันทึกการแก้ไข', url: 'https://docs.google.com/spreadsheets/d/1BNTIKO0ECwCCNAi_rfeYfVGc4oDtPS61-65UPtl171E/edit' }
+  ],
+  courseFolders: {
+    'PL STM 0101': '1UKieUmdXC9FueJXB4YbZJfJc8488EfDl', 'PL LEA 0102': '1kBU6_HhTJ70HEH5jmC7XOn5R1u1gcdU8', 'PL SEA 0103': '1XfkNZwMq6tJBnsI8HRUnW5HiJwMd8qiM',
+    'PL ENG 0104': '1SyuI0n1V5-oZJF06kJqEmLsMCkKR0KZy', 'PL PRE 0105': '16rcaSrrCOBviN4VcjUmKn24i04x7EyTa', 'PL ENV 0106': '1KQoka073l29N1bx7k2RZjE0E5TlxJosx',
+    'PL MAT 0107': '1t6fgh-k66GVCORbVXDnkSDRqFyQCdTKm', 'PL AST 0108': '1cuaUnXLxkc3z4E-DSlBvCcpSmbmL8IYG', 'PL CHI 0109': '1KiSNHqG3w-IewScwgtj_1TIftKkZxqx2',
+    'PL FOR 0110': '1LCA5Kt938CdlDyRTrMP2qDNu8yX-MRtG', 'PL COD 0111': '1-JD4ZrsvOcxedlbygBq20YnqkKIhFhUF', 'PL GEO 0112': '1SRQUpYbXajEm96RQEHQahZID-DI5maRM',
+    'PL ITD 0113': '1mpnyUgTnyRVwiGY1zKwPVt2aPj-ZVaMl', 'PL TI 0116': '1Nx9cF6eukj1tgzWgXfAZ73OLqc0O0TbT'
+  } as Record<string, string>,
+  venueFolders: {
+    'โรงแรมเชียงคานฮิลล์รีสอร์ท': '1fPfkyOyhzkK5DYRTOdwlsUy7pl-TShv_', 'โรงแรมโกลเด้น ซิตี้ ระยอง': '1T9AWbBx-LGbxXFsDrLh94Nfde6NMNBsW',
+    'ปาล์มมาลี บีช รีสอร์ท ระยอง': '19Qt0XMsgkxqNB4QyrcCvSH4lYV5tm0hp', 'ธารา ชลพฤกษ์ รีสอร์ท': '1WFgEO3PYknLl9soMKNaXb6qxK4lS1jl6',
+    'สวนนงนุช พัทยา รีสอร์ท': '1vGwZJ6SzsGDCAvs0a1Vagr9RtWziOvcV', 'เฟลิกซ์ ริเวอร์แคว รีสอร์ท': '1Y5Gih0ET7LQORQkGvXnpUlUKYZKhukoA'
+  } as Record<string, string>
+};
+export const driveFolder = (id?: string) => id ? `https://drive.google.com/drive/folders/${id}` : undefined;
 export const DOC_TYPES: { id: DocKind; label: string; stage: string; desc: string; internal?: boolean }[] = [
   { id: 'program', label: 'โปรแกรมค่าย (PL)', stage: '1. เสนอโปรแกรม', desc: 'วัตถุประสงค์ + กิจกรรมบูรณาการ + กำหนดการ + ราคา + ภาพกิจกรรม/ที่พัก' },
   { id: 'quotation', label: 'ใบเสนอราคา', stage: '2. เสนอราคา', desc: 'ตารางรายการ จำนวน ราคา/ท่าน ยอดรวม เงื่อนไข ลายเซ็น' },
@@ -144,7 +233,7 @@ export const blankCamp = (): Camp => ({
   dates: 'วันที่ ...', durationMode: 'overnight', province: '', venue: '', venueVisit: '', startTime: '07.00', travelHours: 3,
   normalPrice: 0, specialPrice: 0, costPerPerson: 0, contactName: 'ฝ่ายขาย EQ Camp', supplierNote: '',
   validDays: 30, payTerms: 'ชำระตามเงื่อนไขที่ตกลงกับโรงเรียน (ปรับแก้ตามนโยบายบริษัท)',
-  activityIds: [], actImgs: [], venueImgs: [], extraActivities: []
+  activityIds: [], coreSlotIds: [], actImgs: [], venueImgs: [], extraActivities: []
 });
 export const fromPreset = (id: string): Camp => ({ ...blankCamp(), ...PRESETS.find(p => p.id === id)!.camp, actImgs: [], venueImgs: [], extraActivities: [] });
 
@@ -229,15 +318,18 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
     applied.push('duration');
   } else { missing.push('duration'); warnings.push('อ่านระยะเวลาจากบรีฟไม่ได้ — คงค่าเดิมไว้ โปรดเลือกเองในแท็บ 2'); }
   const norm = normalizeDuration(c);
-  if (norm.courseCode && (applied.includes('course') || !norm.activityIds.length))
-    norm.activityIds = defaultCourseActs(norm.courseCode);
-  else if (!norm.courseCode && (!norm.activityIds.length || applied.includes('subject')))
-    norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter(a => a.subjects.includes(norm.subject)).map(a => a.id));
+  if (norm.courseCode && (applied.includes('course') || !norm.activityIds.length)) {
+    norm.activityIds = defaultCourseActs(norm.courseCode); norm.coreSlotIds = [];
+  } else if (!norm.courseCode && (!norm.activityIds.length || applied.includes('subject'))) {
+    norm.activityIds = defaultActs(norm.subject).concat(norm.extraActivities.filter(a => a.subjects.includes(norm.subject)).map(a => a.id)); norm.coreSlotIds = [];
+  }
+  // รหัสเอกสารจากรหัสหลักสูตรจริง ถ้า AI ไม่ได้ให้ docCode ที่ถูกแบบมาเอง
+  if (norm.courseCode && !/^PL\s/i.test(String(r?.docCode || '').trim())) norm.docCode = docCodeFor(norm.courseCode);
   return { camp: norm, applied, missing, warnings };
 }
 // เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
 export function migrateCamp(raw: any): Camp {
-  const out: Camp = { ...blankCamp(), ...raw, extraActivities: raw?.extraActivities || [] };
+  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], extraActivities: raw?.extraActivities || [] };
   if (out.durationMode !== 'half' && out.durationMode !== 'day' && out.durationMode !== 'overnight') {
     out.durationMode = Number(out.nights) > 0 ? 'overnight' : (Number(out.days) <= 1 ? 'day' : 'overnight');
   }
@@ -249,7 +341,8 @@ export function parseBrief(t: string, base: Camp): Camp {
   const c = { ...base };
   const num = (s: string) => Number(s.replace(/,/g, ''));
   let m: RegExpMatchArray | null;
-  if ((m = t.match(/(PL\s*\d+\/\d+)/i))) c.docCode = m[1].toUpperCase().replace(/\s+/, ' ');
+  // รหัสเอกสาร: รองรับทั้งแบบเก่า (PL 0109/2569) และแบบอ้างรหัสหลักสูตรจริง (PL STM 0101/2569)
+  if ((m = t.match(/(PL\s*[A-Z]{2,4}\s*\d{3,4}\s*\/\s*\d{4}|PL\s*\d+\s*\/\s*\d{4})/i))) c.docCode = m[1].toUpperCase().replace(/\s+/g, ' ').replace(/\s*\/\s*/, '/');
   if ((m = t.match(/โรงเรียน\S+(?:\s(?!ม\.|ครู|จำนวน|ค่าย|นักเรียน|ระดับ)[^\s\d]+)?/))) c.school = m[0].trim();
   if ((m = t.match(/ม\.\s*\d(?:\s*[-–]\s*\d)?/))) c.level = m[0].replace(/\s/g, '');
   if ((m = t.match(/(?:นักเรียน\S*\s*)?จำนวน\s*([\d,]+)\s*คน/))) c.students = num(m[1]);
@@ -265,9 +358,13 @@ export function parseBrief(t: string, base: Camp): Camp {
     venueText = m[1].replace(/[.\s]+$/, '').trim();
   }
   // จับคู่กับคลัง: จากชื่อในข้อความ หรือจากทั้งบรีฟ เพื่อเติมทัศนศึกษา/ผู้ติดต่อ/จังหวัด
+  // จับคู่ด้วย "ชื่อเฉพาะ" (ตัดคำนำหน้าทั่วไป โรงแรม/รีสอร์ท ออกก่อน) — กันจับผิด เช่น เชียงใหม่ฮิลล์ ≠ เชียงคานฮิลล์
+  const core = (s: string) => s.replace(/^(โรงแรม|รีสอร์ท|ณ)\s*/g, '').replace(/\s+/g, '');
   const known = VENUES.find(x => {
-    const key = x.name.slice(0, 8);
-    return (venueText && (venueText.includes(key) || x.name.includes(venueText.slice(0, 8)))) || t.includes(key);
+    const key = core(x.name).slice(0, 8);
+    if (key.length < 5) return false;
+    const vt = core(venueText);
+    return venueText ? vt.includes(key) || (vt.length >= 5 && core(x.name).includes(vt.slice(0, 8))) : t.replace(/\s+/g, '').includes(key);
   });
   if (known) {
     c.venue = venueText || known.name; c.province = known.province; c.venueVisit = known.visit;
@@ -291,26 +388,28 @@ export function parseBrief(t: string, base: Camp): Camp {
     else if (/\bai\b|coding|โค้ด|โดรน|หุ่นยนต์/i.test(t)) c.subject = 'ai';
     else if (/คณิต|math/i.test(t)) c.subject = 'math';
   }
-  if (c.courseCode && c.courseCode !== prevCourse) c.activityIds = defaultCourseActs(c.courseCode);
-  else if (!c.courseCode && (!base.activityIds.length || c.subject !== prev)) c.activityIds = defaultActs(c.subject);
+  if (c.courseCode && c.courseCode !== prevCourse) { c.activityIds = defaultCourseActs(c.courseCode); c.coreSlotIds = []; }
+  else if (!c.courseCode && (!base.activityIds.length || c.subject !== prev)) { c.activityIds = defaultActs(c.subject); c.coreSlotIds = []; }
+  // รหัสเอกสารต้องอ้างจากรหัสหลักสูตรจริงเท่านั้น (ห้ามเดา) — ผูกหลักสูตรแล้วตั้ง docCode จากรหัสนั้น ถ้าบรีฟยังไม่ได้ระบุรหัสเอง
+  if (c.courseCode && (!/^PL\s/i.test(c.docCode) || c.docCode === base.docCode)) c.docCode = docCodeFor(c.courseCode);
   return c;
 }
 // ตรวจจับหลักสูตร (ธีม) จากข้อความบรีฟ ด้วยคีย์เวิร์ดเฉพาะธีม
 const COURSE_KEYS: [string, RegExp][] = [
-  ['CUR-003', /ทะเล|marine|ชายหาด|ปะการัง|ใต้ท้องทะเล/i],
-  ['CUR-002', /ธรณี|หิน|แร่|geolog/i],
-  ['CUR-011', /ดารา\s*ศาสตร์|astro|ดวงดาว|จักรวาล|ท้องฟ้าจำลอง/i],
-  ['CUR-012', /นิติ\s*วิทย|forensic|สืบสวน|ชีววิทยา/i],
-  ['CUR-001', /โดรน|drone/i],
-  ['CUR-009', /หุ่นยนต์|robot|โค้ดดิ้ง|coding/i],
-  ['CUR-010', /สตาร์ท\s*อัพ|startup|ดิจิทัล|ธุรกิจ/i],
-  ['CUR-004', /จีน|chinese|แมนดาริน|mandarin/i],
-  ['CUR-006', /ผู้นำ|leadership|สมรรถนะ|\beq\b/i],
-  ['CUR-007', /pre[-\s]?genius|อัจฉริยะ|คณิต.*วิทย|วิทย.*คณิต/i],
-  ['CUR-005', /สิ่งแวดล้อม|environment/i],
-  ['CUR-014', /อังกฤษ|english/i],
-  ['CUR-008', /คณิต|math/i],
-  ['CUR-013', /steam|stem|สะตีม|สะเต็ม/i]
+  ['PL SEA 0103', /ทะเล|marine|ชายหาด|ปะการัง|ใต้ท้องทะเล/i],
+  ['PL GEO 0112', /ธรณี|หิน|แร่|geolog/i],
+  ['PL AST 0108', /ดารา\s*ศาสตร์|astro|ดวงดาว|จักรวาล|ท้องฟ้าจำลอง/i],
+  ['PL FOR 0110', /นิติ\s*วิทย|forensic|สืบสวน|ชีววิทยา/i],
+  ['PL TI 0116', /โดรน|drone/i],
+  ['PL COD 0111', /หุ่นยนต์|robot|โค้ดดิ้ง|coding/i],
+  ['PL ITD 0113', /สตาร์ท\s*อัพ|startup|ดิจิทัล|ธุรกิจ/i],
+  ['PL CHI 0109', /จีน|chinese|แมนดาริน|mandarin/i],
+  ['PL LEA 0102', /ผู้นำ|leadership|สมรรถนะ|\beq\b/i],
+  ['PL PRE 0105', /pre[-\s]?genius|อัจฉริยะ|คณิต.*วิทย|วิทย.*คณิต/i],
+  ['PL ENV 0106', /สิ่งแวดล้อม|environment/i],
+  ['PL ENG 0104', /อังกฤษ|english/i],
+  ['PL MAT 0107', /คณิต|math/i],
+  ['PL STM 0101', /steam|stem|สะตีม|สะเต็ม/i]
 ];
 export function detectCourse(text: string): Course | undefined {
   for (const [code, re] of COURSE_KEYS) if (re.test(text)) return COURSES.find(c => c.code === code);
@@ -343,35 +442,307 @@ export const staffText = (n: number): string => {
   return '10 – 16';
 };
 
-export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[] }
+export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo }
+// สรุปแม่แบบที่ใช้กับค่ายนี้ (แสดงใน UI/ตรวจความถูกต้อง)
+export interface TplInfo {
+  id: string; source: string; dur: string; exact: boolean; areaOK: boolean | null; area: string[];
+  locRows: string[]; dropped: string[]; aar: boolean; depWarn?: string; options: { id: string; label: string }[]; price?: { n: number; s: number }
+}
 // คลังกิจกรรมที่ใช้ได้: ถ้าเลือกหลักสูตร (courseCode) → กิจกรรมจริงของหลักสูตรนั้น + สันทนาการ/ปิด/เปิดกลาง; ไม่งั้น → ตาม subject (ชุดเดิม)
+// ความเฉพาะของกิจกรรม: ชื่อเดียวกันปรากฏในกี่หลักสูตร (1 = เฉพาะหลักสูตรนี้) — ใช้เรียงให้กิจกรรมประจำหลักสูตรมาก่อนกิจกรรมกลาง
+const normTitle = (t: string) => t.replace(/[“”"'\s]/g, '').replace(/EP\.?\d+$/i, '').toLowerCase();
+const SHARED: Record<string, number> = (() => {
+  const m: Record<string, Set<string>> = {};
+  for (const a of LIB) if (a.courseCode) (m[normTitle(a.title)] = m[normTitle(a.title)] || new Set()).add(a.courseCode);
+  const out: Record<string, number> = {}; for (const k in m) out[k] = m[k].size; return out;
+})();
+const sharedCount = (a: Activity) => SHARED[normTitle(a.title)] || 1;
+// ค่ายที่ใช้แพทเทิร์น STEAM (STEAM Mission / 5 STEPs / ภาพเซ็ต STEAM) — เฉพาะหลักสูตร STEAM จริง ไม่ใช่วิทย์สายอื่น (ดาราศาสตร์/ธรณี/ทะเล ฯลฯ)
+export const isSteamProgram = (c: Camp) => c.courseCode ? c.courseCode === 'PL STM 0101' : c.subject === 'steam';
+// ชื่อหลักสูตรแบบสั้น (ไทย) ใช้ในประโยคกำหนดการ เช่น "ดาราศาสตร์"
+export const courseShortTh = (c: Camp): string => {
+  const co = courseById(c.courseCode);
+  if (!co) return SUBJECTS[c.subject].field;
+  return co.name.replace(/\s*\([^)]*\)\s*$/, '').replace(/^หลักสูตรค่าย\s*/, '').replace(/^ค่าย(บูรณาการ)?(วิชาการ)?/, '').trim();
+};
 export function subjectPool(c: Camp): Activity[] {
   const extras = c.extraActivities.filter(a => a.subjects.includes(c.subject));
   if (c.courseCode) {
-    const courseActs = LIB.filter(a => a.courseCode === c.courseCode);
+    // กิจกรรมของหลักสูตร — เรียงกิจกรรมเฉพาะหลักสูตรก่อน (stable) แล้วค่อยกิจกรรมที่ใช้ร่วมกับหลายหลักสูตร
+    const courseActs = LIB.filter(a => a.courseCode === c.courseCode).map((a, i) => ({ a, i }))
+      .sort((x, y) => (sharedCount(x.a) - sharedCount(y.a)) || (x.i - y.i)).map(x => x.a);
     const kinds = new Set(courseActs.map(a => a.kind));
     const generics = LIB.filter(a => !a.courseCode && a.subjects.length >= 6 && !kinds.has(a.kind)); // เติม recreation/closing/opening กลางที่หลักสูตรไม่มี
     return [...courseActs, ...generics, ...extras];
   }
   return [...LIB.filter(a => !a.courseCode && a.subjects.includes(c.subject)), ...extras];
 }
+/* ===================== แม่แบบโปรแกรมจริงของทีม (TEMPLATES) =====================
+ * ที่มา: เอกสาร PL จริงใน Drive (14 หลักสูตร × ระยะเวลา) → scripts/gen-course-templates.py → src/course-templates-data.ts
+ * หลักการ: หลักสูตร + ระยะเวลาตรงกับแม่แบบ → ใช้หน้าปก/กิจกรรม/กำหนดการ/งบของแม่แบบนั้น แทนข้อมูลงานเดิมด้วยข้อมูลบรีฟ
+ *   (โรงเรียน/ที่พัก/จังหวัด/ปี/จำนวนคน/วิทยากร/คืน/มื้อ) · ไม่มีแม่แบบระยะเวลานั้น → หน้าปกจากแม่แบบใกล้สุด + กำหนดการจัดอัตโนมัติ
+ *   แถวที่ผูกพื้นที่ (ทัศนศึกษา/เกาะ/อุทยาน…) ถ้าพื้นที่บรีฟไม่ตรงพื้นที่แม่แบบ → เตือนให้ตรวจ (ไม่เดาสถานที่ใหม่) */
+// ระยะเวลาค่าย → คีย์แม่แบบ: half · day1/day2 (ไป-กลับ) · o21/o32 (พักค้าง)
+export const durKeyOf = (c: Pick<Camp, 'durationMode' | 'days' | 'nights'>): string =>
+  c.durationMode === 'half' ? 'half' : c.durationMode === 'day' ? `day${Math.max(1, c.days || 1)}` : `o${c.days}${c.nights}`;
+export const durKeyLabel = (k: string): string => k === 'half' ? 'ครึ่งวัน' : k.startsWith('day') ? `${k.slice(3)} วัน (ไป-กลับ)` : `${k.charAt(1)} วัน ${k.slice(2)} คืน`;
+export const templatesOf = (code?: string): CourseTemplate[] => code ? TEMPLATES.filter(t => t.code === code) : [];
+export const templateById = (id?: string): CourseTemplate | undefined => id ? TEMPLATES.find(t => t.id === id) : undefined;
+const NEAR: Record<string, string[]> = { half: ['day1', 'day2', 'o21', 'o32'], day1: ['day1', 'day2', 'o21', 'o32'], day2: ['day2', 'day1', 'o21', 'o32'], o21: ['o21', 'o32', 'day2', 'day1'], o32: ['o32', 'o21', 'day2', 'day1'] };
+const nearOrder = (k: string) => NEAR[k] || (k.startsWith('day') ? ['day2', 'day1', 'o32', 'o21'] : ['o32', 'o21', 'day2', 'day1']);
+const placeKey = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
+// พื้นที่ค่าย (จังหวัด/สถานที่ในบรีฟ) ตรงกับพื้นที่ของแม่แบบไหม — null = แม่แบบไม่ผูกพื้นที่ / ระบุพื้นที่ไม่ได้
+export const areaMatch = (t: CourseTemplate, c: Pick<Camp, 'province' | 'venue' | 'venueVisit'>): boolean | null => {
+  if (!t.area.length) return null;
+  const hay = `${c.province || ''} ${c.venue || ''} ${c.venueVisit || ''}`;
+  if (t.area.some(a => hay.includes(a))) return true;
+  return !!(t.venue && placeKey(c.venue).length > 3 && placeKey(c.venue).includes(placeKey(t.venue)));
+};
+const tplLabel = (t: CourseTemplate) => `${durKeyLabel(t.dur)}${t.area.length ? ` · พื้นที่${t.area.join('/')}` : ''}${t.venue ? ` · ${t.venue}` : ''}`;
+export interface TplPick { tpl: CourseTemplate; exact: boolean; areaOK: boolean | null; options: CourseTemplate[] }
+export function templateFor(c: Camp): TplPick | undefined {
+  if (!c.courseCode || c.templateId === 'engine') return undefined;
+  const all = templatesOf(c.courseCode); if (!all.length) return undefined;
+  const key = durKeyOf(c);
+  const exactList = all.filter(t => t.dur === key);
+  let tpl = c.templateId ? exactList.find(t => t.id === c.templateId) : undefined;
+  if (!tpl && exactList.length) {
+    // หลายแม่แบบระยะเวลาเดียวกัน (เช่น ทะเล 2 วัน 1 คืน มีแบบทั่วไป/แบบพัทยา-เกาะขาม) → พื้นที่ตรงก่อน → ไม่ผูกพื้นที่ → อื่น ๆ
+    const sc = (t: CourseTemplate) => { const m = areaMatch(t, c); return m === true ? 0 : m === null ? 1 : 2; };
+    tpl = exactList.map((t, i) => ({ t, i })).sort((a, b) => sc(a.t) - sc(b.t) || a.i - b.i)[0].t;
+  }
+  if (tpl) return { tpl, exact: true, areaOK: areaMatch(tpl, c), options: exactList };
+  for (const k of nearOrder(key)) { const t = all.find(x => x.dur === k); if (t) return { tpl: t, exact: false, areaOK: null, options: [] }; }
+  return undefined;
+}
+// ปี ค.ศ. ของค่าย (ใช้แทนปีในชื่อหลักสูตร เช่น "Math CAMP 2025") — จากวันที่ในบรีฟ → รหัสเอกสาร → ปีปัจจุบัน
+export const campYear = (c: Pick<Camp, 'dates' | 'docCode'>): number => {
+  const m = String(c.dates || '').match(/25\d\d/); if (m) return +m[0] - 543;
+  const d = String(c.docCode || '').match(/\/(\d{4})\s*$/); if (d) return +d[1] > 2400 ? +d[1] - 543 : +d[1];
+  return new Date().getFullYear();
+};
+// เติมตัวแปรแม่แบบ {S}{V}{P}{Y} ด้วยข้อมูลบรีฟ · ⟦…⟧ ตัดทิ้งเมื่อบรีฟไม่มีค่านั้น (ไม่ปล่อยชื่องานเดิมค้าง)
+export const fillTpl = (s: string, c: Pick<Camp, 'school' | 'venue' | 'province' | 'dates' | 'docCode'>): string => {
+  const v: Record<string, string> = { S: hasVal(c.school) ? c.school.trim() : '', V: hasVal(c.venue) ? c.venue.trim() : '', P: (c.province || '').trim(), Y: String(campYear(c)) };
+  const out = s.replace(/⟦([^⟧]*)⟧/g, (_: string, inner: string) => ((inner.match(/\{[SVPY]\}/g) || []).some(k => !v[k.charAt(1)]) ? '' : inner))
+    .replace(/\{S\}/g, v.S || 'โรงเรียน').replace(/\{V\}/g, v.V || 'ที่พัก').replace(/\{P\}/g, v.P).replace(/\{Y\}/g, v.Y);
+  return out.replace(/\s{2,}/g, ' ').trim();
+};
+const tmins = (t: string): number[] => { const out: number[] = []; const re = /(\d{1,2})[.:](\d{2})/g; let m: RegExpExecArray | null; while ((m = re.exec(t))) out.push(+m[1] * 60 + +m[2]); return out; };
+const MEAL_MAIN = /รับประทานอาหาร(เช้า|กลางวัน|เที่ยง|เย็น)/, MEAL_SNACK = /อาหารว่าง/;
+const tplInfo = (p: TplPick, extra: Partial<TplInfo> = {}): TplInfo => {
+  const acts = p.tpl.secs.find(x => x.acts);
+  return {
+    id: p.tpl.id, source: p.tpl.source, dur: p.tpl.dur, exact: p.exact, areaOK: p.areaOK, area: p.tpl.area, locRows: [], dropped: p.tpl.dropped || [],
+    aar: !!acts && (acts.items || []).some(x => /AAR|After Action Review/i.test(x)),
+    options: p.options.map(t => ({ id: t.id, label: tplLabel(t) })), price: p.tpl.price, ...extra
+  };
+};
+function planFromTemplate(c: Camp, p: TplPick): Plan {
+  const t = p.tpl;
+  const meals = { b: 0, l: 0, d: 0, s: 0 }; let main = 0;
+  // ต้นฉบับบางไฟล์ใส่เลขมื้อ (1)(2)… ไม่ต่อเนื่อง → ถ้ามีเลข ให้เรียงใหม่ (มื้อหลัก/มื้อว่างนับแยก เหมือนระบบ)
+  const numbered = t.days.some(d => d.some(r => (MEAL_MAIN.test(r.x) || MEAL_SNACK.test(r.x)) && /\(\d+\)\s*$/.test(r.x)));
+  const locRows: string[] = [];
+  const days: Day[] = t.days.map((rows, i) => ({ day: i + 1, items: rows.map(r => {
+    let title = fillTpl(r.x, c);
+    const sub = (r.s || []).map(x => fillTpl(x, c)).filter(Boolean);
+    const mm = title.match(MEAL_MAIN);
+    const renum = (n: number) => { const parts = title.replace(/\s*\(\d+\)/g, '').trim().match(/^(.*?รับประทานอาหาร\S*)(.*)$/); return parts ? `${parts[1]} (${n})${parts[2]}` : `${title} (${n})`; };
+    if (mm) { if (mm[1] === 'เช้า') meals.b++; else if (mm[1] === 'เย็น') meals.d++; else meals.l++; main++; if (numbered) title = renum(main); }
+    else if (MEAL_SNACK.test(title)) { meals.s++; if (numbered) title = renum(meals.s); }
+    if (r.loc) locRows.push(`วันที่ ${i + 1} ${r.t} ${title}`);
+    const row: Row = { time: r.t, title }; if (sub.length) row.sub = sub; return row;
+  }) }));
+  // เวลาออกเดินทาง: ใช้เวลาตามบรีฟ ถึงเวลาเริ่มรายการถัดไปของแม่แบบ (เวลากิจกรรมทั้งหมดคงตามแม่แบบของทีม)
+  let depWarn: string | undefined;
+  const d1 = days[0] ? days[0].items : [];
+  const dep = d1.findIndex(r => /^(ออกเดินทาง|เดินทางออก)/.test(r.title));
+  if (dep >= 0 && dep + 1 < d1.length && hasVal(c.startTime)) {
+    const st = tmins(c.startTime)[0], arrive = tmins(d1[dep + 1].time)[0];
+    if (st !== undefined && arrive !== undefined) {
+      if (st < arrive) d1[dep] = { ...d1[dep], time: rng(st, arrive) };
+      else depWarn = `เวลาออกเดินทาง ${c.startTime} น. ช้ากว่ากำหนดการของแม่แบบ (${fmt(arrive)} น.) — ปรับเวลาในไฟล์ Word`;
+    }
+  }
+  const actSec = t.secs.find(x => x.acts);
+  if (actSec && actSec.loc) for (const i of actSec.loc) if (actSec.items && actSec.items[i]) locRows.push(`หน้าปก: ${fillTpl(actSec.items[i], c)}`);
+  return { days, meals, coreSlots: 0, hasTrip: locRows.length > 0, usedActivityIds: [], tpl: tplInfo(p, { locRows, depWarn }) };
+}
+// งบประมาณจากแม่แบบ: คงถ้อยคำทีม แต่คำนวณใหม่จากบรีฟ/กำหนดการจริง — คืนที่พัก · มื้ออาหาร · อาหารว่าง · จำนวนวิทยากร · จำนวนรถบัส
+// (ต้นฉบับหลายไฟล์ตัวเลขไม่ตรงกับกำหนดการของตัวเอง จึงห้ามคัดลอกตัวเลขตรง ๆ)
+function budgetFromTemplate(lines: string[], c: Camp, plan: Plan, staff: string): string[] {
+  const m = plan.meals, main = m.b + m.l + m.d;
+  const parts = [m.b && `อาหารเช้า ${m.b} มื้อ`, m.l && `อาหารกลางวัน ${m.l} มื้อ`, m.d && `อาหารเย็น ${m.d} มื้อ`].filter(Boolean).join(' ');
+  const ppl = (c.students || 0) + (c.teachers || 0);
+  const out: string[] = [];
+  for (const raw of lines) {
+    if (/^ค่าที่พัก/.test(raw)) {
+      if (!(c.nights > 0)) continue;
+      let tail = raw.replace(/^ค่าที่พัก\s*(\d+\s*คืน|หนึ่งคืน|สองคืน|สามคืน)?/, '').replace(/⟦[^⟧]*⟧/g, '').replace(/\{V\}/g, '').replace(/^\s*ณ\s*/, '').trim();
+      if (/^เทียบเท่า$/.test(tail)) tail = 'หรือเทียบเท่า';
+      out.push(`ค่าที่พัก ${c.nights} คืน${hasVal(c.venue) ? ' ' + c.venue.trim() : ''}${tail ? ' ' + tail : ''}`); continue;
+    }
+    if (/^(ค่า)?อาหาร(อาหาร)?\s*\d+\s*มื้อ/.test(raw) && !/^(ค่า)?อาหารว่าง/.test(raw)) { if (main > 0) out.push(`ค่าอาหาร ${main} มื้อ (${parts})`); continue; }
+    if (/^(ค่า)?(พัก)?อาหารว่าง\s*\d+\s*มื้อ/.test(raw)) {
+      if (m.s > 0) { const desc = (raw.match(/\([^()]*\)/) || [''])[0]; out.push(`ค่าอาหารว่าง ${m.s} มื้อ${desc && !/มื้อ/.test(desc) ? ' ' + desc.replace(/\(\s*/, '(').replace(/\s*\)/, ')') : ''}`); }
+      continue;
+    }
+    if (/^\(.*มื้อ.*\)$/.test(raw.trim())) continue;               // เศษบรรทัดต่อของมื้ออาหาร (เช่น "( มาม่าคัพ 2 มื้อ )")
+    let x = fillTpl(raw, c);
+    if (/วิทยากร/.test(x) && /(\d+\s*[-–]\s*\d+|\d+)\s*ท่าน/.test(x)) {
+      const before = (x.match(/(\d+\s*[-–]\s*\d+|\d+)\s*ท่าน/) || ['', ''])[1].replace(/\s/g, '').replace('–', '-');
+      const same = before === staff.replace(/\s/g, '').replace('–', '-');
+      x = x.replace(/(จำนวน\s*)?(\d+\s*[-–]\s*\d+|\d+)\s*ท่าน/, `จำนวน ${staff} ท่าน`);
+      if (!same) x = x.replace(/\s*\([^)]*\)\s*$/, '');           // สัดส่วนทีมในวงเล็บของงานเดิมไม่ตรงจำนวนใหม่ → ตัดออก
+    }
+    const bus = x.match(/รถบัส.*?(?:ความจุ|ขนาด)\s*(\d+)\s*ที่นั่ง/);
+    if (bus && /จำนวน\s*\d+\s*คัน/.test(x) && ppl > 0) x = x.replace(/จำนวน\s*\d+\s*คัน/, `จำนวน ${Math.max(1, Math.ceil(ppl / +bus[1]))} คัน`);
+    out.push(x);
+  }
+  return out;
+}
+// ภาพที่ระบบดึงให้ค่ายนี้: ภาพกิจกรรมจากไฟล์ของแม่แบบที่ใช้ (6–8 รูป) · ภาพที่พักเฉพาะเมื่อที่พักในบรีฟตรงกับโรงแรมในไฟล์ทีม
+// (core ไม่โหลดไฟล์เอง — เว็บ fetch จาก photos/<id>.jpg, สคริปต์ node อ่านจาก web/photos)
+export const photoIdsFor = (c: Camp): string[] => { const p = templateFor(c); return p ? p.tpl.photos.slice(0, 8) : []; };
+export const venuePhotoSetFor = (venue?: string) => {
+  const k = placeKey(venue); if (k.length < 5) return undefined;
+  return VENUE_PHOTOS.find(v => { const n = placeKey(v.name); return k.includes(n) || n.includes(k); });
+};
+// คำบรรยายสั้น (หมายเลขภาพ + หัวข้อหน้าบอกค่าย/ที่พักอยู่แล้ว) — ไม่ล้นเป็น 2 บรรทัดในกริด
+export const photoCaption = (_c: Camp, _i: number): string => '';
+export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
+  const p = templateFor(c);
+  if (p && p.exact) return planFromTemplate(c, p);
+  const plan = buildEngineSchedule(c);
+  if (p) plan.tpl = tplInfo(p);
+  return plan;
+}
+function buildEngineSchedule(c: Camp): Plan {
   const pool = subjectPool(c);
   const sel = pool.filter(a => c.activityIds.includes(a.id));
   const of = (k: Kind) => { const r = sel.filter(a => a.kind === k); return r.length ? r : pool.filter(a => a.kind === k).slice(0, 1); };
-  // รายการเติมช่องกิจกรรมหลัก: ที่เลือกก่อน แล้วตามด้วยที่เหลือในคลัง เพื่อไม่ให้เหลือช่องว่าง
-  const selCores = sel.filter(a => a.kind === 'core');
-  const poolCores = pool.filter(a => a.kind === 'core');
+  // หัวข้อสำรองเมื่อคลัง/หลักสูตรไม่มีกิจกรรมชนิดนั้น (กันพัง และไม่ให้ช่องว่าง)
+  const FALLBACK: Record<string, string> = { opening: 'กิจกรรมเปิดค่าย / สันทนาการสร้างสัมพันธ์', night: 'กิจกรรมภาคค่ำ (Night Activity)', recreation: 'กิจกรรมสันทนาการ', closing: 'กิจกรรมสรุปและปิดค่าย' };
+  // ผูกหลักสูตร: ช่องภาคค่ำ/สันทนาการ ถ้าหลักสูตรไม่มีกิจกรรมชนิดนั้นโดยตรง ให้หยิบ "กิจกรรมของหลักสูตรเอง" ที่เข้าลักษณะก่อน
+  // (เช่น ดาราศาสตร์ → ภาคค่ำ = มองดาวผ่านกล้อง) — ใช้ของกลางเป็นทางเลือกสุดท้ายเท่านั้น
+  // คีย์เวิร์ดเรียงตามลำดับความเหมาะ (กลุ่มแรกเหมาะที่สุด) — หาเฉพาะกิจกรรมหลักของหลักสูตร ไม่หยิบกิจกรรมเปิด/ปิดค่ายมาใช้ซ้ำ
+  const KW: Partial<Record<Kind, RegExp[]>> = {
+    night: [/กล้อง|มองดาว|ดูดาว|ส่องดาว|stargaz/i, /การแสดง|show|night|ค่ำ|กองไฟ|camp\s*fire|ปาร์ตี้|party|talent|showcase|networking/i],
+    recreation: [/นันทนาการ|fun|morning|boost/i, /สันทนาการ/i]
+  };
+  const courseOwnList = (k: Kind): Activity[] => {
+    if (!c.courseCode || !KW[k]) return [];
+    const cand = [...sel, ...pool].filter((a, i, arr) => arr.indexOf(a) === i && a.courseCode === c.courseCode && a.kind !== 'opening' && a.kind !== 'closing');
+    const out: Activity[] = [];
+    for (const re of KW[k]!) for (const a of cand) if (re.test(a.title) && !out.includes(a)) out.push(a);
+    return out;
+  };
+  const reserved: Partial<Record<Kind, Activity[]>> = {};
+  for (const k of (c.durationMode === 'overnight' ? ['night', 'recreation'] : []) as Kind[]) {
+    const direct = of(k)[0];
+    if (direct && (direct.courseCode || !c.courseCode)) continue;      // มีกิจกรรมชนิดนี้ของหลักสูตรอยู่แล้ว
+    const own = courseOwnList(k).filter(a => !Object.values(reserved).some(l => l!.includes(a)));
+    if (own.length) reserved[k] = own.slice(0, k === 'night' ? Math.max(1, c.nights) : 1);
+  }
+  const useN: Partial<Record<Kind, number>> = {};
+  const pick1 = (k: Kind): Activity => {
+    const list = reserved[k];
+    if (list && list.length) { const i = useN[k] || 0; useN[k] = i + 1; return list[i % list.length]; } // หลายคืน → หมุนกิจกรรมของหลักสูตร
+    const direct = of(k)[0];
+    if (direct && (direct.courseCode || !c.courseCode || k === 'opening' || k === 'closing')) return direct;
+    // หลักสูตรไม่มีกิจกรรมชนิดนี้ → ใช้กิจกรรมมาตรฐานของ "วิชาเดียวกัน" (เช่น อังกฤษ → English Night Show) ก่อนของกลาง
+    const sameSubject = LIB.find(a => !a.courseCode && a.kind === k && a.subjects.length === 1 && a.subjects[0] === c.subject);
+    return sameSubject || direct || ({ id: `fb-${k}`, subjects: [c.subject], kind: k, title: FALLBACK[k] || 'กิจกรรมค่าย' } as Activity);
+  };
+  const reservedIds = new Set(Object.values(reserved).flatMap(l => l!.map(a => a.id)));
+  // รายการเติมช่องกิจกรรมหลัก: ที่เลือกก่อน แล้วตามด้วยที่เหลือในคลัง (ไม่ซ้ำกับที่จองไว้ภาคค่ำ/สันทนาการ)
+  const selCores = sel.filter(a => a.kind === 'core' && !reservedIds.has(a.id));
+  const poolCores = pool.filter(a => a.kind === 'core' && !reservedIds.has(a.id));
   const fillCores = (selCores.length ? [...selCores, ...poolCores.filter(a => !selCores.includes(a))] : poolCores);
   const cores = fillCores;
   const meals = { b: 0, l: 0, d: 0, s: 0 }; let mealNo = 0, coreIdx = 0, coreSlots = 0, hasTrip = false;
   const used: string[] = [];
   const act = (a?: Activity): Row['sub'] => { if (a?.id) used.push(a.id); return a?.desc ? [a.desc] : []; };
   const days: Day[] = [];
-  const startMin = Math.round(parseInt(c.startTime.split(/[.:]/)[0]) * 60 + parseInt(c.startTime.split(/[.:]/)[1] || '0'));
+  // กันค่าเวลา/ชั่วโมงเดินทางที่อ่านไม่ได้ (NaN) ไม่ให้เวลาในตารางกลายเป็น "NaN.NaN"
+  const hh = parseInt(c.startTime?.split(/[.:]/)[0]); const mm = parseInt(c.startTime?.split(/[.:]/)[1] || '0');
+  const startMin = Math.round((Number.isFinite(hh) ? hh : 7) * 60 + (Number.isFinite(mm) ? mm : 0));
+  const travelH = Number.isFinite(c.travelHours) && c.travelHours >= 0 ? c.travelHours : 0;
+  // ===== Day Camp (จัดที่โรงเรียน ไป-กลับ) — แพทเทิร์นมาตรฐาน 08.30–16.00 ไม่มีเดินทาง/พักค้าง =====
+  if (c.durationMode === 'day') {
+    // แพทเทิร์น STEAM (5 STEPs + STEAM Mission) ใช้กับหลักสูตร STEAM เท่านั้น — หลักสูตรอื่นใช้ชื่อและกิจกรรมของหลักสูตรนั้นเอง
+    const isSteam = isSteamProgram(c);
+    const topic = courseShortTh(c);
+    const introTitle = isSteam
+      ? 'เรียนรู้พื้นฐาน STEM ด้วยกระบวนการ 5 STEPs Learning และหลักการออกแบบเชิงวิศวกรรม (Engineering Design Process : EDP)'
+      : `ปูพื้นฐานความรู้ด้าน${topic} และชี้แจงภารกิจการเรียนรู้`;
+    const mission = isSteam ? '“STEAM Mission”' : `ภารกิจการเรียนรู้ด้าน${topic}`;
+    // Day Camp: รวมกิจกรรมที่แยก Part.1/Part.2/EP ในคลังให้เหลือชื่อฐานเดียว แล้วระบบแบ่ง Part 1 / Part 2 เองตามช่วงเวลา (ไม่ซ้ำข้ามวัน)
+    const stripPart = (t: string) => t.replace(/\s*[-–]?\s*(Part|EP)\.?\s*\d+\s*$/i, '').trim();
+    const seenBase = new Set<string>();
+    // กฎเหล็กข้อ 3: Day Camp ห้ามมีกิจกรรมกลางคืน — ตัดกิจกรรมแนว Night/Party ที่คลังจัดเป็น core ออก
+    const coresD = cores.filter(a => !/night|party|ปาร์ตี้|ภาคค่ำ/i.test(a.title)).filter(a => { const k = stripPart(a.title); if (seenBase.has(k)) return false; seenBase.add(k); return true; });
+    for (let d = 1; d <= c.days; d++) {
+      const first = d === 1, last = d === c.days;
+      let cur = 8 * 60 + 30; // 08.30 น.
+      const items: Row[] = [];
+      const put = (title: string, dur: number, sub?: string[]) => { items.push({ time: rng(cur, cur + dur), title, sub }); cur += dur; };
+      const coreRow = (label: string, dur: number) => {
+        const slotIdx = coreSlots; coreSlots++;
+        const pick = c.coreSlotIds && c.coreSlotIds[slotIdx] ? pool.find(a => a.id === c.coreSlotIds![slotIdx]) : undefined;
+        let name: string;
+        if (pick) { name = pick.title; act(pick); }
+        else if (coresD.length) { const a = coresD[coreIdx % coresD.length]; const rep = Math.floor(coreIdx / coresD.length) > 0; coreIdx++; name = rep ? `${stripPart(a.title)}\u00A0(ต่อ\u2060ยอด)` : a.title; act(a); if (!rep) name = stripPart(a.title); }
+        else name = 'กิจกรรมฐานการเรียนรู้เชิงบูรณาการ';
+        if (isSteam) put(`กิจกรรม ${mission}${label ? ' ' + label : ''}`, dur, [name]);
+        else put(name, dur);                                     // หลักสูตรอื่น: ชื่อกิจกรรมของหลักสูตรเป็นหัวข้อช่วงโดยตรง
+        items[items.length - 1].slot = slotIdx;
+      };
+      if (!first) {
+        // ===== วันที่ 2 เป็นต้นไป — แพตเทิร์นจากเอกสารจริง (STEM Camp ร.ร.ศรีสองรักษ์วิทยา) =====
+        // 09.00 สันทนาการ → กิจกรรม A Part 1 → ว่าง → A Part 2 → กลางวัน → กิจกรรม B Part 1 → ว่าง → B Part 2 → สรุป 16.00–16.30 → (วันสุดท้าย) เดินทางกลับ
+        cur = 9 * 60;
+        { const a = pick1('recreation'); put(a.title, 30, act(a)); }       // 09.00–09.30
+        const twoPart = (d1: number, gapTitle: string | null, gap: number, d2: number) => {
+          coreRow('', d1); const row = items[items.length - 1];
+          const raw = row.sub && row.sub.length ? row.sub[0] : row.title; const TAG = '\u00A0(ต่อ\u2060ยอด)';
+          const ext = raw.includes(TAG); const nm = stripPart(raw.replace(TAG, ''));
+          const p1 = `${nm} - Part 1${ext ? TAG : ''}`, p2 = `${nm} - Part 2${ext ? TAG : ''}`;
+          if (row.sub && row.sub.length) row.sub = [p1]; else row.title = p1;
+          if (gapTitle) put(gapTitle, gap);
+          const slot = row.slot;
+          if (row.sub && row.sub.length) put(row.title, d2, [p2]); else put(p2, d2);
+          items[items.length - 1].slot = slot;
+        };
+        meals.s++; twoPart(60, `รับประทานอาหารว่าง (${meals.s})`, 15, 75);   // 09.30–10.30 · 10.30–10.45 · 10.45–12.00
+        meals.l++; put(`รับประทานอาหารกลางวัน (${++mealNo})`, 60);          // 12.00–13.00
+        meals.s++; twoPart(90, `รับประทานอาหารว่าง (${meals.s})`, 30, 60);   // 13.00–14.30 · 14.30–15.00 · 15.00–16.00
+        const sumWhat = isSteam ? ` ${mission}` : `ด้าน${topic}`;
+        put(last ? `สรุปการเรียนรู้${sumWhat} และถอดบทเรียน (AAR : After Action Review)` : `สรุปการเรียนรู้${sumWhat} ประจำวัน`, 30); // 16.00–16.30
+        if (last) items.push({ time: `${fmt(cur)} น. เป็นต้นไป`, title: 'เดินทางกลับโดยสวัสดิภาพ' });
+        days.push({ day: d, items });
+        continue;
+      }
+      // วันแรก (ทั้ง 1 วัน และวันแรกของหลายวัน): แพตเทิร์นมาตรฐาน 08.30–16.00 เดิม
+      if (first) put('ลงทะเบียน / พิธีเปิด', 30);
+      { const a = pick1('opening'); put(a.title, 60, act(a)); }  // 09.00–10.00
+      put(introTitle, 20);                                       // 10.00–10.20
+      meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15);      // 10.20–10.35
+      coreRow('#EP.1', 85);                                      // 10.35–12.00
+      meals.l++; put(`รับประทานอาหารกลางวัน (${++mealNo})`, 60);  // 12.00–13.00
+      coreRow('#EP.2', 120);                                     // 13.00–15.00
+      meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15);      // 15.00–15.15
+      const sumWhat = isSteam ? ` ${mission}` : `ด้าน${topic}`;
+      put(last ? `สรุปการเรียนรู้${sumWhat} และถอดบทเรียน (AAR : After Action Review)` : `สรุปการเรียนรู้${sumWhat} ประจำวัน`, 45); // 15.15–16.00
+      days.push({ day: d, items });
+    }
+    return { days, meals, coreSlots, hasTrip: false, usedActivityIds: used };
+  }
   for (let d = 1; d <= c.days; d++) {
     const first = d === 1, last = d === c.days;
-    const lateStart = startMin + c.travelHours * 60 + 120 >= 11 * 60;
+    const lateStart = startMin + travelH * 60 + 120 >= 11 * 60;
     let T: string[];
     if (c.durationMode === 'half') {
       // ครึ่งวัน: ช่วงสั้น ไม่มีมื้อหลัก/ไม่พักค้าง จบด้วย AAR + พิธีปิด
@@ -384,14 +755,21 @@ export function buildSchedule(c: Camp): Plan {
       T.push(last ? 'aar' : 'summary', ...(last ? ['award'] : []), 'return');
     } else {
       // พักค้าง (overnight)
-      T = first ? ['depart', 'arrive', 'lunch?', 'register', 'opening', 'core', 'snack', 'trip', 'checkin', 'dinner', 'night', 'rest']
+      // วันแรก: เลือกโครงตาม "เวลาถึงสถานที่" เพื่อไม่ให้มีช่วงว่างก่อนอาหารกลางวัน
+      const arr = startMin + Math.round(travelH * 60) + 30;
+      const day1 = arr <= 570 ? ['depart', 'arrive', 'register', 'opening', 'core', 'lunch', 'core', 'snack', 'trip', 'checkin', 'dinner', 'night', 'rest']   // ถึงก่อน 09.30
+        : arr <= 660 ? ['depart', 'arrive', 'register', 'opening', 'lunch', 'core', 'snack', 'trip', 'checkin', 'dinner', 'night', 'rest']                  // ถึง 09.30–11.00
+        : arr <= 750 ? ['depart', 'arrive', 'lunch', 'register', 'opening', 'core', 'snack', 'trip', 'checkin', 'dinner', 'night', 'rest']                  // ถึง 11.00–12.30
+        : ['depart', 'arrive', 'register', 'opening', 'core', 'snack', 'checkin', 'dinner', 'night', 'rest'];                                             // ถึงบ่าย (ทานกลางวันระหว่างทาง)
+      if (!c.venueVisit.trim()) for (let i = 0; i < day1.length; i++) if (day1[i] === 'trip') day1[i] = 'core'; // ไม่มีทัศนศึกษา → ใส่กิจกรรมหลักสูตรแทน ไม่ปล่อยช่วงว่าง
+      T = first ? day1
         : last ? ['breakfast', 'checkout', 'recreation', 'closing', 'aar', 'award', 'lunch', 'return']
         : ['breakfast', 'core', 'snack', 'core', 'lunch', 'core', 'snack', 'core', 'summary', 'free', 'dinner', 'night', 'rest'];
-      if (first && lateStart) T = ['depart', 'arrive', 'lunch', 'register', 'opening', 'core', 'snack', 'checkin', 'dinner', 'night', 'rest'];
+      void lateStart;
     }
     let cur = (first || c.durationMode !== 'overnight') ? startMin : 0;
     // ครึ่งวัน: จำกัดให้กิจกรรมจบในหน้าต่างราว 3.5 ชม. หลังถึงสถานที่ (กันลากยาวเป็นเต็มวัน)
-    const coreCap = c.durationMode === 'half' ? startMin + Math.round(c.travelHours * 60) + 30 + 210 : 16.5 * 60;
+    const coreCap = c.durationMode === 'half' ? startMin + Math.round(travelH * 60) + 30 + 210 : 16.5 * 60;
     const items: Row[] = [];
     T.forEach((tk, i) => {
       const rest = T.slice(i + 1);
@@ -399,37 +777,44 @@ export function buildSchedule(c: Camp): Plan {
       const put = (title: string, dur: number, sub?: string[], anchor?: number) => { const s = anchor ? Math.max(cur, anchor) : cur; items.push({ time: rng(s, s + dur), title, sub }); cur = s + dur; };
       const open = (title: string, sub?: string[]) => { items.push({ time: `${fmt(cur)} น. เป็นต้นไป`, title, sub }); };
       switch (tk) {
-        case 'depart': { const dur = Math.round(c.travelHours * 60); put(`ออกเดินทางจาก${c.school}`, dur); break; }
+        case 'depart': { const dur = Math.round(travelH * 60); put(`ออกเดินทางจาก${c.school}`, dur); break; }
         case 'arrive': put(`เดินทางถึง ณ ${c.venue}`, 30); break;
         case 'lunch?': case 'lunch': if (tk === 'lunch?' && cur > 13 * 60) break; meals.l++; put(`รับประทานอาหารกลางวัน (${++mealNo})`, 60, undefined, ANCH.lunch); break;
         case 'breakfast': meals.b++; put(`รับประทานอาหารเช้า (${++mealNo})`, 60, undefined, ANCH.breakfast); break;
         case 'dinner': meals.d++; put(`รับประทานอาหารเย็น (${++mealNo})`, 60, undefined, ANCH.dinner); break;
         case 'snack': meals.s++; put(`รับประทานอาหารว่าง (${meals.s})`, 15); break;
         case 'register': put('ลงทะเบียน / พิธีเปิด', 30); break;
-        case 'opening': { const a = of('opening')[0]; put(a.title, c.durationMode === 'half' ? 45 : 60, act(a)); break; }
+        case 'opening': { const a = pick1('opening'); put(a.title, c.durationMode === 'half' ? 45 : 60, act(a)); break; }
         case 'core': {
-          if (cur > coreCap) break; coreSlots++;
+          if (cur > coreCap) break;
+          const slotIdx = coreSlots; coreSlots++;
           const defDur = c.durationMode === 'half' ? 60 : 90;
           const sp = span(); const dur = sp.a !== null ? Math.min(120, Math.max(45, Math.round((sp.a - cur - sp.fixed) / (sp.k + 1) / 15) * 15)) : defDur;
-          if (cores.length) {
+          // เลือกกิจกรรมรายช่วง: ถ้าผู้ใช้กำหนด coreSlotIds[slotIdx] และมีในคลัง → ใช้ตัวนั้น; ไม่งั้นเติมอัตโนมัติ
+          const pick = c.coreSlotIds && c.coreSlotIds[slotIdx]
+            ? pool.find(a => a.id === c.coreSlotIds![slotIdx]) : undefined;
+          if (pick) {
+            put(pick.title, dur, act(pick));
+          } else if (cores.length) {
             const a = cores[coreIdx % cores.length];
             const repeat = Math.floor(coreIdx / cores.length) > 0;
             coreIdx++;
-            put(repeat ? `${a.title} (ต่อยอด)` : a.title, dur, act(a));
+            put(repeat ? `${a.title}\u00A0(ต่อ\u2060ยอด)` : a.title, dur, act(a));
           } else {
             // ไม่มีกิจกรรมในคลังเลย (วิชาที่ยังไม่ได้ตั้งค่า) — ใส่ฐานกลางเพื่อไม่ให้ค้าง
             put('กิจกรรมฐานการเรียนรู้เชิงบูรณาการ', dur);
           }
+          items[items.length - 1].slot = slotIdx; // ติดดัชนีช่องให้ UI เลือกกิจกรรมรายช่วงได้
           break;
         }
-        case 'trip': if (cur > 16.5 * 60 || !c.venueVisit.trim()) break; hasTrip = true; put(`กิจกรรมทัศนศึกษา ${c.venueVisit}`, 90); break;
+        case 'trip': if (cur > 16.5 * 60 || !c.venueVisit.trim()) break; hasTrip = true; put(/^\s*ทัศนศึกษา/.test(c.venueVisit) ? `กิจกรรม${c.venueVisit.trim()}` : `กิจกรรมทัศนศึกษา ${c.venueVisit}`, 90); break;
         case 'checkin': put('เช็คอินเข้าที่พัก / พักผ่อนตามอัธยาศัย', 45); break;
-        case 'night': { const a = of('night')[0]; put(a.title, 60, act(a), 19 * 60 + 30); break; }
+        case 'night': { const a = pick1('night'); put(a.title, 60, act(a), 19 * 60 + 30); break; }
         case 'summary': put('สรุปการเรียนรู้ประจำวัน / ถอดบทเรียนกลุ่ม', 30); break;
         case 'free': { const sp = span(); put('พักผ่อนตามอัธยาศัย / เตรียมกิจกรรมนำเสนอ', sp.a !== null ? Math.min(150, Math.max(30, sp.a - cur)) : 60); break; }
         case 'checkout': put('เก็บสัมภาระ / เช็คเอาท์', 60); break;
-        case 'recreation': { const a = of('recreation')[0]; put(a.title, 30, act(a)); break; }
-        case 'closing': { const a = of('closing')[0]; put(a.title, 30, act(a)); break; }
+        case 'recreation': { const a = pick1('recreation'); put(a.title, 30, act(a)); break; }
+        case 'closing': { const a = pick1('closing'); put(a.title, 30, act(a)); break; }
         case 'aar': put('ถอดบทเรียน AAR (After Action Review) และสรุปสิ่งที่ได้เรียนรู้', 45); break;
         case 'award': put('มอบของรางวัล และพิธีปิด', 30); break;
         case 'return': open(`เดินทางกลับ${c.school} โดยสวัสดิภาพ`); break;
@@ -457,29 +842,98 @@ export function compose(c: Camp, plan: Plan) {
     'เพื่อจัดกระบวนการเรียนรู้ให้ผู้เรียนได้เกิดเจตคติที่ดีต่อการเรียน และเอาใจใส่ในการเรียน เกิดพฤติกรรมในการรักการเรียนรู้ ใฝ่ฝึกฝนตนเองอยู่เสมออย่างเต็มที่',
     'เพื่อจัดกระบวนการเรียนรู้ให้ผู้เรียนเกิดกระบวนการเรียนรู้ที่สร้างสรรค์อย่างมีความสุข ทั้งสุขภาพกายและสุขภาพจิตที่ดี ได้เรียนรู้ร่วมกันจากการปฏิบัติจริง ด้วยความหลากหลายและสร้างองค์ความรู้ใหม่ได้ในศตวรรษที่ 21'
   ];
-  const names = sel.map(a => a.title);
-  const acts: string[] = [];
-  for (let i = 0; i < names.length; i += 2) acts.push(names.slice(i, i + 2).join(' / '));
-  acts.push('กิจกรรมทดสอบหลังการเรียนรู้ (After Action Review : AAR)');
-  const integ = ['บูรณาการคุณลักษณะที่พึงประสงค์ในการเรียนรู้ในศตวรรษที่ 21', 'บูรณาการโดยใช้โครงการในทางกิจกรรมค่ายเป็นลักษณะภารกิจในระหว่างกิจกรรม', ...S.extra,
-    'บูรณาการกระบวนการกลุ่มและทักษะความเป็นผู้นำ (Collaborative and Leadership Skills.)', 'บูรณาการทักษะการเรียนรู้และนวัตกรรม (Learning and Innovation Skills)', 'บูรณาการทักษะการสื่อสาร (Communication Tactic)'];
+  // กิจกรรมเชิงบูรณาการ: ยึด "กิจกรรมของหลักสูตร" ที่เลือกไว้เป็นหลักเสมอ (ไม่ใช่แค่ที่ลงตาราง)
+  // เรียงกิจกรรมหลัก/ภาคค่ำก่อน (พื้นฐานหลักสูตร) แล้วจับคู่ 2 รายการ/บรรทัด → ~5 บรรทัด (คล้ายต้นฉบับ, พอดีหน้าแรก)
+  const ORD: Record<string, number> = { core: 0, night: 1, opening: 2, recreation: 3, closing: 4 };
+  const selForActs = pool.filter(a => c.activityIds.includes(a.id)).length
+    ? pool.filter(a => c.activityIds.includes(a.id)) : sel;
+  const ordered = [...selForActs].sort((a, b) => (ORD[a.kind] ?? 9) - (ORD[b.kind] ?? 9));
+  // กิจกรรมเชิงบูรณาการ — แพตเทิร์นเอกสารจริงทีม (REA: docs/REA_PROGRAM_LAYOUT.md) เดินตามวงจรการเรียนรู้ 5 ขั้น
+  //   1 อุ่นเครื่อง/สร้างสัมพันธ์ → 2 ระดมสมองประลองปัญญา → 3 ฐานการเรียนรู้ของหลักสูตร → (ภาคค่ำ: เฉพาะพักค้าง) → 4 ระดมสมอง ถอดบทเรียน → 5 AAR
+  //   ทุกข้อขึ้นต้นด้วยคำว่า "กิจกรรม" เสมอ — ห้ามใส่ชื่อกิจกรรมเปล่า ๆ
+  const baseName = (t: string) => tidyTitle(t).replace(/\s*\(ต่อยอด\)\s*$/, '').replace(/\s*[-–]?\s*(EP|Part)\.?\s*\d+\s*$/i, '').replace(/\s*#EP\.?\s*\d+\s*$/i, '').trim();
+  const asKijakam = (t: string) => { const x = baseName(t); if (/^กิจกรรม/.test(x)) return x; return /[“"”]/.test(x) ? `กิจกรรม${x}` : `กิจกรรม “${x}”`; };
+  const firstOf = (k: Kind) => ordered.find(a => a.kind === k);
+  const warm = firstOf('opening') || firstOf('recreation');
+  const warmLine = warm ? (/\(/.test(warm.title) ? asKijakam(warm.title) : `${asKijakam(warm.title)} (กระบวนการสันทนาการสร้างสัมพันธ์)`)
+    : 'กิจกรรม “Reboot Your Brain” (กระบวนการสันทนาการสร้างสัมพันธ์)';
+  const station = ordered.find(a => a.kind === 'core' && /station|mission|quest|challenge|ฐานการเรียนรู้/i.test(a.title));
+  const night = c.nights > 0 ? firstOf('night') : undefined;
+  const acts: string[] = [
+    warmLine,
+    'กิจกรรมระดมสมองประลองปัญญา',
+    station ? asKijakam(station.title) : 'กิจกรรม “Creative Learning Station”',
+    ...(night ? [asKijakam(night.title)] : []),
+    'กิจกรรมระดมสมอง ถอดบทเรียน',
+    'กิจกรรมทดสอบหลังการเรียนรู้ (After Action Review : AAR)'
+  ];
+  // บูรณาการการเรียน: 5–7 ข้อ (ตัดให้ไม่เกิน 7 เพื่อให้อยู่ในหน้าแรก)
+  const extra = (c.courseCode && c.subject === 'steam' && !isSteamProgram(c))
+    ? [`บูรณาการแบบสหวิทยาการด้าน${courseShortTh(c)}`, `บูรณาการทักษะวิชาชีพด้าน${courseShortTh(c)}`] : S.extra;
+  const integ = ['บูรณาการคุณลักษณะที่พึงประสงค์ในการเรียนรู้ในศตวรรษที่ 21', 'บูรณาการโดยใช้โครงการในทางกิจกรรมค่ายเป็นลักษณะภารกิจในระหว่างกิจกรรม', ...extra,
+    'บูรณาการทักษะการเรียนรู้และนวัตกรรม (Learning and Innovation Skills)', 'บูรณาการทักษะการสื่อสาร (Communication Tactic)'].slice(0, 6);
   const m = plan.meals, main = m.b + m.l + m.d;
   const parts = [m.b && `อาหารเช้า ${m.b} มื้อ`, m.l && `อาหารกลางวัน ${m.l} มื้อ`, m.d && `อาหารเย็น ${m.d} มื้อ`].filter(Boolean).join(' ');
   const staff = staffText(c.students);
-  const budget = [
+  const autoBudget = c.durationMode !== 'overnight' ? [
+    'ค่าอุปกรณ์การจัดกิจกรรม', `ค่าวิทยากรและทีมงานผู้เชี่ยวชาญ ${staff} ท่าน`, 'ค่าเดินทางวิทยากร', 'ค่าของรางวัล สำหรับผู้เข้าร่วม', 'ค่าประสานงาน'
+  ] : [
     c.nights > 0 && `ค่าที่พัก ${c.nights} คืน ${c.venue}`, main > 0 && `ค่าอาหาร ${main} มื้อ (${parts})`, m.s > 0 && `ค่าอาหารว่าง ${m.s} มื้อ`,
     'ค่าห้องประชุมสัมมนารองรับการทำกิจกรรม', `ค่าวิทยากรและทีมงาน จำนวน ${staff} ท่าน`, 'ค่าเดินทางวิทยากร',
     plan.hasTrip && 'ค่ากิจกรรมทัศนศึกษาแหล่งเรียนรู้', 'ค่าอุปกรณ์การจัดค่ายทั้งหมด'
   ].filter(Boolean) as string[];
-  const total = c.students + c.teachers;
-  return {
-    titleTh: `หลักสูตร “${course ? course.name : S.titleTh}”`, titleEn: `( ${S.en} )`, objectives, acts, integ, budget, staff,
-    p1: `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`, p2: `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน`,
-    dur: c.durationMode === 'half' ? 'ครึ่งวัน (ไป-กลับ)'
-      : c.durationMode === 'day' ? `${c.days} วัน (ไป-กลับ)`
-      : `${c.days} วัน ${c.nights} คืน`
-  };
+  // ทีมแก้รายการเองได้ (ช่องว่างถูกตัดทิ้ง) — ถ้าไม่ได้แก้ ใช้รายการอัตโนมัติ
+  const custom = (c.budgetItems || []).map(x => String(x ?? '').trim()).filter(Boolean);
+  const budget = custom.length ? custom : autoBudget;
+  const total = c.students + (showTeachers(c) ? c.teachers : 0);
+  // แยกชื่อหลักสูตรเป็นไทย + อังกฤษ: ชื่อในคลังอยู่รูป "ชื่อไทย (English Name)" → ไทยบรรทัดบน, อังกฤษในวงเล็บบรรทัดล่าง
+  const rawName = course ? course.name : S.titleTh;
+  const nm = rawName.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
+  const nameTh = nm ? nm[1].trim() : rawName;      // ชื่อไทยล้วน (ไม่มีวงเล็บอังกฤษ)
+  const enName = nm ? nm[2].trim() : S.en;          // อังกฤษในวงเล็บ (หรือชื่อ EN มาตรฐานของวิชา)
+  const p1 = `นักเรียนห้องเรียนพิเศษ ระดับชั้น ${c.level} จำนวน ${c.students} คน`;
+  const p2 = showTeachers(c) ? `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน` : '';
+  const dur = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน`;
+  const base = { objectives, acts, integ, budget, autoBudget, staff, p1, p2, dur };
+  // ===== หน้าปกตามแม่แบบจริงของทีม (ลำดับหัวข้อ/ถ้อยคำตามต้นฉบับ แทนค่าด้วยบรีฟ) =====
+  const tt = plan.tpl ? templateById(plan.tpl.id) : undefined;
+  if (tt) {
+    const F = (x: string) => fillTpl(x, c);
+    const exact = !!plan.tpl!.exact;
+    const secOf = (re: RegExp) => tt.secs.find(x => x.k === 'list' && re.test(x.h || ''));
+    const tActs = exact ? ((tt.secs.find(x => x.acts) || { items: [] as string[] }).items || []).map(F) : acts;
+    const tObj = ((secOf(/^วัตถุประสงค์/) || { items: [] as string[] }).items || []).map(F);
+    const tInteg = ((secOf(/^บูรณาการ/) || { items: [] as string[] }).items || []).map(F);
+    const cover: CoverSec[] = [];
+    for (const sec of tt.secs) {
+      if (sec.k === 'info') {
+        const lab = sec.label || '';
+        const val = (/จำนวน|ผู้เข้า|กลุ่มเป้าหมาย/.test(lab) ? [p1, p2] : /วิทยากร/.test(lab) ? [`${staff} ท่าน`] : /ระยะเวลา/.test(lab) ? [dur] : /สถานที่/.test(lab) && hasVal(c.venue) ? [c.venue.trim()] : []).filter(Boolean);
+        if (!val.length) continue;
+        const last = cover[cover.length - 1];
+        if (last && last.k === 'info') last.rows!.push([lab, val]); else cover.push({ k: 'info', rows: [[lab, val]] });
+        continue;
+      }
+      const isObj = sec.k === 'list' && /^วัตถุประสงค์/.test(sec.h || '');
+      const items = sec.acts ? tActs : isObj && !tObj.length ? objectives : (sec.items || []).map(F);
+      cover.push({ k: sec.k, h: sec.h, items, first: isObj });
+    }
+    const tBudget = exact ? budgetFromTemplate(tt.budget, c, plan, staff) : autoBudget;
+    const titleTh = F(tt.titles[0] || `หลักสูตร “${nameTh}”`), titleEn = tt.titles[1] ? F(tt.titles[1]) : '';
+    return { ...base, objectives: tObj.length ? tObj : objectives, acts: tActs.length ? tActs : acts, integ: tInteg.length ? tInteg : integ,
+      autoBudget: tBudget, budget: custom.length ? custom : tBudget, titleTh, nameTh: titleTh, titleEn, cover, source: tt.source };
+  }
+  const cover: CoverSec[] = [
+    { k: 'list', h: 'วัตถุประสงค์การเรียนรู้', items: objectives, first: true },
+    { k: 'info', rows: [['จำนวน', [p1, p2].filter(Boolean)], ['วิทยากร', [`${staff} คน`]], ['ระยะเวลาอบรม', [dur]]] },
+    { k: 'list', h: 'กิจกรรมเชิงบูรณาการ', items: acts },
+    { k: 'list', h: 'บูรณาการการเรียน (Instruction Integration)', items: integ }
+  ];
+  return { ...base, titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, cover, source: '' };
 }
+// หน้าปกเป็นลำดับหัวข้อ (ตามแม่แบบหรือแพตเทิร์นมาตรฐาน) — Word/PDF/พรีวิว เรนเดอร์จากโครงเดียวกัน
+//   list = รายการเลข "1.ข้อความ" (first = ย่อหน้าแรกเยื้องแบบวัตถุประสงค์) · para = ย่อหน้า · bullets = "-"/"•" · info = ป้าย<แท็บ>ค่า
+export interface CoverSec { k: 'list' | 'para' | 'bullets' | 'info'; h?: string; items?: string[]; rows?: [string, string[]][]; first?: boolean }
 
 /* ===================== VALIDATION ===================== */
 export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: boolean }[] {
@@ -492,11 +946,14 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
   const overnightWords = /เช็คอิน|อาหารเย็น|พักผ่อนฝันดี|อาหารเช้า/;
   const noStrayOvernight = c.durationMode === 'overnight' || !allItems.some(r => overnightWords.test(r.title));
   const durOK = c.durationMode === 'overnight' ? c.nights > 0 : c.nights === 0;
-  const hasAAR = allItems.some(r => /AAR/.test(r.title));
+  const tp = plan.tpl;
+  const hasAAR = allItems.some(r => /AAR/.test(r.title)) || !!(tp && tp.aar);
   // กิจกรรมจากคลัง 14 หลักสูตรยัง "รอตรวจ" — เตือน (soft) ให้ทีมยืนยันรายละเอียดก่อนจัดจริง
-  const pendingCount = c.activityIds.filter(id => pool.find(a => a.id === id)?.draft).length;
+  // ใช้แม่แบบจริงตรงระยะเวลา → กำหนดการมาจากเอกสารทีม ไม่ได้ใช้คลังกิจกรรม "รอตรวจ"
+  const pendingCount = tp && tp.exact ? 0 : c.activityIds.filter(id => pool.find(a => a.id === id)?.draft).length;
+  const realActs = c.actImgs.filter(im => im.data).length;
   return [
-    { ok: /^PL\s*\d+\/\d+$/.test(c.docCode.trim()), msg: 'รหัสเอกสารรูปแบบ PL xxxx/2569' },
+    { ok: /^PL\s+([A-Z]{2,4}\s+)?\d{3,4}\s*\/\s*\d{4}$/.test(c.docCode.trim()), msg: 'รหัสเอกสารอ้างจากรหัสหลักสูตรจริง (เช่น PL STM 0101/2569)' },
     { ok: !!c.school && !c.school.includes('...'), msg: 'ระบุชื่อโรงเรียนแล้ว' },
     { ok: !!c.dates.trim() && !c.dates.includes('...'), msg: 'ระบุวันที่จัดค่ายแล้ว' },
     { ok: !!c.venue.trim(), msg: 'ระบุสถานที่/โรงแรมแล้ว' },
@@ -508,61 +965,187 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     { ok: hasAAR, msg: 'มีกิจกรรมถอดบทเรียน (AAR)' },
     { ok: noGap, msg: 'ทุกช่วงเวลามีกิจกรรมจริง (ไม่มีช่องว่าง)' },
     { ok: unique, soft: true, msg: unique ? `กิจกรรมหลักพอทุกช่องไม่ซ้ำ (ใช้ ${plan.coreSlots} ช่อง · คลังมี ${coreAvail})` : `ค่ายยาว ใช้ ${plan.coreSlots} ช่อง แต่คลังมี ${coreAvail} — ระบบวนใช้ซ้ำแบบติดป้าย “(ต่อยอด)” หรือเพิ่มกิจกรรมเองในแท็บ 3` },
-    { ok: pendingCount === 0, soft: true, msg: pendingCount === 0 ? 'ไม่มีกิจกรรมสถานะรอตรวจ' : `⚠ มีกิจกรรม "รอตรวจ" ${pendingCount} รายการ (จากคลัง 14 หลักสูตร) — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง` }
+    { ok: pendingCount === 0, soft: true, msg: pendingCount === 0 ? 'ไม่มีกิจกรรมสถานะรอตรวจ' : `⚠ มีกิจกรรม "รอตรวจ" ${pendingCount} รายการ (จากคลัง 14 หลักสูตร) — ทีมต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง` },
+    ...(tp ? [
+      { ok: tp.exact, soft: true, msg: tp.exact ? `ใช้แม่แบบจริงของทีม ${tp.source.replace('__', ' · ')} (${durKeyLabel(tp.dur)})` : `ยังไม่มีแม่แบบ ${durKeyLabel(durKeyOf(c))} ของหลักสูตรนี้ — หน้าปกใช้แม่แบบ ${tp.source.replace('__', ' · ')} · กำหนดการจัดอัตโนมัติจากคลังกิจกรรม` },
+      ...(tp.locRows.length && tp.areaOK !== true ? [{ ok: false, soft: true, msg: `กำหนดการมีกิจกรรมนอกสถานที่ของแม่แบบ (พื้นที่${tp.area.join('/') || 'เดิม'}) ${tp.locRows.length} รายการ — ตรวจว่าเหมาะกับพื้นที่ค่าย${c.province ? ' จ.' + c.province : ''} ก่อนส่ง: ${tp.locRows.slice(0, 3).join(' · ')}` }] : []),
+      ...(tp.depWarn ? [{ ok: false, soft: true, msg: tp.depWarn }] : []),
+      ...(tp.dropped.length ? [{ ok: true, soft: true, msg: `ตัดรายการที่ไม่ถูกต้องในต้นฉบับ: ${tp.dropped.join(' · ')}` }] : [])
+    ] : []),
+    ...(c.courseCode ? [{ ok: realActs >= 6, soft: true, msg: realActs >= 6 ? `ภาพกิจกรรม ${realActs} รูป จากไฟล์ของค่ายนี้` : `ภาพกิจกรรมมี ${realActs} รูป (ควร 6–8 รูปจากไฟล์ของค่ายนี้)${realActs === 0 ? ' — ภาพยังโหลดไม่เสร็จหรือเปิดแบบออฟไลน์' : ''}` }] : [])
   ];
 }
 // พร้อมส่งเมื่อผ่านทุกข้อ "แข็ง" (soft ไม่บังคับ)
 export const isReady = (checks: { ok: boolean; soft?: boolean }[]) => checks.every(c => c.ok || c.soft);
-export const money = (n: number) => Math.round(n).toLocaleString('en-US');
+export const money = (n: number) => Math.round(Number.isFinite(n) ? n : 0).toLocaleString('en-US');
 
 /* ===================== DOCX HELPERS ===================== */
-const FONT = { ascii: 'TH SarabunPSK', hAnsi: 'TH SarabunPSK', cs: 'TH SarabunPSK', eastAsia: 'TH SarabunPSK' };
-const BLUE = '155D90', SKY = '087FC2', W = 9400;
-type RO = { b?: boolean; sz?: number; color?: string; strike?: boolean; i?: boolean };
-const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; return new TextRun({ text, font: FONT, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i }); };
-const P = (t: string | TextRun[], o: RO & { al?: (typeof AlignmentType)[keyof typeof AlignmentType]; before?: number; after?: number; indent?: number; hang?: number; keep?: boolean } = {}) =>
-  new Paragraph({ alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 312 }, indent: o.indent !== undefined ? { left: o.indent * 567, hanging: (o.hang || 0) * 567 } : undefined, keepNext: o.keep,
+const FONT = { ascii: FONT_NAME, hAnsi: FONT_NAME, cs: FONT_NAME, eastAsia: FONT_NAME };
+// ภาษาไทยติดทุก run (w:lang bidi=th-TH) — Word ใช้ตัดคำ/ตรวจตัวสะกด/เลือกฟอนต์ complex-script ถูกชุด ไม่สลับไป Tahoma/Cordia
+const LANG = { value: 'th-TH', eastAsia: 'th-TH', bidirectional: 'th-TH' };
+const BLUE = '155D90', SKY = '087FC2', NAVY = '0C2A41', W = 9400;
+type RO = { b?: boolean; sz?: number; color?: string; strike?: boolean; i?: boolean; u?: boolean };
+// ล้างอักขระที่ XML 1.0 ไม่รองรับ (NUL/control chars ที่มักติดมาจากการ copy) — กันไฟล์ .docx เสีย/เปิดไม่ได้
+// อักขระที่อนุญาต: \t \n \r และ 0x20 ขึ้นไป (ยกเว้น noncharacters)
+const XML_BAD = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g;
+export const xmlSafe = (t: any): string => (t === null || t === undefined ? '' : String(t)).replace(XML_BAD, '');
+// ข้อความขึ้นต้นด้วย \t → ใส่แท็บจริงของ Word (<w:tab/>) ไม่ใช่อักขระแท็บในข้อความ
+const R = (text: string, o: RO = {}) => { const sz = (o.sz || 16) * 2; const tab = text.startsWith('\t'); const t = xmlSafe(tab ? text.slice(1) : text);
+  return new TextRun({ ...(tab ? { children: [new Tab(), t] } : { text: t }), font: FONT, language: LANG, size: sz, sizeComplexScript: sz, bold: o.b, boldComplexScript: o.b, color: o.color, strike: o.strike, italics: o.i, underline: o.u ? { type: UnderlineType.SINGLE } : undefined }); };
+const P = (t: string | TextRun[], o: RO & { al?: (typeof AlignmentType)[keyof typeof AlignmentType]; before?: number; after?: number; indent?: number; hang?: number; first?: number; tab?: number; keep?: boolean; pb?: boolean; hd?: (typeof HeadingLevel)[keyof typeof HeadingLevel] } = {}) =>
+  new Paragraph({ heading: o.hd, alignment: o.al, spacing: { before: (o.before || 0) * 20, after: (o.after ?? 2) * 20, line: 240, lineRule: LineRuleType.AUTO }, indent: o.indent !== undefined || o.first !== undefined ? { left: (o.indent || 0) * 567, hanging: o.hang ? o.hang * 567 : undefined, firstLine: o.first ? o.first * 567 : undefined } : undefined, tabStops: o.tab ? [{ type: TabStopType.LEFT, position: o.tab }] : undefined, keepNext: o.keep, pageBreakBefore: o.pb,
     children: typeof t === 'string' ? [R(t, o)] : t });
 const CTR = AlignmentType.CENTER, RGT = AlignmentType.RIGHT;
-const code = (t: string) => P(t, { b: true, color: BLUE, al: RGT });
-const title = (th: string, en?: string, sz = 20) => [P(th, { b: true, sz, color: '0F3D63', al: CTR, after: 0 }), ...(en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 8 })] : [])];
-const H = (t: string) => P(t, { b: true, sz: 17, color: BLUE, before: 8, after: 3, keep: true });
-const numbered = (a: string[]) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
-const dashed = (a: string[]) => a.map(x => P(`-\t${x}`, { indent: 0.9, hang: 0.9, after: 1 }));
+const code = (t: string) => P(t, { color: '000000', al: RGT }); // รหัสเอกสารชิดขวา ตัวปกติ สีดำ (ตามเอกสารจริง)
+const title = (th: string, en?: string, sz = 20, pb = false) => [P(th, { hd: HeadingLevel.HEADING_1, b: true, sz: th.length > 40 ? Math.min(sz, 17.5) : th.length > 32 ? Math.min(sz, 18.5) : sz, color: '0F3D63', al: CTR, after: 0, pb, keep: true }), ...(en ? [P(en, { b: true, sz: 18, color: SKY, al: CTR, after: 4 })] : [])];
+const HK = (t: string) => P(t, { hd: HeadingLevel.HEADING_2, b: true, color: '000000', after: 0, keep: true }); // หัวข้อแบบเอกสารจริง: 16 pt หนา สีดำ
+const H = (t: string) => P(t, { hd: HeadingLevel.HEADING_2, b: true, color: '000000', before: 6, after: 2, keep: true });
+const numFirst = (a: string[]) => a.map((x, i) => P(`${i + 1}.${x}`, { first: 1.27, after: 0 }));
+const numBlock = (a: string[]) => a.map((x, i) => P(`${i + 1}.${x}`, { indent: 1.27, after: 0 }));
+const TAB_INFO = 2160; // ระยะแท็บหลังป้าย จำนวน/วิทยากร/ระยะเวลาอบรม (1.5 นิ้ว ตามเอกสารจริง)
+const infoTabs = (pairs: [string, string[]][]) => pairs.flatMap(([k, v]) => v.filter(Boolean).map((x, i) => i === 0
+  ? P([R(k, { b: true }), R('\t' + x)], { tab: TAB_INFO, indent: TAB_INFO / 567, hang: TAB_INFO / 567, after: 0 })
+  : P(x, { indent: TAB_INFO / 567, after: 0 })));
+const coverParas = (cover: CoverSec[]): Paragraph[] => cover.flatMap(sec => {
+  if (sec.k === 'info') return infoTabs(sec.rows || []);
+  const head = sec.h ? [HK(sec.h)] : [];
+  const items = sec.items || [];
+  if (sec.k === 'list') return [...head, ...(sec.first ? numFirst(items) : numBlock(items))];
+  if (sec.k === 'para') return [...head, ...items.map(x => P(x, { first: 1.27, after: 0 }))];
+  return [...head, ...items.map(x => {          // bullets: "-" ระดับ 1 · "•" ระดับ 2 (ตามต้นฉบับ)
+    const m = x.match(/^([-–•●])\s*(.*)$/);
+    if (!m) return P(x, { indent: 1.27, after: 0 });
+    const l2 = m[1] === '•' || m[1] === '●';
+    return P([R(l2 ? '•' : '-'), R('\t' + m[2])], { indent: l2 ? 2.54 : 1.9, hang: 0.63, after: 0 });
+  })];
+});
+const numbered = (a: string[], keep = false) => a.map((x, i) => P(`${i + 1}. ${x}`, { indent: 0.9, hang: 0.9, after: 1, keep }));
+const dashed = (a: string[], keep = false) => a.map((x, i) => P([R('-'), R('\t' + x)], { indent: 1.27, hang: 1.27, after: 0, keep: keep && i < a.length - 1 }));
 const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 const LB = { style: BorderStyle.SINGLE, size: 4, color: 'CBD5E1' };
-const cell = (kids: Paragraph[], w: number, o: { fill?: string; border?: 'none' | 'line' | 'box'; span?: number } = {}) => {
+const cell = (kids: Paragraph[], w: number, o: { fill?: string; border?: 'none' | 'line' | 'box' | 'navy'; span?: number } = {}) => {
   const bx = { style: BorderStyle.SINGLE, size: 6, color: '94A3B8' };
-  const bd = o.border === 'box' ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === 'line' ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
+  const nv = { style: BorderStyle.SINGLE, size: 8, color: NAVY };
+  const bd = o.border === 'navy' ? { top: nv, bottom: nv, left: nv, right: nv } : o.border === 'box' ? { top: bx, bottom: bx, left: bx, right: bx } : o.border === 'line' ? { top: NB, left: NB, right: NB, bottom: LB } : { top: NB, bottom: NB, left: NB, right: NB };
   return new TableCell({ children: kids, width: { size: w, type: WidthType.DXA }, borders: bd, columnSpan: o.span, verticalAlign: VerticalAlign.TOP,
     shading: o.fill ? { type: ShadingType.CLEAR, fill: o.fill, color: 'auto' } : undefined, margins: { top: 50, bottom: 50, left: 100, right: 100 } });
 };
-const tbl = (rows: TableRow[], cols: number[]) => new Table({ rows, width: { size: W, type: WidthType.DXA }, columnWidths: cols });
+const tbl = (rows: TableRow[], cols: number[]) => new Table({ rows, width: { size: W, type: WidthType.DXA }, columnWidths: cols, layout: TableLayoutType.FIXED });
 const infoRows = (pairs: [string, string[]][]) => tbl(pairs.map(([k, v]) => new TableRow({ children: [cell([P(k, { b: true, color: BLUE })], 2200), cell(v.map(x => P(x, { after: 0 })), W - 2200)] })), [2200, W - 2200]);
 const dayBanner = (t: string) => tbl([new TableRow({ children: [cell([P(t, { b: true, sz: 17, color: 'FFFFFF', after: 0 })], W, { fill: BLUE })] })], [W]);
-const scheduleTable = (d: Day, extra?: boolean) => {
+// ตารางรายวัน: แถบ "วันที่ n" เป็นแถวหัวของตารางเดียวกัน + ทุกแถว keep-with-next → ทั้งวันอยู่หน้าเดียวกัน ไม่มีแถวหลุดไปหน้าถัดไป
+const scheduleTable = (d: Day, extra?: boolean, banner?: string) => {
   const cols = extra ? [2250, 4150, 3000] : [2700, W - 2700];
-  return tbl(d.items.map(r => new TableRow({ cantSplit: true, children: [
-    cell([P(r.time, { b: true, sz: 15.5, after: 0 })], cols[0], { border: 'line' }),
-    cell([P(r.title, { b: true, sz: 15.5, after: 0 }), ...(r.sub || []).map(s => P(s, { sz: 15, indent: 0.5, after: 0 }))], cols[1], { border: 'line' }),
-    ...(extra ? [cell([P('', { after: 0 })], cols[2], { border: 'line' })] : [])] })), cols);
+  const n = d.items.length;
+  const head = banner ? [new TableRow({ cantSplit: true, children: [cell([P(banner, { b: true, sz: 18, color: 'FFFFFF', after: 0, keep: true })], W, { fill: BLUE, span: cols.length })] })] : [];
+  return tbl([...head, ...d.items.map((r, i) => { const k = i < n - 1; return new TableRow({ cantSplit: true, children: [
+    cell([P(r.time, { sz: 16, after: 0, keep: k })], cols[0], { border: 'none' }),
+    cell([P(r.title, { sz: 16, after: 0, keep: k }), ...(r.sub || []).map(s => P(s, { sz: 16, indent: 0.5, after: 0, color: '334155', keep: k }))], cols[1], { border: 'none' }),
+    ...(extra ? [cell([P('', { after: 0, keep: k })], cols[2], { border: 'none' })] : [])] }); })], cols);
 };
-const scheduleBlock = (c: Camp, plan: Plan, k: ReturnType<typeof compose>, extra = false) => [
-  ...title('กำหนดการ'), ...title(k.titleTh, k.titleEn),
-  P(c.school, { b: true, al: CTR, after: 0 }), P(c.dates, { b: true, al: CTR, after: 0 }), P(`ณ ${c.venue}`, { b: true, al: CTR, after: 8 }),
-  ...plan.days.flatMap(d => [P('', { after: 0, sz: 6 }), dayBanner(`วันที่ ${d.day}${extra ? '  (ช่องขวา: ผู้รับผิดชอบ / อุปกรณ์)' : ''}`), scheduleTable(d, extra)]),
-  P('หมายเหตุ กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { b: true, color: '334155', before: 6 })
+// หน้ากำหนดการ: 1.กำหนดการ 2.ชื่อหลักสูตร(ไทย/อังกฤษ) 3.โรงเรียน 4.วันที่(ถ้ามี) 5.สถานที่(ถ้ามี)
+const hasVal = (s?: string) => !!(s && s.trim() && !s.includes('...'));
+const TAB_SCHED = 2160; // คอลัมน์รายการเริ่มที่ 1.5 นิ้ว (ตามเอกสารจริง)
+const schedLines = (d: Day, lastDay = false): Paragraph[] => {
+  const out: Paragraph[] = [P([R(`วันที่ ${d.day}`, { u: true })], { keep: true, before: 8, after: 2 })];
+  d.items.forEach((r, i) => {
+    const keep = lastDay || i < d.items.length - 1; // วันสุดท้าย: ผูกทั้งก้อนกับหมายเหตุ
+    out.push(P([R(r.time), R('\t' + r.title)], { tab: TAB_SCHED, indent: TAB_SCHED / 567, hang: TAB_SCHED / 567, after: 0, keep: keep || !!(r.sub && r.sub.length) }));
+    (r.sub || []).forEach((x, j) => out.push(P(x, { indent: TAB_SCHED / 567, after: 0, color: '334155', keep: keep || j < r.sub!.length - 1 })));
+  });
+  return out;
+};
+const scheduleBlock = (c: Camp, plan: Plan, k: ReturnType<typeof compose>, extra = false, pb = false) => [
+  // หัวข้อกำหนดการทั้งก้อน = 18 pt ตัวหนา กึ่งกลาง · รายละเอียด = 16 pt ธรรมดา (ไม่มีตาราง/แถบสี — สุภาพตามเอกสารจริง)
+  P('กำหนดการ', { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: '000000', al: CTR, after: 0, pb, keep: true }),
+  P(k.nameTh, { b: true, sz: 18, al: CTR, after: 0, keep: true }),
+  ...(k.titleEn ? [P(k.titleEn, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : []),
+  ...(hasVal(c.school) ? [P(c.school, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : []),
+  ...(hasVal(c.dates) ? [P(c.dates, { b: true, sz: 18, al: CTR, after: 0, keep: true })] : []),
+  ...(hasVal(c.venue) ? [P(`ณ ${c.venue}`, { b: true, sz: 18, al: CTR, after: 6 })] : [P('', { after: 6 })]),
+  // เอกสารภายใน (runsheet) ยังใช้ตารางที่มีช่องผู้รับผิดชอบ
+  ...(extra ? plan.days.flatMap(d => [P('', { after: 0, sz: 6 }), scheduleTable(d, true, `วันที่ ${d.day}  (ช่องขวา: ผู้รับผิดชอบ / อุปกรณ์)`)]) : plan.days.flatMap((d, i) => schedLines(d, i === plan.days.length - 1))),
+  // หมายเหตุปิดท้ายกำหนดการเสมอ (บรรทัดถัดไป) — ตัวปกติ สีแดง ตามเอกสารจริง
+  P('หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม', { color: PRICE_RED, before: 10, after: 0 })
 ];
-const priceBanner = (c: Camp) => tbl([new TableRow({ children: [cell([P([R('ราคาปกติ ', { b: true, sz: 19, color: '0C4A6E' }), R(money(c.normalPrice), { b: true, sz: 19, color: 'DC2626', strike: true }), R(' ลดเหลือเพียง ', { b: true, sz: 19, color: '0C4A6E' }), R(`${money(c.specialPrice)} บ./ท่าน`, { b: true, sz: 21, color: '15803D' })], { al: CTR, after: 0 })], W, { fill: 'F0F9FF', border: 'box' })] })], [W]);
-const photoGrid = (imgs: Img[], fallbackN: number) => {
-  const list = imgs.length ? imgs : Array.from({ length: fallbackN }, (_, i) => ({ caption: `(วางภาพที่ ${i + 1})` } as Img));
+// ราคา + รายละเอียดงบประมาณ — แบบเรียบตามเอกสารจริงของทีม: ไม่มีตาราง/กรอบ
+//   ราคาปกติ 6,290 ลดเหลือเพียง 5,290 บ./ท่าน   (ส่วน "ลดเหลือเพียง…" สีแดง)
+//   รายละเอียดงบประมาณมีดังนี้
+//   -<tab>รายการ …                                  (ทุกรายการแก้ได้ในขั้น "ราคา & งบ" → camp.budgetItems)
+// ขึ้นหน้าใหม่เสมอ (ไม่ให้แยกจากกำหนดการแบบครึ่ง ๆ กลาง ๆ)
+export const PRICE_RED = 'FF0000';
+const priceLine = (c: Camp, pb = false) => P([
+  R(`ราคาปกติ ${money(c.normalPrice)} `),
+  R(`ลดเหลือเพียง ${money(c.specialPrice)} บ./ท่าน`, { color: PRICE_RED })
+], { pb, keep: true, after: 2 });
+const priceBudgetSection = (c: Camp, k: ReturnType<typeof compose>): Paragraph[] => [
+  priceLine(c, true),
+  P('รายละเอียดงบประมาณมีดังนี้', { keep: true, after: 2 }),
+  ...dashed(k.budget, true)
+];
+// ขนาดจริงของภาพจาก header (PNG/JPEG) — ใช้คงสัดส่วนภาพ ไม่ให้ภาพบีบ/ยืด
+const imgSize = (d: Uint8Array): { w: number; h: number } | null => {
+  if (d[0] === 0x89 && d[1] === 0x50) return { w: (d[16] << 24) | (d[17] << 16) | (d[18] << 8) | d[19], h: (d[20] << 24) | (d[21] << 16) | (d[22] << 8) | d[23] };
+  if (d[0] === 0xff && d[1] === 0xd8) {
+    let i = 2;
+    while (i + 9 < d.length) {
+      if (d[i] !== 0xff) { i++; continue; }
+      const mk = d[i + 1], len = (d[i + 2] << 8) | d[i + 3];
+      if (mk >= 0xc0 && mk <= 0xcf && mk !== 0xc4 && mk !== 0xc8 && mk !== 0xcc) return { h: (d[i + 5] << 8) | d[i + 6], w: (d[i + 7] << 8) | d[i + 8] };
+      i += 2 + len;
+    }
+  }
+  return null;
+};
+// ภาพพอดีกรอบ (กว้างสุด BOX_W, สูงสุด BOX_H) คงสัดส่วนเดิมทุกภาพ → ตารางภาพเรียบร้อยสม่ำเสมอ
+// ภาพในกริด: ยึดความกว้างเท่ากันทุกใบ (เต็มครึ่งคอลัมน์) → คอลัมน์ตรงเป็นระเบียบ; จำกัดความสูงสุดกันภาพแนวตั้งล้น
+const BOX_W = 312, BOX_H = 234;
+// 7–8 รูป → กรอบเล็กลง (4:3 = 236×177) ให้ทั้งชุดอยู่หน้าเดียว ไม่ล้นไปหน้าถัดไป
+const fitBox = (d: Uint8Array, many = false) => {
+  const BW = many ? 248 : BOX_W, BH = many ? 186 : BOX_H;
+  const s = imgSize(d); if (!s || !s.w || !s.h) return { width: BW, height: Math.round(BW * 0.68) };
+  let w = BW, h = Math.round(s.h * BW / s.w);
+  if (h > BH) { h = BH; w = Math.round(s.w * BH / s.h); }
+  return { width: w, height: h };
+};
+// กริดภาพ 2 คอลัมน์ (6–8 รูป) — มีกรอบ + หมายเลข + คำบรรยายใต้รูป (ตามสเปกเอกสารราชการ)
+// ย่อหน้าที่มีภาพ ต้องใช้ระยะบรรทัด single เสมอ — ถ้าใช้ 1.25 (ค่าเริ่มของเอกสาร) LibreOffice/WPS/Google Docs จะตัดภาพเหลือแถบบาง ๆ
+const IMG_SP = { line: 240, lineRule: LineRuleType.AUTO };
+// คำบรรยายแสดงเฉพาะที่ทีมพิมพ์เอง — ภาพที่ระบบดึงจากไฟล์ค่ายไม่มีข้อความใต้ภาพ (ตามเอกสารจริงของทีม)
+export const realCaption = (c?: string): boolean => !!(c && c.trim() && !c.includes('...') && !/^บรรยากาศ(กิจกรรม|ที่พัก)$/.test(c.trim()));
+const photoGrid = (imgs: Img[], fallbackN: number, _label = 'ภาพกิจกรรม') => {
+  const list = (imgs.length ? imgs : Array.from({ length: fallbackN }, () => ({ caption: '' } as Img))).slice(0, 8);
   const rows: TableRow[] = [];
-  for (let i = 0; i < list.length; i += 2) rows.push(new TableRow({ children: [0, 1].map(j => { const im = list[i + j]; if (!im) return cell([P('')], W / 2); return cell([
-    im.data ? new Paragraph({ alignment: CTR, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: { width: 235, height: 150 } })] }) : P('[ พื้นที่วางภาพ ]', { al: CTR, color: '94A3B8', before: 30, after: 30 }),
-    P(im.caption, { sz: 13, color: '334155', al: CTR, after: 0 })], W / 2, { border: 'box' }); }) }));
+  for (let i = 0; i < list.length; i += 2) { const kp = i + 2 < list.length; rows.push(new TableRow({ cantSplit: true, children: [0, 1].map(j => { const im = list[i + j]; const n = i + j + 1; if (!im) return cell([P('', { keep: kp })], W / 2, { border: 'none' }); void n; const cap = realCaption(im.caption) ? im.caption.trim() : ''; return cell([
+    im.data ? new Paragraph({ alignment: CTR, keepNext: kp || !!cap, spacing: { before: 40, after: cap ? 8 : 100, ...IMG_SP }, children: [new ImageRun({ type: imgType(im.data), data: im.data, transformation: fitBox(im.data, list.length > 6) })] })
+      : P('พื้นที่วางภาพ', { al: CTR, color: '94A3B8', before: 70, after: 70, keep: true }),
+    ...(cap ? [new Paragraph({ alignment: CTR, keepNext: kp, spacing: { after: 60, ...IMG_SP }, children: [R(cap, { sz: 14, color: '48484A' })] })] : [])], W / 2, { border: 'none' }); }) })); }
   return tbl(rows, [W / 2, W / 2]);
 };
-const sign = (l: string, who: string) => cell([P('', { after: 18 }), P('ลงชื่อ ....................................................', { al: CTR, after: 0 }), P(`( ${who} )`, { al: CTR, after: 0 }), P(l, { al: CTR, after: 0 })], W / 2);
+// ภาพประกอบ STEAM (คอลลาจ) — ใช้ซ้ำได้ทุกเอกสารของค่าย STEAM
+const steamGalleryPara = () => new Paragraph({ alignment: CTR, spacing: { before: 40, ...IMG_SP }, children: [new ImageRun({ type: 'jpg', data: b64bytes(STEAM_GALLERY.b64), transformation: { width: Math.min(520, CONTENT_W_PX), height: Math.round(Math.min(520, CONTENT_W_PX) * STEAM_GALLERY.h / STEAM_GALLERY.w) } })] });
+// ภาพประกอบในทุกไฟล์: ภาพกิจกรรม (ของจริงถ้ามี/ไม่งั้นดึงภาพหลักสูตร) + ภาพ STEAM หน้าสุดท้ายถ้าเป็นค่าย STEAM
+const photoSection = (c: Camp, opts: { venue?: boolean } = {}): (Paragraph | Table)[] => {
+  const acts = c.actImgs;   // ภาพจากไฟล์ของค่ายนั้น (ระบบดึงให้) หรือที่ทีมอัปโหลดเอง — ไม่มีภาพสำรองจากแหล่งอื่น
+  // หน้าภาพแยกหน้าชัดเจน (ขึ้นหน้าใหม่) + หัวข้อ "ตัวอย่างภาพกิจกรรม" ตัวหนากึ่งกลางเสมอ
+  // ไม่มีภาพจริง → ไม่ใส่หน้าภาพ (ห้ามใส่กรอบว่าง/ภาพปลอม) — เว็บแจ้งเตือนให้ทีมเติมภาพแทน
+  const real = acts.filter(im => im.data);
+  const out: (Paragraph | Table)[] = real.length ? [...title('ตัวอย่างภาพกิจกรรม', undefined, 20, true), P('', { after: 2 }), photoGrid(real, 0, 'ภาพกิจกรรม')] : [];
+  // ที่พัก: อยู่หน้าหลังสุด — หัวข้อ "ตัวอย่างภาพบรรยากาศที่พัก <ชื่อที่พัก>" ตัวหนากึ่งกลาง (6–8 รูป: ป้าย/มุมสูง 2 · ห้องพัก 2 · สระ/สิ่งอำนวยความสะดวก 2 · ห้องประชุม 2)
+  if (opts.venue && c.venueImgs.some(im => im.data)) { out.push(...title(`ตัวอย่างภาพบรรยากาศที่พัก ${c.venue || ''}`.trim(), undefined, 20, true), P('', { after: 2 }), photoGrid(c.venueImgs, 6, 'ภาพที่พัก')); }
+  // ภาพเซ็ต STEAM — เฉพาะหลักสูตร STEAM เท่านั้น (ไม่ใส่ให้ดาราศาสตร์/ธรณี/ทะเล ฯลฯ)
+  // ค่ายที่มีแม่แบบจริง ใช้ภาพจากไฟล์ของค่ายนั้นเท่านั้น → ไม่เติมคอลลาจ STEAM
+  if (isSteamProgram(c) && !templateFor(c)) { out.push(...title('ตัวอย่างภาพกิจกรรมค่าย STEAM', undefined, 20, true), steamGalleryPara()); }
+  return out;
+};
+const sign = (l: string, who: string) => cell([P('', { after: 18, keep: true }), P('ลงชื่อ ....................................................', { al: CTR, after: 0, keep: true }), P(`( ${who} )`, { al: CTR, after: 0, keep: true }), P(l, { al: CTR, after: 0, keep: true })], W / 2);
+// ช่องลงนามแบบย่อหน้า + แท็บกึ่งกลาง (ไม่ใช่ตาราง) → "ผูกกับย่อหน้าก่อนหน้า" ได้จริงทั้ง Word/LibreOffice ไม่หลุดไปหน้าเปล่า
+const signLines = (cols: ([string, string] | null)[]): Paragraph[] => {
+  const stops = [{ type: TabStopType.CENTER, position: Math.round(W / 4) }, { type: TabStopType.CENTER, position: Math.round(W * 3 / 4) }];
+  const line = (f: (x: [string, string]) => string, last: boolean) => new Paragraph({ tabStops: stops, keepNext: !last, keepLines: true, spacing: { after: 0, line: 240, lineRule: LineRuleType.AUTO },
+    children: cols.map(x => R('\t' + (x ? f(x) : ''))) });   // R() = xmlSafe + ฟอนต์/ภาษาไทย
+  return [P('', { after: 18, keep: true }), line(() => 'ลงชื่อ ....................................................', false), line(x => `( ${x[1]} )`, false), line(x => x[0], true)];
+};
 const thDate = () => { const d = new Date(); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear() + 543}`; };
 // base64 → Uint8Array (ทำงานทั้งเบราว์เซอร์และ node)
 const b64bytes = (b64: string): Uint8Array => {
@@ -578,16 +1161,23 @@ const imgType = (d: Uint8Array): 'png' | 'jpg' | 'gif' | 'bmp' => {
   return 'png';
 };
 const CONTENT_W_PX = 626; // ความกว้างพื้นที่เนื้อหา A4 (9400 twips ≈ 6.53in × 96dpi)
-// หัวกระดาษ/ท้ายกระดาษตามภาค — แสดงทุกหน้า ทุกเอกสาร
-const letterheadHeader = (r: Region): Header => {
-  const lh = LETTERHEADS[r];
-  return new Header({ children: [new Paragraph({ alignment: CTR, spacing: { after: 40 },
-    children: [new ImageRun({ type: 'png', data: b64bytes(lh.headerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.headerH / lh.headerW) } })] })] });
+// หัวกระดาษ — ประกอบจากโลโก้ + ข้อความครบ (ชื่อบริษัท + ที่อยู่เต็ม + ติดต่อ) แสดงทุกหน้า ทุกเอกสาร
+// (ข้อมูลครบและคมชัดกว่าการ crop ภาพ; รองรับที่อยู่เฉพาะภาคได้ในอนาคตผ่าน BRAND)
+// หัวกระดาษ = ภาพฉบับเต็มตามภาค (โลโก้ + ชื่อบริษัท + ที่อยู่สาขา + ติดต่อ) — ภาพเดียวกันทั้ง Word และ PDF ไม่มีตัดบรรทัด/เพี้ยน
+export const letterheadFor = (c: Camp) => FULL_HEADERS[c.region || regionOf(c.province)];
+const brandHeader = (r: Region): Header => {
+  const h = FULL_HEADERS[r];
+  return new Header({ children: [new Paragraph({ alignment: CTR, spacing: { after: 0, ...IMG_SP },
+    children: [new ImageRun({ type: 'png', data: b64bytes(h.b64), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * h.h / h.w) } })] })] });
 };
 const letterheadFooter = (r: Region): Footer => {
   const lh = LETTERHEADS[r];
-  return new Footer({ children: [new Paragraph({ alignment: CTR, spacing: { before: 40 },
-    children: [new ImageRun({ type: 'png', data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
+  const pn = (child: any) => new TextRun({ children: [child], font: FONT, size: 24, sizeComplexScript: 24, color: '8E8E93' });
+  const pnTxt = (t: string) => new TextRun({ text: t, font: FONT, size: 24, sizeComplexScript: 24, color: '8E8E93' });
+  return new Footer({ children: [
+    new Paragraph({ alignment: CTR, spacing: { after: 0, ...IMG_SP }, children: [pnTxt('หน้า '), pn(PageNumber.CURRENT), pnTxt(' / '), pn(PageNumber.TOTAL_PAGES)] }),
+    new Paragraph({ alignment: CTR, spacing: { before: 0, ...IMG_SP },
+      children: [new ImageRun({ type: 'png', data: b64bytes(lh.footerPng), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * lh.footerH / lh.footerW) } })] })] });
 };
 
 /* ===================== 4 DOCUMENT BUILDERS ===================== */
@@ -596,18 +1186,15 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
   const total = c.students * c.specialPrice, cost = c.students * c.costPerPerson, profit = total - cost, margin = total ? (profit / total) * 100 : 0;
   let body: (Paragraph | Table)[] = [];
   if (kind === 'program') {
-    body = [code(c.docCode), ...title(k.titleTh, k.titleEn),
-      ...(c.courseCode ? [P(`รหัสหลักสูตรอ้างอิง ${c.courseCode}`, { sz: 13, color: '64748B', al: CTR, after: 6 })] : []),
-      H('วัตถุประสงค์การเรียนรู้'), ...numbered(k.objectives), P('', { after: 2 }),
-      infoRows([['จำนวน', [k.p1, k.p2]], ['วิทยากร', [`${k.staff} คน`]], ['ระยะเวลาอบรม', [k.dur]]]),
-      H('กิจกรรมเชิงบูรณาการ'), ...numbered(k.acts), H('บูรณาการการเรียน (integration instruction)'), ...numbered(k.integ),
-      new Paragraph({ children: [new PageBreak()] }), ...scheduleBlock(c, plan, k), P('', { after: 4 }), priceBanner(c), P('', { after: 2 }),
-      H('รายละเอียดงบประมาณมีดังนี้'), ...dashed(k.budget),
-      new Paragraph({ children: [new PageBreak()] }), ...title('ตัวอย่างภาพกิจกรรม'), photoGrid(c.actImgs, 4), P('', { after: 8 }),
-      ...title(`ที่พัก ${c.venue}`), photoGrid(c.venueImgs, 4)];
+    // หน้าปก (แพตเทิร์นเอกสารจริง): รหัสชิดขวา → ชื่อหลักสูตร 18 หนากลาง → หัวข้อ 16 หนาสีดำ → รายการ "1.ข้อความ"
+    body = [code(c.docCode), P(k.titleTh, { hd: HeadingLevel.HEADING_1, b: true, sz: 18, color: '000000', al: CTR, after: k.titleEn ? 0 : 4 }), ...(k.titleEn ? [P(k.titleEn, { b: true, sz: 18, color: '000000', al: CTR, after: 4 })] : []),
+      ...coverParas(k.cover),
+      ...scheduleBlock(c, plan, k, false, true),
+      ...priceBudgetSection(c, k),
+      ...photoSection(c, { venue: true })];
   } else if (kind === 'quotation') {
-    const cols = [700, 4300, 1100, 1600, 1700];
-    const hd = ['ลำดับ', 'รายการ', 'จำนวน', 'ราคา/ท่าน (บาท)', 'รวม (บาท)'];
+    const cols = [900, 4100, 1100, 1600, 1700];
+    const hd = ['ลำดับ', 'รายการ', 'จำนวน', 'ราคา/ท่าน', 'รวม (บาท)'];
     body = [code(`QT ${c.docCode.replace(/^PL\s*/, '')}`), ...title('ใบเสนอราคา', 'QUOTATION'),
       P(`วันที่ ${thDate()}`, { al: RGT }),
       infoRows([['เรียน', [`ผู้อำนวยการ${c.school}`]], ['เรื่อง', [`เสนอราคา${k.titleTh.replace(/^หลักสูตร\s*/, '')} ${k.titleEn}`]], ['อ้างอิง', [`โปรแกรมเลขที่ ${c.docCode} / ${c.dates}`]], ['สถานที่', [`${c.venue} จังหวัด${c.province}`]]]),
@@ -615,20 +1202,24 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       tbl([new TableRow({ tableHeader: true, children: hd.map((h, i) => cell([P(h, { b: true, color: 'FFFFFF', al: CTR, after: 0 })], cols[i], { fill: BLUE, border: 'box' })) }),
         new TableRow({ children: [
           cell([P('1', { al: CTR, after: 0 })], cols[0], { border: 'box' }),
-          cell([P(k.titleTh, { b: true, after: 0 }), P(`${k.dur} · ${c.dates}`, { sz: 14, after: 0 }), P(`นักเรียน ${c.level} · รวมที่พัก อาหาร วิทยากร อุปกรณ์ ตามรายละเอียดในโปรแกรม`, { sz: 14, after: 0 })], cols[1], { border: 'box' }),
+          cell([P(k.titleTh, { after: 0 }), P(`${k.dur} · ${c.dates}`, { sz: 14, after: 0 }), P(`นักเรียน ${c.level} · รวมที่พัก อาหาร วิทยากร อุปกรณ์ ตามรายละเอียดในโปรแกรม`, { sz: 14, after: 0 })], cols[1], { border: 'box' }),
           cell([P(String(c.students), { al: CTR, after: 0 })], cols[2], { border: 'box' }),
           cell([P(money(c.specialPrice), { al: RGT, after: 0 })], cols[3], { border: 'box' }),
           cell([P(money(total), { al: RGT, after: 0 })], cols[4], { border: 'box' })] }),
         new TableRow({ children: [cell([P('ยอดรวมสุทธิ (บาท)', { b: true, al: RGT, after: 0 })], cols[0] + cols[1] + cols[2] + cols[3], { fill: 'F0F9FF', border: 'box', span: 4 }), cell([P(money(total), { b: true, al: RGT, after: 0 })], cols[4], { fill: 'F0F9FF', border: 'box' })] })], cols),
-      P(`ราคาปกติ ${money(c.normalPrice)} บาท/ท่าน ลดเหลือพิเศษ ${money(c.specialPrice)} บาท/ท่าน (ประหยัด ${money(c.normalPrice - c.specialPrice)} บาท/ท่าน)`, { b: true, color: '15803D', before: 6 }),
-      H('รายละเอียดที่รวมอยู่ในราคา'), ...dashed(k.budget),
-      H('เงื่อนไข'), ...numbered([`ราคานี้ยืนยันภายใน ${c.validDays} วัน นับจากวันที่เสนอราคา`, c.payTerms, 'กำหนดการอาจเปลี่ยนแปลงตามความเหมาะสม โดยไม่กระทบเนื้อหาการเรียนรู้']),
-      P('', { after: 6 }), tbl([new TableRow({ children: [sign('ผู้เสนอราคา', c.contactName), sign('ผู้อนุมัติ / ตัวแทนโรงเรียน', `ผู้อำนวยการ${c.school}`)] })], [W / 2, W / 2])];
+      P(`ราคาปกติ ${money(c.normalPrice)} บาท/ท่าน ลดเหลือพิเศษ ${money(c.specialPrice)} บาท/ท่าน (ประหยัด ${money(c.normalPrice - c.specialPrice)} บาท/ท่าน)`, { before: 6 }),
+      H('รายละเอียดที่รวมอยู่ในราคา'), ...dashed(k.budget, true),
+      // เงื่อนไข + ช่องลงนามอยู่หน้าเดียวกันเสมอ (ไม่ให้ช่องลงนามหลุดไปอยู่หน้าเปล่า)
+      // ทั้งก้อนอยู่ในแถวตารางเดียว (cantSplit, ไม่มีเส้น) → ย้ายหน้าไปด้วยกันเสมอ ทั้ง Word/LibreOffice/Google Docs
+      tbl([new TableRow({ cantSplit: true, children: [cell([
+        H('เงื่อนไข'), ...numbered([`ราคานี้ยืนยันภายใน ${c.validDays} วัน นับจากวันที่เสนอราคา`, c.payTerms, 'กำหนดการอาจเปลี่ยนแปลงตามความเหมาะสม โดยไม่กระทบเนื้อหาการเรียนรู้'], true),
+        ...signLines([['ผู้เสนอราคา', c.contactName], ['ผู้อนุมัติ / ตัวแทนโรงเรียน', `ผู้อำนวยการ${c.school}`]])], W, { border: 'none' })] })], [W]),
+      ...photoSection(c)];
   } else if (kind === 'booking') {
-    const supplier = c.supplierNote || VENUES.find(x => x.name === c.venue)?.note || ''; const m = plan.meals, ppl = c.students + c.teachers;
+    const supplier = c.supplierNote || VENUES.find(x => x.name === c.venue)?.note || ''; const m = plan.meals, tch = showTeachers(c) ? c.teachers : 0, ppl = c.students + tch;
     body = [code(`BK ${c.docCode.replace(/^PL\s*/, '')}`), ...title('หนังสือขอใบเสนอราคาและยืนยันห้องพัก/ห้องประชุม', 'ACCOMMODATION & MEETING REQUEST'), P(`วันที่ ${thDate()}`, { al: RGT }),
-      P(`เรียน  ฝ่ายขาย/ฝ่ายจัดเลี้ยง ${c.venue}`, { b: true }), P(`ด้วยบริษัท อีคิวแคมป์ มีความประสงค์จัด${k.titleTh.replace(/^หลักสูตร\s*/, '')} ให้แก่${c.school} จึงขอความอนุเคราะห์เสนอราคาและตรวจสอบความพร้อมตามรายละเอียดดังนี้`, { indent: 1 }),
-      infoRows([['วันที่เข้าพัก', [c.dates]], ['ระยะเวลา', [k.dur]], ['จำนวนผู้เข้าพัก', [`นักเรียน ${c.students} คน ครู ${c.teachers} คน ทีมวิทยากร ${k.staff} คน (รวมผู้เข้าร่วมประมาณ ${ppl} คน)`]],
+      P(`เรียน  ฝ่ายขาย/ฝ่ายจัดเลี้ยง ${c.venue}`), P(`ด้วยบริษัท อีคิวแคมป์ มีความประสงค์จัด${k.titleTh.replace(/^หลักสูตร\s*/, '')} ให้แก่${c.school} จึงขอความอนุเคราะห์เสนอราคาและตรวจสอบความพร้อมตามรายละเอียดดังนี้`, { indent: 1 }),
+      infoRows([['วันที่เข้าพัก', [c.dates]], ['ระยะเวลา', [k.dur]], ['จำนวนผู้เข้าพัก', [`นักเรียน ${c.students} คน ${tch ? `ครู ${tch} คน ` : ''} ทีมวิทยากร ${k.staff} คน (รวมผู้เข้าร่วมประมาณ ${ppl} คน)`]],
         ['เวลาถึงโดยประมาณ', [plan.days[0].items.find(r => r.title.startsWith('เดินทางถึง'))?.time || '-']]]),
       H('รายการที่ขอเสนอราคา'), ...numbered([
         c.nights > 0 ? `ห้องพัก ${c.nights} คืน (ระบุประเภทห้องและจำนวนเตียง/ห้อง)` : 'ไม่ต้องการห้องพัก (ค่ายไป-กลับ)',
@@ -639,8 +1230,10 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
         'พื้นที่เก็บอุปกรณ์กิจกรรม'
       ]),
       supplier ? P(`ข้อมูลประสานงานเดิมในระบบ: ${supplier}`, { sz: 14, color: '64748B' }) : P('', { after: 0 }),
-      H('รายละเอียดกำหนดการสำหรับห้องประชุมและมื้ออาหาร'), ...plan.days.flatMap(d => [P(`วันที่ ${d.day}`, { b: true, after: 0 }), ...d.items.filter(r => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title)).map(r => P(`${r.time}  ${r.title}`, { sz: 14, indent: 1, after: 0 }))]),
-      P('จึงเรียนมาเพื่อโปรดพิจารณาและตอบกลับ ขอขอบคุณอย่างสูง', { before: 8, indent: 1 }), P('', { after: 6 }), tbl([new TableRow({ children: [cell([P('')], W / 2), sign('ผู้ประสานงาน EQ Camp', c.contactName)] })], [W / 2, W / 2])];
+      H('รายละเอียดกำหนดการสำหรับห้องประชุมและมื้ออาหาร'), ...plan.days.flatMap((d, di) => { const rows = d.items.filter(r => /อาหาร|กิจกรรม|พิธี|AAR/.test(r.title)); const lastDay = di === plan.days.length - 1;
+        return [P([R(`วันที่ ${d.day}`, { u: true })], { keep: true, before: 4, after: 0 }), ...rows.map((r, i) => P([R(r.time, { sz: 14 }), R('\t' + r.title, { sz: 14 })], { tab: 567 + TAB_SCHED, indent: 1 + TAB_SCHED / 567, hang: TAB_SCHED / 567, after: 0, keep: lastDay ? i >= rows.length - 3 : i < rows.length - 1 }))]; }),
+      P('จึงเรียนมาเพื่อโปรดพิจารณาและตอบกลับ ขอขอบคุณอย่างสูง', { before: 8, first: 1.27, keep: true }), ...signLines([null, ['ผู้ประสานงาน EQ Camp', c.contactName]]),
+      ...photoSection(c, { venue: true })];
   } else {
     body = [P('[เอกสารภายใน EQ CAMP — ห้ามส่งลูกค้า]', { b: true, color: 'B45309', al: CTR }), code(`RD ${c.docCode.replace(/^PL\s*/, '')}`),
       tbl([new TableRow({ children: [cell([
@@ -648,16 +1241,69 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
         P(`ราคาขาย ${money(c.specialPrice)} บ./ท่าน × ${c.students} = ${money(total)} บาท`, { sz: 15, after: 0 }),
         P(`กำไรประเมิน ${money(profit)} บาท (Margin ${margin.toFixed(1)}%)${margin < 20 ? '  ⚠ ต่ำกว่า 20%' : ''}`, { b: true, sz: 16, color: profit < 0 ? 'DC2626' : '15803D', after: 0 }),
         P(`ซัพพลายเออร์/ผู้ติดต่อ: ${c.supplierNote || (VENUES.find(v => v.name === c.venue)?.note ?? '-')}`, { sz: 14, after: 0 })], W, { fill: 'FFFBEB', border: 'box' })] })], [W]),
-      P('', { after: 4 }), ...scheduleBlock(c, plan, k, true)];
+      P('', { after: 4 }), ...scheduleBlock(c, plan, k, true), ...photoSection(c)];
   }
   const region: Region = c.region || regionOf(c.province);
   return new Document({ creator: 'EQ Camp', title: `${c.docCode} ${k.titleTh}`,
-    styles: { default: { document: { run: { font: FONT, size: 32, sizeComplexScript: 32 } } } },
+    // สไตล์ชื่อมาตรฐานของ Word: ทีมแก้ต่อใน Word แล้วฟอนต์/ขนาดไม่เพี้ยน (เลือก "ปกติ"/"หัวเรื่อง 1-2" ในแถบสไตล์ได้เลย)
+    // ขนาดเนื้อความ 16 pt ตามแนวพิมพ์หนังสือราชการ, หัวเรื่องมี outlineLevel → ขึ้นในบานหน้าต่างนำทาง/สารบัญ
+    styles: {
+      default: {
+        document: { run: { font: FONT, language: LANG, size: 32, sizeComplexScript: 32 }, paragraph: { spacing: { line: 240, lineRule: LineRuleType.AUTO, after: 40 } } },
+        heading1: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 40, sizeComplexScript: 40, color: '0F3D63' }, paragraph: { alignment: AlignmentType.CENTER, outlineLevel: 0, keepNext: true, spacing: { line: 240, lineRule: LineRuleType.AUTO, before: 0, after: 0 } } },
+        heading2: { run: { font: FONT, language: LANG, bold: true, boldComplexScript: true, size: 34, sizeComplexScript: 34, color: BLUE }, paragraph: { outlineLevel: 1, keepNext: true, spacing: { line: 240, lineRule: LineRuleType.AUTO, before: 60, after: 0 } } }
+      }
+    },
     sections: [{
-      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1600, bottom: 1000, left: 1253, right: 1253, header: 340, footer: 260 } } },
-      headers: { default: letterheadHeader(region) },
+      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1600, bottom: 980, left: 1253, right: 1253, header: 300, footer: 200 } } },
+      headers: { default: brandHeader(region) },
       footers: { default: letterheadFooter(region) },
       children: body
     }] });
 }
 export const fileName = (kind: DocKind, c: Camp) => `${c.docCode.replace(/[^\w-]+/g, '_')}_${{ program: 'โปรแกรม', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Rundown_INTERNAL' }[kind]}_${c.school.replace(/\s+/g, '')}.docx`;
+
+
+/* ===================== PACK + EMBED FONT =====================
+ * ฝังฟอนต์ TH Sarabun New (regular+bold) ลงไฟล์ .docx — เครื่องที่ไม่ได้ติดตั้งฟอนต์จะไม่ถูกแทนด้วย
+ * Leelawadee/Tahoma (ตัวหนา-ใหญ่ทั้งเอกสาร). ใช้ obfuscation มาตรฐาน ECMA-376 (XOR 32 ไบต์แรกกับ GUID กลับลำดับ)
+ * ใช้ packDocx() แทน Packer.toBuffer/toBlob ทุกที่ */
+const b64ToBytes = (b64: string): Uint8Array => {
+  if (typeof atob === 'function') { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+  return new Uint8Array((globalThis as any).Buffer.from(b64, 'base64'));
+};
+const obfuscate = (font: Uint8Array, guid: string): Uint8Array => {
+  const hex = guid.replace(/[{}-]/g, ''); const key: number[] = [];
+  for (let i = 0; i < 16; i++) key.push(parseInt(hex.substr(i * 2, 2), 16));
+  key.reverse(); const out = new Uint8Array(font);
+  for (let i = 0; i < 32; i++) out[i] ^= key[i % 16];
+  return out;
+};
+export async function packDocx(doc: Document): Promise<Uint8Array> {
+  const zip = await JSZip.loadAsync(await Packer.toBase64String(doc), { base64: true });
+  const gR = '{5A1E2C3B-7D4F-4E21-9B6A-1C2D3E4F5A61}', gB = '{6B2F3D4C-8E5A-4F32-AC7B-2D3E4F5A6B72}';
+  zip.file('word/fonts/font1.odttf', obfuscate(b64ToBytes(FONT_REG_B64), gR));
+  zip.file('word/fonts/font2.odttf', obfuscate(b64ToBytes(FONT_BOLD_B64), gB));
+  zip.file('word/_rels/fontTable.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rIdF1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font1.odttf"/>' +
+    '<Relationship Id="rIdF2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/font" Target="fonts/font2.odttf"/></Relationships>');
+  const ft = await zip.file('word/fontTable.xml')!.async('string');
+  const fontEl = `<w:font w:name="${FONT_NAME}"><w:charset w:val="DE"/><w:family w:val="swiss"/><w:pitch w:val="variable"/>` +
+    `<w:embedRegular r:id="rIdF1" w:fontKey="${gR}"/><w:embedBold r:id="rIdF2" w:fontKey="${gB}"/></w:font>`;
+  zip.file('word/fontTable.xml', ft.replace(/<w:fonts([^>]*?)\/>$/, '<w:fonts$1>' + fontEl + '</w:fonts>').replace(/<\/w:fonts>$/, (m) => ft.endsWith('/>') ? m : fontEl + m));
+  let ct = await zip.file('[Content_Types].xml')!.async('string');
+  if (!ct.includes('Extension="odttf"')) ct = ct.replace('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">', '$&<Default ContentType="application/vnd.openxmlformats-officedocument.obfuscatedFont" Extension="odttf"/>');
+  if (!ct.includes('/word/fontTable.xml')) ct = ct.replace('</Types>', '<Override ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml" PartName="/word/fontTable.xml"/></Types>');
+  zip.file('[Content_Types].xml', ct);
+  // docx-js ไม่ได้อ้าง fontTable จาก document → Word จะไม่เห็นฟอนต์ที่ฝัง; เพิ่ม relationship ให้
+  let dr = await zip.file('word/_rels/document.xml.rels')!.async('string');
+  if (!dr.includes('fontTable.xml')) dr = dr.replace('</Relationships>', '<Relationship Id="rIdFontTbl" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/fontTable" Target="fontTable.xml"/></Relationships>');
+  zip.file('word/_rels/document.xml.rels', dr);
+  let st = await zip.file('word/settings.xml')!.async('string');
+  if (!st.includes('embedTrueTypeFonts')) st = /<w:displayBackgroundShape\/>/.test(st) ? st.replace(/<w:displayBackgroundShape\/>/, '$&<w:embedTrueTypeFonts/><w:saveSubsetFonts/>') : st.replace(/(<w:settings[^>]*>)/, '$1<w:embedTrueTypeFonts/><w:saveSubsetFonts/>');
+  zip.file('word/settings.xml', st);
+  return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+}
+// @font-face สำหรับ PDF/พรีวิวในเบราว์เซอร์ — ฟอนต์เดียวกับที่ฝังใน Word
+export const FONT_FACE_CSS = `@font-face{font-family:'EQSarabun';font-weight:400;src:url(data:font/ttf;base64,${FONT_REG_B64}) format('truetype')}` +
+  `@font-face{font-family:'EQSarabun';font-weight:700;src:url(data:font/ttf;base64,${FONT_BOLD_B64}) format('truetype')}`;

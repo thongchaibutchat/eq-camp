@@ -1,5 +1,10 @@
+*.log
+*.pdf
+.samples.bundle.mjs
+.stress.bundle.mjs
+.stress.mjs
+dist/
 node_modules/
 web/bundle.js
-*.pdf
-*.log
-dist/
+web/fonts.css
+web/out.css
