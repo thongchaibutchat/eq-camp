@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Search, ExternalLink, FolderOpen, ArrowRight, MapPin, Phone, Image as ImageIcon, BookOpen, Building2, Tag, Layers } from 'lucide-react';
 import { PHOTO_BASE } from './App';
-import { COURSES, LIB, coursePhotoIds, templatesOf, durKeyLabel, PRESETS, SUBJECTS, BRANCHES, SALES_KIT, driveFolder, money, Kind, Subject } from '../src/eqcamp-core';
+import { COURSES, LIB, coursePhotoIds, templatesOf, durKeyLabel, PRESETS, SUBJECTS, BRANCHES, SALES_KIT, driveFolder, money, Kind, Subject, NOTION_ACTIVITIES, NOTION_DB_URL, NOTION_SYNCED, notionUrl, actStandard, notionActFor, VENUE_PHOTOS } from '../src/eqcamp-core';
+import type { NotionActivity } from '../src/eqcamp-core';
 
 /* คลังข้อมูลขาย — ข้อมูลทั้งหมดที่เครื่องมือใช้ อยู่หน้าเดียว เปิดดู ค้นหา แล้วกดใช้สร้างเอกสารต่อได้ทันที
  * แหล่งแก้ไขจริง = ชุดข้อมูลขายใน Drive (SALES_KIT) — หน้านี้แสดงเวอร์ชันที่ฝังอยู่ในเครื่องมือตอนนี้ */
@@ -12,6 +13,7 @@ const SECTIONS = [
   { id: 'overview', label: 'ภาพรวม' },
   { id: 'courses', label: 'หลักสูตร' },
   { id: 'activities', label: 'กิจกรรม' },
+  { id: 'standard', label: 'มาตรฐานกิจกรรม' },
   { id: 'venues', label: 'ที่พัก' },
   { id: 'prices', label: 'ราคา & แม่แบบ' },
   { id: 'company', label: 'บริษัท-สาขา' }
@@ -22,7 +24,7 @@ export const splitName = (n: string) => { const m = n.replace(/^หลักส�
 const card = 'bg-white rounded-xl border border-brand-mist';
 
 export default function DataHub({ venues, currentCourse, currentVenue, onUseCourse, onUseVenue, onUsePreset, initialSec }: {
-  venues: VenueRec[]; currentCourse?: string; currentVenue?: string; initialSec?: 'overview' | 'courses' | 'activities' | 'venues' | 'prices' | 'company';
+  venues: VenueRec[]; currentCourse?: string; currentVenue?: string; initialSec?: 'overview' | 'courses' | 'activities' | 'standard' | 'venues' | 'prices' | 'company';
   onUseCourse: (code: string) => void; onUseVenue: (v: VenueRec) => void; onUsePreset: (id: string) => void;
 }) {
   const [sec, setSec] = useState<Sec>(initialSec || 'overview');
@@ -30,6 +32,8 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
   const [q, setQ] = useState('');
   const [fCourse, setFCourse] = useState('');
   const [fKind, setFKind] = useState<'' | Kind>('');
+  const [stdOpen, setStdOpen] = useState<string | null>(null);
+  const [stdFilter, setStdFilter] = useState<'' | 'พร้อมใช้' | 'บางส่วน' | 'ยังไม่มีข้อมูล'>('');
 
   const courseActs = useMemo(() => Object.fromEntries(COURSES.map(c => [c.code, LIB.filter(a => a.courseCode === c.code)])), []);
   const totalActs = LIB.filter(a => a.courseCode).length;
@@ -71,7 +75,7 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
             {[
               { n: COURSES.length, l: 'หลักสูตร', s: 'รหัส PL จริงตามทะเบียน', go: 'courses' as Sec },
               { n: totalActs, l: 'กิจกรรม', s: 'ทั้งหมดสถานะ "รอตรวจ"', go: 'activities' as Sec },
-              { n: venues.length, l: 'ที่พัก', s: 'ภาพโรงแรมยังไม่มี (0/8)', go: 'venues' as Sec },
+              { n: venues.length, l: 'ที่พัก', s: `มีภาพจากไฟล์ทีม ${VENUE_PHOTOS.length} แห่ง`, go: 'venues' as Sec },
               { n: photoTotal, l: 'ภาพกิจกรรมจริง', s: `ครบ 6 รูปขึ้นไป ${coursesFull}/${COURSES.length} หลักสูตร`, go: 'courses' as Sec }
             ].map(t => (
               <button key={t.l} onClick={() => go(t.go)} className={`${card} tap text-left p-4 hover:border-brand/40`}>
@@ -207,7 +211,7 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
               <tbody>
                 {actRows.map(a => (
                   <tr key={a.id} className="border-b border-brand-mist/70 last:border-0">
-                    <td className="py-2 px-1 leading-snug">{a.title}</td>
+                    <td className="py-2 px-1 leading-snug">{a.title}{(() => { const n = notionActFor(a.title); return n ? <button onClick={() => { setStdOpen(n.id); go('standard'); }} className="tap ml-2 align-middle text-[12px] px-1.5 py-0.5 rounded-md border border-brand-mist text-brand-navy">มาตรฐาน Notion · {actStandard(n).level}</button> : null; })()}</td>
                     <td className="py-2 px-1 text-sub whitespace-nowrap">{KIND_TH[a.kind]}</td>
                     <td className="py-2 px-1 text-sub whitespace-nowrap">{a.courseCode}</td>
                     <td className="py-2 px-1 text-right whitespace-nowrap"><button onClick={() => { setOpen(a.courseCode!); go('courses'); }} className="tap text-[13px] text-brand-navy underline underline-offset-2">ดูหลักสูตร</button></td>
@@ -220,6 +224,8 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
         </div>
       )}
 
+
+      {sec === 'standard' && <StandardSection open={stdOpen} setOpen={setStdOpen} filter={stdFilter} setFilter={setStdFilter} />}
       {sec === 'venues' && (
         <div className="grid sm:grid-cols-2 gap-3">
           {venues.map(v => {
@@ -288,4 +294,77 @@ export default function DataHub({ venues, currentCourse, currentVenue, onUseCour
       )}
     </div>
   );
+}
+
+/* มาตรฐานกิจกรรม — จากฐานข้อมูลกิจกรรม STEM ใน Notion ของทีม
+ * โครงเดียวกันทุกกิจกรรม: หมวด · สถานะ · สไลด์ · Sheet lab · อุปกรณ์ต่อกลุ่ม · อุปกรณ์ส่วนกลาง
+ * ช่องที่ Notion ยังไม่มี (วัตถุประสงค์/ขั้นตอน/เวลา/ระดับชั้น) แสดงว่า "ยังไม่มี" — ไม่เติมเอง */
+const LEVEL_STYLE: Record<string, string> = { 'พร้อมใช้': 'bg-brand-navy text-white', 'บางส่วน': 'bg-amber-50 text-amber-800 border border-amber-200', 'ยังไม่มีข้อมูล': 'bg-paper text-sub border border-brand-mist' };
+function StandardSection({ open, setOpen, filter, setFilter }: { open: string | null; setOpen: (s: string | null) => void; filter: string; setFilter: (f: any) => void }) {
+  const rows = NOTION_ACTIVITIES.map(a => ({ a, st: actStandard(a), used: LIB.filter(x => x.courseCode && notionActFor(x.title)?.id === a.id) }))
+    .sort((x, y) => y.st.score - x.st.score || x.a.name.localeCompare(y.a.name));
+  const count = (l: string) => rows.filter(r => r.st.level === l).length;
+  const shown = rows.filter(r => !filter || r.st.level === filter);
+  return (
+    <div className="space-y-3">
+      <div className={`${card} p-4 sm:p-5`}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[17px] font-semibold">มาตรฐานกิจกรรม STEM</h3>
+            <p className="text-[13.5px] text-sub mt-0.5 leading-relaxed">ดึงจากฐานข้อมูลกิจกรรมใน Notion ({NOTION_ACTIVITIES.length} กิจกรรม · ข้อมูล ณ {NOTION_SYNCED}). "พร้อมใช้" = ครบ 4 ข้อ: สถานะเสร็จ · สไลด์ · Sheet lab · เช็คลิสต์อุปกรณ์. เช็คลิสต์อุปกรณ์ของกิจกรรมที่อยู่ในกำหนดการจะขึ้นใน Run-down ภายในให้อัตโนมัติ</p>
+          </div>
+          <a href={NOTION_DB_URL} target="_blank" rel="noopener noreferrer" className="tap shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-brand-mist text-[14px] font-medium hover:bg-paper">
+            <ExternalLink className="w-4 h-4" />แก้ไขใน Notion
+          </a>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-3" role="group" aria-label="กรองตามความพร้อม">
+          {(['', 'พร้อมใช้', 'บางส่วน', 'ยังไม่มีข้อมูล'] as const).map(l => (
+            <button key={l || 'all'} onClick={() => setFilter(l)} aria-pressed={filter === l}
+              className={`tap px-3 py-1.5 rounded-lg text-[13.5px] border ${filter === l ? 'bg-brand-navy text-white border-brand-navy' : 'border-brand-mist hover:bg-paper'}`}>
+              {l || 'ทั้งหมด'} <span className="opacity-70">{l ? count(l) : rows.length}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {shown.map(({ a, st, used }) => {
+          const isOpen = open === a.id;
+          return (
+            <div key={a.id} className={`${card} p-4`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[15.5px] font-semibold leading-snug break-words">{a.name}</div>
+                  <div className="text-[12.5px] text-sub mt-0.5">{a.cats.join(' · ')} · Notion: {a.status}</div>
+                </div>
+                <span className={`shrink-0 text-[12px] px-2 py-0.5 rounded-md ${LEVEL_STYLE[st.level]}`}>{st.level} {st.score}/4</span>
+              </div>
+              <ul className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
+                {st.checks.map(c => <li key={c.label} className={c.ok ? '' : 'text-sub'}><span aria-hidden="true">{c.ok ? '✓' : '–'}</span> {c.label}<span className="sr-only">{c.ok ? ' มี' : ' ยังไม่มี'}</span></li>)}
+              </ul>
+              {used.length > 0 && <div className="text-[12.5px] text-sub mt-2">อยู่ในคลังหลักสูตร: {[...new Set(used.map(u => u.courseCode))].join(', ')}</div>}
+              {a.note && <div className="text-[12.5px] text-amber-800 bg-amber-50 rounded-lg px-2.5 py-1.5 mt-2">{a.note}</div>}
+              <div className="flex flex-wrap gap-2 mt-3">
+                {(a.perGroup.length + a.shared.length > 0) && <button onClick={() => setOpen(isOpen ? null : a.id)} aria-expanded={isOpen} className="tap text-[13px] px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper">{isOpen ? 'ซ่อนอุปกรณ์' : `ดูอุปกรณ์ (${a.perGroup.length + a.shared.length})`}</button>}
+                {a.slides.map((u, i) => <a key={u} href={u} target="_blank" rel="noopener noreferrer" className="tap text-[13px] px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper inline-flex items-center gap-1">สไลด์{a.slides.length > 1 ? ` ${i + 1}` : ''}<ExternalLink className="w-3.5 h-3.5" /></a>)}
+                <a href={notionUrl(a)} target="_blank" rel="noopener noreferrer" className="tap text-[13px] px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper inline-flex items-center gap-1">หน้า Notion<ExternalLink className="w-3.5 h-3.5" /></a>
+              </div>
+              {isOpen && <EquipList a={a} />}
+              {a.empty && <div className="text-[12.5px] text-sub mt-2">หน้า Notion ยังเป็นแม่แบบเปล่า — รอทีมเติมสไลด์/ใบงาน/อุปกรณ์</div>}
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[12.5px] text-sub px-1">วัตถุประสงค์ ขั้นตอน เวลา และระดับชั้นของแต่ละกิจกรรมยังไม่มีในหน้า Notion — เมื่อทีมเพิ่มแล้ว ให้ดึงข้อมูลใหม่เข้าระบบ</p>
+    </div>
+  );
+}
+function EquipList({ a }: { a: NotionActivity }) {
+  const block = (h: string, items: { name: string; qty: string }[]) => items.length ? (
+    <div className="mt-2.5">
+      <div className="text-[13px] font-semibold">{h}</div>
+      <ol className="mt-1 space-y-0.5 text-[13px]">
+        {items.map((e, i) => <li key={i} className="flex gap-2"><span className="text-sub w-5 shrink-0 text-right">{i + 1}.</span><span className="min-w-0">{e.name}{e.qty && <span className="text-sub"> — {e.qty}</span>}</span></li>)}
+      </ol>
+    </div>) : null;
+  return <div className="border-t border-brand-mist mt-3 pt-1">{block('อุปกรณ์ต่อกลุ่ม', a.perGroup)}{block('อุปกรณ์ส่วนกลาง', a.shared)}</div>;
 }

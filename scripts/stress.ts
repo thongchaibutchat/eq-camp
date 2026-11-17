@@ -1,3 +1,4 @@
+import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
 import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
@@ -65,6 +66,8 @@ let fail = 0, ok = 0;
         const buf = Buffer.from(await packDocx(buildDoc(kind, cfg.camp, plan)));
         if (!buf || buf.length < 500) throw new Error('buffer too small');
         if (!(buf[0]===0x50 && buf[1]===0x4b)) throw new Error('not a zip (PK)');
+        // เช็คลิสต์อุปกรณ์ Notion = เอกสารภายในเท่านั้น — ห้ามหลุดไปเอกสารลูกค้า/โรงแรม
+        if (kind !== 'runsheet') { const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string'); if (/เช็คลิสต์อุปกรณ์|มาตรฐานจาก Notion|ต้นทุน|กำไร/.test(xml)) throw new Error('internal content leaked into customer doc'); }
         fs.writeFileSync(`${OUT}/${fn}`, buf);
         manifest.push(`${OUT}/${fn}`);
         ok++;
