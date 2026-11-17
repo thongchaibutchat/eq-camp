@@ -1,6 +1,6 @@
 // EQ Camp service worker — เปิดได้แม้ไม่มีเน็ต (หลังเปิดครั้งแรก)
 // หน้าเว็บ: ดึงใหม่จากเน็ตก่อน (ได้เวอร์ชันล่าสุดเสมอ) ถ้าออฟไลน์ใช้ฉบับที่เก็บไว้
-const CACHE = 'eqcamp-v2';
+const CACHE = 'eqcamp-v3';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
