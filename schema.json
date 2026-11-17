@@ -56,6 +56,7 @@
         "budgetItems": { "type": "array", "items": { "type": "string" }, "description": "รายการงบประมาณที่ทีมแก้เอง (แสดงแบบ \"-  รายการ\"); ว่าง/ขาด = ระบบสร้างอัตโนมัติ (optional, backward-compatible ไม่ต้อง migrate)" },
         "templateId": { "type": "string", "description": "แม่แบบเอกสารจริงของทีมที่เลือกเอง (id เช่น 'PL SEA 0103__o21sea'); ขาด/ว่าง = เลือกอัตโนมัติตามหลักสูตร+ระยะเวลา+พื้นที่, 'engine' = ไม่ใช้แม่แบบ (จัดอัตโนมัติ) — optional ไม่ต้อง migrate" },
         "addons": { "type": "array", "description": "กิจกรรมเสริม (Add-on) จากหลักสูตรอื่น (อังกฤษ/จีน/คณิต) แทรกลงกำหนดการค่ายหลัก — optional ไม่ต้อง migrate", "items": { "type": "object", "required": ["code"], "additionalProperties": false, "properties": { "code": { "type": "string" }, "ids": { "type": "array", "items": { "type": "string" } }, "minutes": { "type": "number", "minimum": 15 }, "price": { "type": "number", "minimum": 0 } } } },
+        "dayCourses": { "type": "array", "items": { "type": "string" }, "description": "ธีมรายวัน (mix หลักสูตร): ดัชนี = วัน (0 = วันที่ 1), ค่า = รหัสหลักสูตรของวันนั้น, '' = หลักสูตรหลัก — optional ไม่ต้อง migrate" },
         "coreSlotIds": { "type": "array", "items": { "type": "string" }, "description": "เลือกกิจกรรมรายช่วง (per-slot): ดัชนี = ช่องกิจกรรมหลักในกำหนดการ, ค่า = id กิจกรรม ('' = อัตโนมัติ); ว่าง/ขาด = ให้ระบบจัดอัตโนมัติทั้งหมด (backward-compatible, migrate เป็น [])" },
         "extraActivities": {
           "type": "array",
