@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DataHub from './DataHub';
 import Home from './Home';
-import { IN_APP, IS_IOS, externalBrowserUrl, copyText } from './platform';
+import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
@@ -11,7 +11,7 @@ import {
 import {
   Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
   packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
-  showTeachers
+  showTeachers, notionActsInPlan, actStandard, notionActFor
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
 
@@ -94,6 +94,10 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
+  // มือถือ: เมื่อไฟล์พร้อม แสดงแผ่น "บันทึก/แชร์/เปิด" ให้ผู้ใช้แตะเอง (iOS/Android ต้องมีการแตะสด ๆ จึงแชร์/ดาวน์โหลดได้แน่นอน)
+  const [saveSheet, setSaveSheet] = useState<{ files: { blob: Blob; name: string }[]; title: string } | null>(null);
+  // ความคืบหน้าการสร้าง PDF (มือถือใช้เวลานานกว่า — ต้องเห็นว่ายังทำงานอยู่)
+  const [progress, setProgress] = useState<{ label: string; pct: number } | null>(null);
 
   // ---- บันทึกสถิติการสร้างไฟล์ (db capability) — เก็บทุกครั้งที่เซฟไฟล์สำเร็จ เพื่อตรวจย้อนหลัง/ดูสถิติ ----
   const useCap = async (name: string): Promise<any> => {
@@ -347,6 +351,12 @@ export default function App() {
     if (!clicked) { try { window.open(url, '_blank'); } catch {} }
     setTimeout(() => URL.revokeObjectURL(url), 8000);
   };
+  // ส่งไฟล์ให้ผู้ใช้นอก claude.ai: คอม = ดาวน์โหลดทันที · มือถือ = แผ่นบันทึก/แชร์ (แตะแล้วทำงานแน่นอนทั้ง iPhone/Android)
+  const deliver = (files: { blob: Blob; name: string }[], title: string, okMsg: string) => {
+    if (IS_MOBILE) { setSaveSheet({ files, title }); return; }
+    files.forEach((f, i) => setTimeout(() => anchorDownload(f.blob, f.name), i * 400));
+    flash(okMsg);
+  };
   const download = async (dk: DocKind) => {
     setBusy(true);
     try {
@@ -372,8 +382,7 @@ export default function App() {
         logEvent('word', camp, dk); setBusy(false); return;
       }
       // เปิดจากไฟล์ standalone / เบราว์เซอร์ปกติ
-      anchorDownload(blob, name);
-      flash(`ดาวน์โหลด "${label}" (.docx) สำเร็จ`);
+      deliver([{ blob, name }], `${label} (Word)`, `ดาวน์โหลด "${label}" (.docx) สำเร็จ`); logEvent('word', camp, dk);
     } catch (e) { flash('เกิดข้อผิดพลาดในการสร้างไฟล์: ' + (e as Error).message, false); }
     setBusy(false);
   };
@@ -383,7 +392,7 @@ export default function App() {
     const sched = buildSchedule(camp); const k2 = compose(camp, sched);
     const cl = (window as any).claude;
     const downloads = cl && typeof cl.use === 'function' ? await cl.use('downloads').catch(() => null) : null;
-    let done = 0;
+    let done = 0; const ready: { blob: Blob; name: string }[] = [];
     try {
       for (const dk of ['program', 'quotation', 'booking', 'runsheet'] as DocKind[]) {
         const blob = await toBlob(buildDoc(dk, camp, sched, k2));
@@ -391,9 +400,10 @@ export default function App() {
         if (downloads) {
           try { await downloads.save({ filename: name, data: blob }); done++; logEvent('word', camp, dk); }
           catch (e: any) { if (e?.code === 'declined') continue; anchorDownload(blob, name); done++; logEvent('word', camp, dk); }
-        } else { anchorDownload(blob, name); done++; logEvent('word', camp, dk); await new Promise(r => setTimeout(r, 400)); }
+        } else { ready.push({ blob, name }); done++; logEvent('word', camp, dk); }
       }
-      flash(`สร้างครบชุด ${done}/4 ไฟล์แล้ว (โปรแกรม · ใบเสนอราคา · ขอราคาโรงแรม · Run-down ภายใน)`);
+      const msg = `สร้างครบชุด ${done}/4 ไฟล์แล้ว (โปรแกรม · ใบเสนอราคา · ขอราคาโรงแรม · Run-down ภายใน)`;
+      if (ready.length) deliver(ready, 'ครบชุด 4 ไฟล์ (Word)', msg); else flash(msg);
     } catch (e) { flash('สร้างชุดไฟล์ผิดพลาด: ' + (e as Error).message, false); }
     setBusy(false);
   };
@@ -443,13 +453,19 @@ export default function App() {
     const jsNS = (window as any).jspdf; const h2c = (window as any).html2canvas;
     if (!jsNS || !h2c) { flash('ตัวสร้าง PDF ยังโหลดไม่เสร็จ (ต้องออนไลน์) — รอสักครู่แล้วลองใหม่ หรือดาวน์โหลด Word แล้ว Save as PDF', false); return; }
     setBusy(true);
+    // ความคืบหน้า: ให้ React วาดแถบก่อนงานหนักแต่ละบล็อก (มือถือไม่ค้างเงียบ)
+    const step = async (label: string, pct: number) => { setProgress({ label, pct }); await new Promise(r => setTimeout(r, 30)); };
     try {
+      await step('เตรียมเอกสาร', 3);
       const plan = buildSchedule(camp); const kk = compose(camp, plan);
       const esc = (s: any) => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' } as any)[c]);
       const ol = (arr: string[]) => arr.map((x, i) => `<div class="li"><span class="n">${i + 1}.</span><span class="x">${esc(x)}</span></div>`).join('');
       const ul = (arr: string[]) => arr.map(x => `<div class="li"><span class="n">-</span><span class="x">${esc(x)}</span></div>`).join('');
       const has = (s?: string) => !!(s && s.trim() && !s.includes('...'));
       const lh = letterheadFor(camp);
+      // ความคมชัด: ตัวอักษรเรนเดอร์ 2.5 เท่า (มือถือ 2 เท่า กันหน่วยความจำเต็ม) + เก็บเป็น PNG (ขอบตัวอักษรไม่เบลอแบบ JPEG)
+      const SCALE = IS_MOBILE ? 2 : 2.5;
+      const MAX_PX = 15_000_000; // iOS Safari จำกัดพื้นที่ canvas ~16.7 ล้านพิกเซล
       const renderCanvas = async (inner: string) => {
         const w = document.createElement('div'); w.className = 'eqpdf';
         w.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
@@ -457,7 +473,9 @@ export default function App() {
         try { const fs = (document as any).fonts; await Promise.all([fs?.load?.("20px EQSarabun"), fs?.load?.("bold 20px EQSarabun")]); await fs?.ready; } catch {}
         await new Promise(r => setTimeout(r, 120));
         // วัดความสูงจริงรวมส่วนที่ล้น (scrollHeight) + กว้างคงที่ ไม่ขึ้นกับขนาดจอ (มือถือ/คอม ได้ผลเท่ากัน)
-        const c = await h2c(w, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 760, height: Math.ceil(w.scrollHeight), windowWidth: 1200, windowHeight: Math.max(1200, Math.ceil(w.scrollHeight) + 50), scrollX: 0, scrollY: 0,
+        const hh = Math.ceil(w.scrollHeight);
+        const sc = Math.min(SCALE, Math.sqrt(MAX_PX / (760 * Math.max(hh, 1))));
+        const c = await h2c(w, { scale: sc, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 760, height: Math.ceil(w.scrollHeight), windowWidth: 1200, windowHeight: Math.max(1200, Math.ceil(w.scrollHeight) + 50), scrollX: 0, scrollY: 0,
           // (สาเหตุหลักของ "ข้อความขาดท้ายบล็อก" แก้ที่ web/index.html — ดูคอมเมนต์ img[src^="data:image/gif..."]) ที่นี่แค่รอฟอนต์ในสำเนาให้ครบ
           onclone: async (doc: Document) => {
             try { const f = (doc as any).fonts; await Promise.all([f.load('20px EQSarabun'), f.load('bold 20px EQSarabun')]); await f.ready; } catch { /* ignore */ }
@@ -485,16 +503,20 @@ export default function App() {
       let y = contentTop; drawHead();
       const newPage = () => { pdf.addPage(); drawHead(); y = contentTop; };
       // วางบล็อกทั้งก้อน ไม่ตัดกลางบรรทัด: ถ้าสั่งขึ้นหน้าใหม่ หรือพื้นที่ไม่พอ → ขึ้นหน้าใหม่ก่อน
-      const place = async (inner: string, opts: { newpage?: boolean; gap?: number } = {}) => {
+      const place = async (inner: string, opts: { newpage?: boolean; gap?: number; photo?: boolean } = {}) => {
         const canvas = await renderCanvas(inner);
         const h = contentW * (canvas.height / canvas.width);
         const atTop = y <= contentTop + 0.5;
         if ((opts.newpage || y + h > pageH - bottomM) && !atTop) newPage();
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', M, y, contentW, h);
+        // ข้อความ = PNG (คม) · ภาพถ่าย = JPEG (ไฟล์เล็ก)
+        if (opts.photo) pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', M, y, contentW, h, undefined, 'FAST');
+        else pdf.addImage(canvas, 'PNG', M, y, contentW, h, undefined, 'FAST');
+        canvas.width = 0; canvas.height = 0; // คืนหน่วยความจำทันที (สำคัญบน iPhone)
         y += h + (opts.gap ?? 3);
       };
 
       // ---- หน้าปก ----
+      await step('หน้าปก', 10);
       await place(`<h1>${esc(kk.titleTh)}</h1>${kk.titleEn ? `<div class="en">${esc(kk.titleEn)}</div>` : ''}`, { gap: 5 });
       // แพตเทิร์นเอกสารจริง: วัตถุประสงค์ย่อหน้าแรกเยื้อง · ข้อมูลจำนวน/วิทยากร/ระยะเวลาแบบแท็บ · รายการบูรณาการเยื้องทั้งบล็อก "1.ข้อความ"
       const fl = (a: string[]) => a.map((x, i) => `<div class="fl">${i + 1}.${esc(x)}</div>`).join('');
@@ -508,18 +530,21 @@ export default function App() {
       for (const sec of kk.cover as CoverSec[]) { if (sec.k === 'info') { coverBuf += secHtml(sec); continue; } if (coverBuf) await place(coverBuf); coverBuf = secHtml(sec); }
       if (coverBuf) await place(coverBuf);
 
+      await step('กำหนดการ', 35);
       // ---- หน้ากำหนดการ: ขึ้นหน้าใหม่ · แต่ละวันเป็นบล็อก (ไม่ตัดข้ามหน้า) · ปิดด้วยหมายเหตุ ----
       await place(`<div class="sh">กำหนดการ<br>${esc(kk.nameTh)}${kk.titleEn ? '<br>' + esc(kk.titleEn) : ''}` +
         (has(camp.school) ? '<br>' + esc(camp.school) : '') + (has(camp.dates) ? '<br>' + esc(camp.dates) : '') + (has(camp.venue) ? '<br>ณ ' + esc(camp.venue) : '') + '</div>', { newpage: true, gap: 6 });
       // หมายเหตุติดท้าย "วันสุดท้าย" ในบล็อกเดียวกัน → ไม่มีวันหลุดไปอยู่หน้าโดด ๆ
       for (const [i, d] of plan.days.entries()) {
         const last = i === plan.days.length - 1;
+        await step(`กำหนดการ วันที่ ${d.day}`, 35 + Math.round(25 * (i + 1) / plan.days.length));
         await place(`<div class="day">วันที่ ${d.day}</div><table class="sched">` +
           d.items.map(r => `<tr><td class="t">${esc(r.time)}</td><td>${esc(r.title)}${(r.sub || []).map(s => `<div class="sub">${esc(s)}</div>`).join('')}</td></tr>`).join('') + '</table>' +
           (last ? '<div class="note" style="margin-top:10px">หมายเหตุ : กำหนดการอาจจะเปลี่ยนแปลงตามความเหมาะสม</div>' : ''), { gap: 6 });
       }
 
       // ---- ราคา + รายละเอียดงบประมาณ: แบบเรียบตามเอกสารทีม (ไม่มีตาราง/กรอบ) ขึ้นหน้าใหม่เสมอ ----
+      await step('ราคาและงบประมาณ', 65);
       await place(
         `<div class="pline">ราคาปกติ ${money(camp.normalPrice)} <span class="red">ลดเหลือเพียง ${money(camp.specialPrice)} บ./ท่าน</span></div>` +
         `<div class="pline">รายละเอียดงบประมาณมีดังนี้</div>` +
@@ -527,7 +552,8 @@ export default function App() {
         { newpage: true });
 
       // ---- ภาพประกอบ 6–8 รูป: กริด 2 คอลัมน์ มีกรอบ + หมายเลข + คำบรรยายใต้รูป · แต่ละชุดขึ้นหน้าใหม่ ----
-      const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); };
+      // แปลงภาพเป็น base64 ทีละก้อน (เร็วกว่าทีละไบต์มาก บนมือถือ)
+      const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, Array.from(u.subarray(i, i + 0x8000))); return btoa(s); };
       const realCap = realCaption;
       // ภาพจากไฟล์ค่าย: ไม่มีเลข/ข้อความใต้ภาพ — แสดงคำบรรยายเฉพาะที่ทีมพิมพ์เอง
       const cell = (src: string, _n: number, cap: string) => `<div class="pcell"><div class="pf">${src}</div>${cap ? `<div class="cap">${esc(cap)}</div>` : ''}</div>`;
@@ -537,15 +563,16 @@ export default function App() {
       const withData = camp.actImgs.filter(a => a.data);
       let actCells: string[] = [];
       if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : ''));
-      if (actCells.length) { photoCount += actCells.length; await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${gridOf(actCells)}`, { newpage: true }); }
+      if (actCells.length) { await step('ภาพกิจกรรม', 75); photoCount += actCells.length; await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${gridOf(actCells)}`, { newpage: true, photo: true }); }
       const venueData = camp.venueImgs.filter(a => a.data);
       if (venueData.length) {
         const vCells = venueData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : ''));
-        photoCount += vCells.length;
-        await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${gridOf(vCells)}`, { newpage: true });
+        photoCount += vCells.length; await step('ภาพที่พัก', 85);
+        await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${gridOf(vCells)}`, { newpage: true, photo: true });
       }
-      if (isSteamProgram(camp) && !plan.tpl) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true });
+      if (isSteamProgram(camp) && !plan.tpl) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true, photo: true });
 
+      await step('รวมไฟล์ PDF', 95);
       // เลขหน้า "X / Y" ทุกหน้า (ล่างกลาง)
       const totPages = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= totPages; i++) { pdf.setPage(i); pdf.setFont(docFont, 'normal'); pdf.setFontSize(docFont === 'helvetica' ? 9 : 13); pdf.setTextColor(140); pdf.text(`${i} / ${totPages}`, pageW / 2, pageH - 7, { align: 'center' }); }
@@ -557,9 +584,14 @@ export default function App() {
       if (downloads) {
         try { await downloads.save({ filename: name, data: blob }); logEvent('pdf', camp, 'program'); flash('บันทึก PDF เรียบร้อย' + photoWarn, !photoWarn); }
         catch (e: any) { if (e?.code === 'declined') flash('ยกเลิกการบันทึก PDF', false); else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); } }
-      } else { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); if (IN_CLAUDE) { setDlBlocked(true); flash(`ถ้า PDF ไม่ดาวน์โหลด ให้ใช้เวอร์ชันเว็บ: ${WEB_URL}`, false); } else flash('ดาวน์โหลด PDF แล้ว' + photoWarn, !photoWarn); }
-    } catch (e) { flash('สร้าง PDF ไม่สำเร็จ: ' + (e as Error).message, false); }
-    setBusy(false);
+      } else if (IN_CLAUDE) { anchorDownload(blob, name); logEvent('pdf', camp, 'program'); setDlBlocked(true); flash(`ถ้า PDF ไม่ดาวน์โหลด ให้ใช้เวอร์ชันเว็บ: ${WEB_URL}`, false); }
+      else { logEvent('pdf', camp, 'program'); setProgress(null); deliver([{ blob, name }], `โปรแกรมค่าย (PDF ${pdf.internal.getNumberOfPages()} หน้า)`, 'ดาวน์โหลด PDF แล้ว' + photoWarn); if (photoWarn && IS_MOBILE) flash(photoWarn.trim(), false); }
+    } catch (e) {
+      const m = (e as Error)?.message || String(e);
+      // หน่วยความจำไม่พอ (มือถือรุ่นเก่า) → บอกทางออกที่ทำได้จริง
+      flash(/memory|allocation|canvas|quota/i.test(m) ? 'เครื่องนี้หน่วยความจำไม่พอสร้าง PDF — ปิดแท็บอื่นแล้วลองใหม่ หรือดาวน์โหลด Word แล้วเปิดในแอป Word/Google Docs เพื่อบันทึกเป็น PDF' : 'สร้าง PDF ไม่สำเร็จ: ' + m, false);
+    }
+    setProgress(null); setBusy(false);
   };
 
   const TABS = [
@@ -634,6 +666,30 @@ export default function App() {
         </nav>
       </header>
 
+      {/* ข้อความแจ้งผล: ลอยล่างจอ → เห็นทุกตำแหน่งที่เลื่อนอยู่ (มือถือกดปุ่มท้ายหน้าแล้วต้องเห็นผล) */}
+      {banner && (
+        <div role="status" aria-live="polite" className="fixed z-50 bottom-3 left-1/2 -translate-x-1/2 w-[min(640px,calc(100%-24px))] pb-[env(safe-area-inset-bottom)]">
+          <div className={`pl-4 pr-2 py-2.5 rounded-xl text-[14px] flex items-center justify-between gap-3 border bg-white shadow-lift ${banner.ok ? 'border-brand-mist text-brand-ink' : 'border-amber-300 text-brand-ink'}`}>
+            <span className="flex items-start gap-2 min-w-0 break-words">{banner.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />}<span className="min-w-0">{banner.t}</span></span>
+            <button onClick={() => setBanner(null)} aria-label="ปิดข้อความ" className="tap text-sub hover:text-brand-ink p-1.5 rounded-md shrink-0"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+      )}
+
+      {/* กำลังสร้าง PDF */}
+      {progress && (
+        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="กำลังสร้าง PDF">
+          <div className="bg-white rounded-2xl p-5 w-full max-w-sm shadow-lift">
+            <div className="text-[16px] font-semibold">กำลังสร้าง PDF</div>
+            <div className="text-[14px] text-sub mt-1" aria-live="polite">{progress.label}…</div>
+            <div className="h-2 rounded-full bg-paper mt-3 overflow-hidden"><div className="h-full bg-brand-navy transition-all" style={{ width: `${progress.pct}%` }} /></div>
+            <div className="text-[12.5px] text-sub mt-2">มือถืออาจใช้เวลา 10–30 วินาที อย่าปิดหน้านี้</div>
+          </div>
+        </div>
+      )}
+
+      {saveSheet && <SaveSheet sheet={saveSheet} onClose={() => setSaveSheet(null)} download={anchorDownload} />}
+
       {/* เปิดลิงก์จากแอป (LINE/Facebook ฯลฯ): เบราว์เซอร์ในแอปมักดาวน์โหลดไฟล์ไม่ได้ → พาไปเบราว์เซอร์จริง */}
       {IN_APP && !inAppHide && (() => {
         const ext = externalBrowserUrl();
@@ -656,13 +712,6 @@ export default function App() {
 
       {view === 'home' && (
         <>
-          {banner && (
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
-              <div className={`pl-4 pr-2 py-2.5 rounded-xl text-[14px] flex items-center justify-between gap-3 border bg-white ${banner.ok ? 'border-brand-mist' : 'border-amber-300'}`}>
-                <span>{banner.t}</span><button onClick={() => setBanner(null)} aria-label="ปิดข้อความ" className="text-sub p-1"><X className="w-4 h-4" /></button>
-              </div>
-            </div>
-          )}
           <Home
             onStartBrief={() => { setTab('brief'); setView('build'); }}
             onUseCourse={code => { changeCourse(code); setKind('program'); setTab('header'); setView('build'); }}
@@ -678,12 +727,6 @@ export default function App() {
           <div className="mb-4 pl-4 pr-3 py-2.5 rounded-xl text-[14px] border border-amber-300 bg-white flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />หน้านี้บน claude.ai บันทึกไฟล์ได้เฉพาะผู้ที่ลงชื่อเข้าใช้ — ทีมงานทุกคนใช้เวอร์ชันเว็บได้ทันที ไม่ต้องลงชื่อ</span>
             <a href={WEB_URL} target="_blank" rel="noopener" className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium">เปิดเวอร์ชันเว็บ</a>
-          </div>
-        )}
-        {banner && (
-          <div className={`mb-4 pl-4 pr-2 py-2.5 rounded-xl text-[14px] flex items-center justify-between gap-3 border bg-white ${banner.ok ? 'border-brand-mist text-brand-ink' : 'border-amber-300 text-brand-ink'}`}>
-            <span className="flex items-start gap-2">{banner.ok ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />}{banner.t}</span>
-            <button onClick={() => setBanner(null)} aria-label="ปิดข้อความ" className="text-sub hover:text-brand-ink p-1 rounded-md"><X className="w-4 h-4" /></button>
           </div>
         )}
 
@@ -979,7 +1022,7 @@ export default function App() {
                                 <button onClick={() => toggleAct(a.id)} className="flex items-start gap-2 flex-1 text-left">
                                   <div className={`w-4 h-4 rounded mt-0.5 grid place-items-center shrink-0 ${on ? 'bg-brand' : 'border border-brand-mist'}`}>{on && <CheckCircle2 className="w-4 h-4 text-white" />}</div>
                                   <div>
-                                    <div className="text-[13.5px] font-semibold leading-snug">{a.title}{custom && <span className="ml-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1 rounded">เพิ่มเอง</span>}{a.draft && !custom && <span className="ml-1 text-[11px] font-semibold text-amber-700 bg-amber-100 px-1 rounded">รอตรวจ</span>}</div>
+                                    <div className="text-[13.5px] font-semibold leading-snug">{a.title}{custom && <span className="ml-1 text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-1 rounded">เพิ่มเอง</span>}{a.draft && !custom && <span className="ml-1 text-[11px] font-semibold text-amber-700 bg-amber-100 px-1 rounded">รอตรวจ</span>}{(() => { const n = notionActFor(a.title); return n ? <span className="ml-1 text-[11px] font-semibold text-brand-navy bg-paper border border-brand-mist px-1 rounded">Notion · {actStandard(n).level}</span> : null; })()}</div>
                                     {a.desc && <div className="text-[12px] text-sub">{a.desc}</div>}
                                     {a.draft && !custom && <div className="text-[11px] text-amber-600">ต้องยืนยันขั้นตอน/อุปกรณ์/เวลาก่อนจัดจริง</div>}
                                   </div>
@@ -1121,10 +1164,13 @@ export default function App() {
                 <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-brand-mist">
                   <button onClick={() => setTab(STEPS[stepIdx - 1].id)} disabled={stepIdx === 0}
                     className="tap px-4 py-2.5 rounded-xl text-[14px] font-medium text-brand-ink border border-brand-mist hover:bg-paper disabled:invisible">ย้อนกลับ</button>
-                  <span className="text-[13px] text-sub">ขั้นที่ {stepIdx + 1} จาก {STEPS.length}</span>
+                  <span className={`text-[13px] text-sub ${stepIdx === STEPS.length - 1 ? 'hidden sm:inline' : ''}`}>ขั้นที่ {stepIdx + 1} จาก {STEPS.length}</span>
                   {stepIdx < STEPS.length - 1
                     ? <button onClick={() => setTab(STEPS[stepIdx + 1].id)} className="tap px-5 py-2.5 rounded-xl text-[14px] font-semibold bg-brand-navy text-white hover:opacity-90">ถัดไป: {STEPS[stepIdx + 1].label}</button>
-                    : <button onClick={() => download(kind)} disabled={busy} className="tap px-5 py-2.5 rounded-xl text-[14px] font-semibold bg-accent text-white hover:bg-accent-deep disabled:opacity-40">ดาวน์โหลดไฟล์</button>}
+                    : <span className="flex gap-2">
+                        <button onClick={printPDF} disabled={busy} className="tap px-4 py-2.5 rounded-xl text-[14px] font-semibold border border-brand-mist hover:bg-paper disabled:opacity-40">PDF</button>
+                        <button onClick={() => download(kind)} disabled={busy} className="tap px-4 py-2.5 rounded-xl text-[14px] font-semibold bg-accent text-white hover:bg-accent-deep disabled:opacity-40">Word</button>
+                      </span>}
                 </div>
               )}
             </div>
@@ -1141,6 +1187,9 @@ export default function App() {
             </div>
             <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold shadow-lift tap flex items-center justify-center gap-2">
               <Download className="w-5 h-5" />{busy ? 'กำลังสร้างไฟล์...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} เป็นไฟล์ Word (.docx)`}
+            </button>
+            <button onClick={printPDF} disabled={busy} className="w-full py-3 rounded-xl border border-brand-mist bg-white enabled:hover:bg-paper disabled:opacity-40 font-semibold tap flex items-center justify-center gap-2 -mt-1">
+              <FileText className="w-5 h-5" />บันทึกโปรแกรมค่ายเป็น PDF
             </button>
             <button onClick={downloadAll} disabled={busy} className="w-full py-3 rounded-xl border border-brand-mist bg-white enabled:hover:bg-paper disabled:opacity-40 font-semibold tap flex items-center justify-center gap-2 -mt-1">
               <Layers className="w-5 h-5" />ดาวน์โหลดครบชุด 4 ไฟล์ (Word)
@@ -1465,6 +1514,15 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
       </div>
       <div className="text-center font-extrabold text-sky-900 mb-1">กำหนดการ (มีช่องผู้รับผิดชอบ)</div>
       <Sched plan={plan} extra />
+      <H>เช็คลิสต์อุปกรณ์กิจกรรม (มาตรฐานจาก Notion)</H>
+      {(() => { const acts = notionActsInPlan(plan); if (!acts.length) return <div className="text-[13px] text-gray-500">กิจกรรมในกำหนดการนี้ยังไม่มีหน้ามาตรฐานใน Notion</div>;
+        return acts.map(({ a, when }) => { const st = actStandard(a); return (
+          <div key={a.id} className="mt-1">
+            <div><b>{a.name}</b> <span className="text-gray-500 text-[13px]">· {st.level} ({st.score}/4) · {when.join(', ')}</span></div>
+            {a.perGroup.length > 0 && <div className="text-[14px]"><u>อุปกรณ์ต่อกลุ่ม</u>: {a.perGroup.map(e => e.name + (e.qty ? ' ' + e.qty : '')).join(' · ')}</div>}
+            {a.shared.length > 0 && <div className="text-[14px]"><u>อุปกรณ์ส่วนกลาง</u>: {a.shared.map(e => e.name + (e.qty ? ' ' + e.qty : '')).join(' · ')}</div>}
+            {!a.perGroup.length && !a.shared.length && <div className="text-[13px] text-amber-700">ยังไม่มีเช็คลิสต์อุปกรณ์ใน Notion</div>}
+          </div>); }); })()}
     </div>
   );
 }
@@ -1497,4 +1555,50 @@ function Sched({ plan, extra }: { plan: any; extra?: boolean }) {
       ))}
     </div>
   ))}</div>;
+}
+
+/* แผ่นบันทึกไฟล์บนมือถือ — ปุ่มทุกปุ่มทำงานจากการแตะของผู้ใช้โดยตรง (iOS/Android บล็อกการดาวน์โหลด/แชร์ที่ไม่ได้มาจากการแตะ)
+ * 1) บันทึก / ส่งต่อ = เมนูแชร์ของเครื่อง (iPhone: "บันทึกไปยังไฟล์", LINE, Mail · Android: Drive, LINE, ไฟล์)
+ * 2) ดาวน์โหลด = ลงโฟลเดอร์ดาวน์โหลด  3) เปิดดู = เปิดไฟล์ในแท็บใหม่ แล้วกดแชร์/บันทึกจากตัวดูไฟล์ */
+function SaveSheet({ sheet, onClose, download }: { sheet: { files: { blob: Blob; name: string }[]; title: string }; onClose: () => void; download: (b: Blob, n: string) => void }) {
+  const files = useMemo(() => sheet.files.map(f => { try { return new File([f.blob], f.name, { type: f.blob.type || (f.name.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') }); } catch { return null; } }).filter(Boolean) as File[], [sheet]);
+  const canShare = files.length === sheet.files.length && canShareFiles(files);
+  const [msg, setMsg] = useState('');
+  const size = (b: Blob) => b.size > 1048576 ? `${(b.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b.size / 1024))} KB`;
+  const share = async () => {
+    try { await (navigator as any).share({ files, title: sheet.title }); setMsg('ส่งไฟล์แล้ว'); }
+    catch (e: any) { if (e?.name !== 'AbortError') setMsg('แชร์ไม่ได้ในเบราว์เซอร์นี้ — ใช้ปุ่ม "ดาวน์โหลด" หรือ "เปิดดู" แทน'); }
+  };
+  const open = (b: Blob) => { const u = URL.createObjectURL(b); const w = window.open(u, '_blank'); if (!w) location.href = u; setTimeout(() => URL.revokeObjectURL(u), 60000); };
+  useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/35 flex items-end sm:items-center justify-center" role="dialog" aria-modal="true" aria-label="บันทึกไฟล์" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-lift" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[17px] font-semibold">ไฟล์พร้อมแล้ว</div>
+            <div className="text-[13.5px] text-sub mt-0.5">{sheet.title}</div>
+          </div>
+          <button onClick={onClose} aria-label="ปิด" className="tap p-1.5 -mr-1.5 rounded-lg text-sub"><X className="w-5 h-5" /></button>
+        </div>
+        <ul className="mt-3 space-y-1.5">
+          {sheet.files.map(f => (
+            <li key={f.name} className="flex items-center gap-2 text-[13.5px] bg-paper rounded-lg px-3 py-2">
+              <FileText className="w-4 h-4 text-sub shrink-0" /><span className="min-w-0 flex-1 truncate">{f.name}</span><span className="text-sub shrink-0">{size(f.blob)}</span>
+              {sheet.files.length > 1 && <button onClick={() => download(f.blob, f.name)} className="tap shrink-0 text-brand-navy underline underline-offset-2 px-1">โหลด</button>}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 grid gap-2">
+          {canShare && <button onClick={share} className="tap w-full py-3 rounded-xl bg-accent hover:bg-accent-deep text-white font-semibold">บันทึก / ส่งต่อไฟล์</button>}
+          <button onClick={() => { sheet.files.forEach((f, i) => setTimeout(() => download(f.blob, f.name), i * 500)); setMsg(IS_IOS ? 'ถ้าเปิดเป็นหน้าตัวอย่าง ให้กดปุ่มแชร์ แล้วเลือก "บันทึกไปยังไฟล์"' : 'ดูไฟล์ได้ในโฟลเดอร์ "ดาวน์โหลด"'); }}
+            className={`tap w-full py-3 rounded-xl font-semibold ${canShare ? 'border border-brand-mist' : 'bg-accent hover:bg-accent-deep text-white'}`}>{sheet.files.length > 1 ? `ดาวน์โหลดทั้ง ${sheet.files.length} ไฟล์` : 'ดาวน์โหลด'}</button>
+          {sheet.files.length === 1 && <button onClick={() => open(sheet.files[0].blob)} className="tap w-full py-3 rounded-xl border border-brand-mist font-semibold">เปิดดูไฟล์</button>}
+        </div>
+        {msg && <div className="text-[13px] text-sub mt-3" role="status">{msg}</div>}
+        {IN_APP && <div className="text-[13px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-3">เปิดจาก {IN_APP} อาจบันทึกไฟล์ไม่ได้ — ใช้ "บันทึก / ส่งต่อไฟล์" หรือเปิดหน้านี้ในเบราว์เซอร์ (Safari/Chrome)</div>}
+        {IS_IOS && canShare && <div className="text-[12.5px] text-sub mt-3">iPhone/iPad: กด "บันทึก / ส่งต่อไฟล์" → "บันทึกไปยังไฟล์" หรือเลือก LINE/Mail เพื่อส่งต่อ</div>}
+      </div>
+    </div>
+  );
 }

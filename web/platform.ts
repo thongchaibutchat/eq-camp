@@ -21,3 +21,7 @@ export async function copyText(t: string): Promise<boolean> {
   try { await navigator.clipboard.writeText(t); return true; } catch { /* fallback ด้านล่าง */ }
   try { const a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch { return false; }
 }
+// มือถือ/แท็บเล็ต (จอสัมผัส) — ใช้แผ่น "บันทึก/แชร์ไฟล์" แทนดาวน์โหลดอัตโนมัติ
+export const IS_MOBILE = IS_IOS || IS_ANDROID || (typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024);
+// แชร์ไฟล์ผ่านเมนูของเครื่อง (iOS: "บันทึกไปยังไฟล์", LINE, อีเมล · Android: Drive/LINE/ไฟล์)
+export const canShareFiles = (files: File[]) => { try { return !!(navigator as any).canShare && (navigator as any).canShare({ files }); } catch { return false; } };

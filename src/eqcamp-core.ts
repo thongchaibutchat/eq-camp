@@ -20,6 +20,10 @@ export { STEAM_GALLERY } from './steam-gallery-data';
 import { BRAND } from './brand-data';
 import { FULL_HEADERS } from './letterhead-full-data';
 import { FONT_NAME, FONT_REG_B64, FONT_BOLD_B64 } from './font-data';
+import { NOTION_ACTIVITIES, NOTION_DB_URL, NOTION_SYNCED } from './notion-activities-data';
+import type { NotionActivity } from './notion-activities-data';
+export { NOTION_ACTIVITIES, NOTION_DB_URL, NOTION_SYNCED } from './notion-activities-data';
+export type { NotionActivity, Equip } from './notion-activities-data';
 import JSZip from 'jszip';
 import { Packer } from 'docx';
 export { BRAND } from './brand-data';
@@ -1273,6 +1277,23 @@ const letterheadFooter = (r: Region): Footer => {
 };
 
 /* ===================== 4 DOCUMENT BUILDERS ===================== */
+
+// เช็คลิสต์อุปกรณ์จากฐานกิจกรรม Notion — เฉพาะเอกสารภายใน (Run-down) · ไม่เดาจำนวนกลุ่ม (ระบุ "ต่อกลุ่ม" ตามต้นฉบับ)
+const equipmentSection = (plan: Plan): Paragraph[] => {
+  const acts = notionActsInPlan(plan);
+  const head = H('เช็คลิสต์อุปกรณ์กิจกรรม (มาตรฐานจาก Notion)');
+  if (!acts.length) return [head, P('กิจกรรมในกำหนดการนี้ยังไม่มีหน้ามาตรฐานใน Notion — ตรวจอุปกรณ์กับผู้รับผิดชอบกิจกรรม', { sz: 14, color: '64748B' })];
+  return [head, P(`ดึงจากฐานข้อมูลกิจกรรม STEM ใน Notion (ข้อมูล ณ ${NOTION_SYNCED}) · ตรวจของจริงก่อนออกเดินทางทุกครั้ง`, { sz: 14, color: '64748B', after: 2 }),
+    ...acts.flatMap(({ a, when }) => {
+      const st = actStandard(a);
+      const out: Paragraph[] = [P([R(a.name, { b: true }), R(`  ·  ${st.level} (${st.score}/4) · ${when.join(', ')}`, { sz: 14, color: '64748B' })], { keep: true, before: 4, after: 0 })];
+      if (a.perGroup.length) out.push(P('อุปกรณ์ต่อกลุ่ม', { sz: 15, u: true, keep: true, after: 0 }), ...a.perGroup.map((e, i) => P(`${i + 1}. ${e.name}${e.qty ? ' — ' + e.qty : ''}`, { sz: 15, indent: 0.9, hang: 0.6, after: 0 })));
+      if (a.shared.length) out.push(P('อุปกรณ์ส่วนกลาง', { sz: 15, u: true, keep: true, after: 0 }), ...a.shared.map((e, i) => P(`${i + 1}. ${e.name}${e.qty ? ' — ' + e.qty : ''}`, { sz: 15, indent: 0.9, hang: 0.6, after: 0 })));
+      if (!a.perGroup.length && !a.shared.length) out.push(P('ยังไม่มีเช็คลิสต์อุปกรณ์ใน Notion', { sz: 14, color: 'B45309', after: 0 }));
+      if (a.slides.length) out.push(P(`สไลด์: ${a.slides.join(' , ')}`, { sz: 13, color: '64748B', after: 0 }));
+      return out;
+    })];
+};
 export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<typeof compose>): Document {
   const plan = planIn || buildSchedule(c); const k = k0 || compose(c, plan);
   const total = c.students * c.specialPrice, cost = c.students * c.costPerPerson, profit = total - cost, margin = total ? (profit / total) * 100 : 0;
@@ -1333,7 +1354,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
         P(`ราคาขาย ${money(c.specialPrice)} บ./ท่าน × ${c.students} = ${money(total)} บาท`, { sz: 15, after: 0 }),
         P(`กำไรประเมิน ${money(profit)} บาท (Margin ${margin.toFixed(1)}%)${margin < 20 ? '  ⚠ ต่ำกว่า 20%' : ''}`, { b: true, sz: 16, color: profit < 0 ? 'DC2626' : '15803D', after: 0 }),
         P(`ซัพพลายเออร์/ผู้ติดต่อ: ${c.supplierNote || (VENUES.find(v => v.name === c.venue)?.note ?? '-')}`, { sz: 14, after: 0 })], W, { fill: 'FFFBEB', border: 'box' })] })], [W]),
-      P('', { after: 4 }), ...scheduleBlock(c, plan, k, true), ...photoSection(c)];
+      P('', { after: 4 }), ...scheduleBlock(c, plan, k, true), ...equipmentSection(plan), ...photoSection(c)];
   }
   const region: Region = c.region || regionOf(c.province);
   return new Document({ creator: 'EQ Camp', title: `${c.docCode} ${k.titleTh}`,
@@ -1355,6 +1376,42 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
 }
 export const fileName = (kind: DocKind, c: Camp) => `${c.docCode.replace(/[^\w-]+/g, '_')}_${{ program: 'โปรแกรม', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Rundown_INTERNAL' }[kind]}_${c.school.replace(/\s+/g, '')}.docx`;
 
+
+
+/* ===================== มาตรฐานกิจกรรม (ฐานข้อมูล Notion ของทีม) =====================
+ * โครงมาตรฐาน 1 กิจกรรม = ชื่อ · หมวด · สถานะ · สไลด์ · Sheet lab · อุปกรณ์ต่อกลุ่ม · อุปกรณ์ส่วนกลาง
+ * "พร้อมใช้" = ครบ 4 ข้อ: สถานะ "เสร็จ" + มีสไลด์ + มี Sheet lab + มีเช็คลิสต์อุปกรณ์
+ * วัตถุประสงค์/ขั้นตอน/เวลา/ระดับชั้น ยังไม่มีใน Notion → แสดงว่า "ยังไม่มี" ห้ามเติมเอง
+ * ใช้ในเอกสารภายใน (Run-down) เท่านั้น — ไม่ขึ้นเอกสารลูกค้า */
+export const notionUrl = (a: NotionActivity) => `https://app.notion.com/p/${a.id}`;
+const nkey = (s: string) => String(s || '').toLowerCase().replace(/part\.?\s*\d+/g, '').replace(/[^a-z0-9฀-๿]+/g, '');
+export type StdLevel = 'พร้อมใช้' | 'บางส่วน' | 'ยังไม่มีข้อมูล';
+export function actStandard(a: NotionActivity): { checks: { label: string; ok: boolean }[]; score: number; level: StdLevel } {
+  const checks = [
+    { label: 'สถานะ "เสร็จ" ใน Notion', ok: a.status === 'เสร็จ' },
+    { label: 'สไลด์กิจกรรม', ok: a.slides.length > 0 },
+    { label: 'Sheet lab / ใบงาน', ok: a.lab },
+    { label: 'เช็คลิสต์อุปกรณ์', ok: a.perGroup.length + a.shared.length > 0 }
+  ];
+  const score = checks.filter(c => c.ok).length;
+  return { checks, score, level: score === 4 ? 'พร้อมใช้' : (a.empty || score === 0) ? 'ยังไม่มีข้อมูล' : 'บางส่วน' };
+}
+// จับคู่ชื่อในกำหนดการ/คลังกิจกรรม → กิจกรรมมาตรฐานใน Notion (คีย์ยาวสุดชนะ กัน Roller box ↔ Roller coaster สับกัน)
+const NOTION_KEYS = NOTION_ACTIVITIES.flatMap(a => [a.name, ...(a.aliases || [])].map(n => ({ k: nkey(n), a }))).filter(x => x.k.length >= 5).sort((x, y) => y.k.length - x.k.length);
+export function notionActFor(title: string): NotionActivity | null {
+  const t = nkey(title); if (!t) return null;
+  for (const { k, a } of NOTION_KEYS) if (t.includes(k)) return a;
+  return null;
+}
+// กิจกรรมในกำหนดการที่มีมาตรฐาน Notion (ไม่ซ้ำ) + เวลาที่ใช้
+export function notionActsInPlan(plan: Plan): { a: NotionActivity; when: string[] }[] {
+  const m = new Map<string, { a: NotionActivity; when: string[] }>();
+  for (const d of plan.days) for (const r of d.items) {
+    const a = notionActFor(r.title); if (!a) continue;
+    const e = m.get(a.id) || { a, when: [] }; e.when.push(`วันที่ ${d.day} ${r.time}`); m.set(a.id, e);
+  }
+  return [...m.values()];
+}
 
 /* ===================== PACK + EMBED FONT =====================
  * ฝังฟอนต์ TH Sarabun New (regular+bold) ลงไฟล์ .docx — เครื่องที่ไม่ได้ติดตั้งฟอนต์จะไม่ถูกแทนด้วย
