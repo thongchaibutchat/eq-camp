@@ -2,6 +2,10 @@ import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
 import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
+// คำผิดที่รู้จัก — รายการกลาง data/typo-fixes.json
+const TYPO_JSON = JSON.parse(fs.readFileSync('data/typo-fixes.json', 'utf8'));
+const TYPO_BAD: string[] = TYPO_JSON.fixes.map((f: string[]) => f[0]).filter((w: string) => w.trim().length > 1);
+const TYPO_RE: RegExp[] = TYPO_JSON.regex.map((r: string[]) => new RegExp(r[0]));
 
 const OUT = '/tmp/stress'; fs.rmSync(OUT, { recursive: true, force: true }); fs.mkdirSync(OUT, { recursive: true });
 const kinds: DocKind[] = ['program', 'quotation', 'booking', 'runsheet'];
@@ -55,6 +59,18 @@ for (const t of TEMPLATES) {
 for (const [dm, d, n] of [['half',1,0],['day',1,0],['day',3,0],['overnight',2,1],['overnight',4,3]] as const)
   configs.push({ name:`ADDeng_${dm}${d}${n}`, camp: mk({ courseCode:'PL STM 0101', templateId:'engine', school:'ร.ร.', students:40, teachers:2, durationMode:dm as any, days:d, nights:n, venue:'ว', normalPrice:3000, specialPrice:2500, costPerPerson:1000, addons: [{ code:'PL ENG 0104', ids:['__missing__'] }, { code:'PL CHI 0109', price:250 }] } as any) });
 
+// 6. ธีมรายวัน (mix หลักสูตร): ทุกแม่แบบ × หลักสูตรอื่นหมุนเวียนในวันที่ 2+ (+ Add-on บางชุด) · engine ครึ่งวัน/ไป-กลับ/พักค้าง
+TEMPLATES.forEach((t, k) => {
+  const dm = t.dur.startsWith('day') ? 'day' : 'overnight';
+  const days = dm === 'day' ? +t.dur.slice(3) : +t.dur.charAt(1), nights = dm === 'day' ? 0 : +t.dur.slice(2);
+  if (days < 2) return;
+  const others = COURSES.filter(x => x.code !== t.code);
+  const dc = Array.from({ length: days }, (_, i) => i === 0 ? '' : others[(k + i) % others.length].code);
+  configs.push({ name:`MIX_${t.id.replace(/\s+/g, '_')}`, camp: mk({ courseCode:t.code, templateId:t.id, school:'โรงเรียนทดสอบผสม', students:70, teachers:5, durationMode:dm as any, days, nights, dates:'x', province:'', venue:'ว', normalPrice:4000, specialPrice:3200, costPerPerson:1800, dayCourses: dc, addons: k % 3 === 0 ? [{ code:'PL CHI 0109', price:200 }] : undefined } as any) });
+});
+for (const [dm, d, n] of [['day',2,0],['day',3,0],['overnight',2,1],['overnight',3,2],['overnight',4,3]] as const)
+  configs.push({ name:`MIXeng_${dm}${d}${n}`, camp: mk({ courseCode:'PL ENG 0104', templateId:'engine', school:'ร.ร.', students:40, teachers:2, durationMode:dm as any, days:d, nights:n, venue:'ว', normalPrice:3000, specialPrice:2500, costPerPerson:1000, dayCourses: ['', 'PL SEA 0103', 'PL STM 0101', 'not-a-course'] } as any) });
+
 let fail = 0, ok = 0;
 (async () => {
   const manifest: string[] = [];
@@ -73,6 +89,12 @@ let fail = 0, ok = 0;
         void check(cfg.camp, plan);
         // ตรวจ: ทุกวันต้องมีอย่างน้อย 1 แถว (ตารางว่าง = docx พัง)
         for (const d of plan.days) if (!d.items.length) throw new Error(`day ${d.day} has 0 rows`);
+        // ธีมรายวัน: ทุกวันต้องมีแถว + plan.mix ครบทุกวัน + เลขมื้อไม่ซ้ำ/เรียงต่อเนื่อง
+        if ((cfg.camp as any).dayCourses && plan.mix) {
+          if (plan.mix.length !== plan.days.length) throw new Error('mix length mismatch');
+          const nums = plan.days.flatMap(d => d.items).map(r => r.title.match(/(?:รับประทานอาหาร(?:เช้า|กลางวัน|เที่ยง|เย็น)|Have \w+|Time for (?:lunch|breakfast|dinner))\S*\s*\((\d+)\)/i)).filter(Boolean).map(m => +m![1]);
+          nums.forEach((v, i) => { if (v !== i + 1) throw new Error('meal numbering broken: ' + nums.join(',')); });
+        }
         // Add-on: แถวเสริมต้องลงกำหนดการจริง · เวลาไม่ย้อนกลับในวัน (เริ่ม ≥ เริ่มแถวก่อนหน้า)
         if ((cfg.camp as any).addons) {
           const rows = plan.days.flatMap(d => d.items.filter(r => r.addon));
@@ -82,8 +104,16 @@ let fail = 0, ok = 0;
         const buf = Buffer.from(await packDocx(buildDoc(kind, cfg.camp, plan)));
         if (!buf || buf.length < 500) throw new Error('buffer too small');
         if (!(buf[0]===0x50 && buf[1]===0x4b)) throw new Error('not a zip (PK)');
+        const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string');
         // เช็คลิสต์อุปกรณ์ Notion = เอกสารภายในเท่านั้น — ห้ามหลุดไปเอกสารลูกค้า/โรงแรม
-        if (kind !== 'runsheet') { const xml = await (await JSZip.loadAsync(buf)).file('word/document.xml')!.async('string'); if (/เช็คลิสต์อุปกรณ์|มาตรฐานจาก Notion|ต้นทุน|กำไร/.test(xml)) throw new Error('internal content leaked into customer doc'); }
+        if (kind !== 'runsheet' && /เช็คลิสต์อุปกรณ์|มาตรฐานจาก Notion|ต้นทุน|กำไร/.test(xml)) throw new Error('internal content leaked into customer doc');
+        // ตรวจข้อความทั้งเอกสาร: คำผิดที่รู้จัก (data/typo-fixes.json) + ค่าโปรแกรมหลุด (undefined/NaN/null/[object) + ตัวแปรแม่แบบค้าง
+        const text = xml.replace(/<w:tab\/>/g, ' ').replace(/<\/w:p>/g, '\n').replace(/<[^>]+>/g, '');
+        const bad = TYPO_BAD.filter(w => text.includes(w));
+        if (bad.length) throw new Error('typo in doc: ' + bad.join(', '));
+        if (TYPO_RE.some(re => re.test(text))) throw new Error('Thai text glued to "(" + English');
+        const junk = text.match(/undefined|NaN|\bnull\b|\[object|\{[SVPY]\}|⟦|⟧/);
+        if (junk) throw new Error('junk text in doc: ' + junk[0]);
         fs.writeFileSync(`${OUT}/${fn}`, buf);
         manifest.push(`${OUT}/${fn}`);
         ok++;

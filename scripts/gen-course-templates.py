@@ -21,10 +21,12 @@ OUT_PH = os.path.join(ROOT, 'web', 'photos')
 os.makedirs(OUT_PH, exist_ok=True)
 T = json.load(open(RAW))
 
-TYPO = [('ํา', 'ำ'), ('ท้กษะ', 'ทักษะ'), ('กิจกรรมมแข่งขัน', 'กิจกรรมแข่งขัน'), ('STROM', 'STORM'),
-        ('ของของ', 'ของ'), ('Integretion', 'Integration'), ('จิตสำนัก', 'จิตสำนึก'), (' ', ' ')]
+# คำผิดที่ชัดเจน — รายการกลางอยู่ที่ data/typo-fixes.json (ใช้ร่วมกับ apply-typo-fixes.py และ stress)
+_TF = json.load(open(os.path.join(ROOT, 'data', 'typo-fixes.json'), encoding='utf-8'))
+TYPO = [tuple(x) for x in _TF['fixes']] + [(' ', ' ')]
 def fix(s):
     for a, b in TYPO: s = s.replace(a, b)
+    for p, r in _TF['regex']: s = re.sub(p, r, s)
     return re.sub(r'[ \t]+', ' ', s).strip()
 
 def tidy(t):  # เหมือน tidyTitle() ใน core: เครื่องหมายคำพูดไทย “ ” ไม่มีช่องว่างเกิน

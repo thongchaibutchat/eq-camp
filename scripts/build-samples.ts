@@ -93,6 +93,10 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   t6.addons = (t6.addons || []).map(a => a.code === 'PL ENG 0104' ? { ...a, price: 300 } : a);
   await write('16_program_ADDON_STEM_eng_chi.docx', 'program', withPhotos(t6));
   await write('16b_quotation_ADDON_STEM_eng_chi.docx', 'quotation', t6);
+  // 17: ธีมรายวัน — วันที่ 1 ภาษาอังกฤษ · วันที่ 2 วิทยาศาสตร์ทางทะเล (อ่านจากบรีฟ) + เสริมภาษาจีน
+  const t7 = parseBrief('โรงเรียนสตรีวิทยา ม.2 จำนวน 80 คน ครู 6 คน ค่าย 2 วัน 1 คืน วันแรกภาษาอังกฤษ วันที่ 2 วิทยาศาสตร์ทะเล วันที่ 20-21 ม.ค. 2570 ณ โรงแรมกาสะรองรีสอร์ทพัทยา ราคาปกติ 4590 ลดเหลือ 3790 บาท เสริมภาษาจีน', blankCamp());
+  await write('17_program_MIX_ENG_SEA.docx', 'program', withPhotos(t7));
+  await write('17b_runsheet_MIX_ENG_SEA.docx', 'runsheet', t7);
   console.log('  (แม่แบบทั้งหมด', TEMPLATES.length, 'ชุด)');
 
   // sample.export.json (ตาม schema.json)

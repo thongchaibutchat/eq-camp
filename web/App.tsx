@@ -11,7 +11,7 @@ import {
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
   packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
-  showTeachers, notionActsInPlan, actStandard, notionActFor, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
+  showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
 
@@ -221,6 +221,7 @@ export default function App() {
 - subject (ใช้เมื่อ courseCode เป็น null): คณิต→"math"; วิทย์/ทะเล/ธรรมชาติ/STEAM→"steam"; อังกฤษ→"english"; AI/โค้ด/หุ่นยนต์/โดรน→"ai"; จีน→"chinese"; ผู้นำ/EQ→"leadership"
 - durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง); ถ้าบรีฟไม่บอกระยะเวลาเลย ใส่ durationMode/days/nights เป็น null
 - รองรับเลขไทยและคำไทย (เช่น "สองวันหนึ่งคืน"=2วัน1คืน)
+- ระบุวิชารายวัน ("วันแรก ภาษาอังกฤษ วันที่ 2 วิทยาศาสตร์ทะเล") = ค่าย mix — courseName ให้ใช้วิชาของวันแรก
 - คำว่า "เสริม/พ่วง/+/add-on" ตามด้วยวิชา (อังกฤษ/จีน/คณิต) = กิจกรรมเสริม ไม่ใช่ธีมหลัก → courseName ให้ใช้ธีมหลักของค่าย
 - ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท); ไม่พบให้ null
 - students/teachers: ดึงเฉพาะตัวเลขจำนวนคน (นักเรียน/ผู้เข้าร่วม = students; ครู/ครูผู้ควบคุม/อาจารย์ = teachers); ไม่พบให้ null (ห้ามเดาเป็น 0)
@@ -241,7 +242,7 @@ export default function App() {
       // ฐาน = ผลตัวอ่านปกติ → AI แก้/เติมเฉพาะช่องที่ให้ค่ามา (ช่องที่ AI ไม่พบ ใช้ผลตัวอ่านปกติ)
       const res = applyExtraction(pre.camp, r);
       // AI ห้ามสลับธีมหลักไปเป็นวิชาที่บรีฟระบุว่าเป็น "กิจกรรมเสริม"
-      if ((pre.camp.addons || []).some(a => a.code === res.camp.courseCode) && pre.camp.courseCode) { res.camp.courseCode = pre.camp.courseCode; res.camp.subject = pre.camp.subject; res.camp.activityIds = pre.camp.activityIds; res.camp.docCode = pre.camp.docCode; }
+      if (((pre.camp.addons || []).some(a => a.code === res.camp.courseCode) || (pre.camp.dayCourses || []).some(Boolean)) && pre.camp.courseCode) { res.camp.courseCode = pre.camp.courseCode; res.camp.subject = pre.camp.subject; res.camp.activityIds = pre.camp.activityIds; res.camp.docCode = pre.camp.docCode; }
       setCamp(res.camp);
       setBriefReport({ fields: briefFields(res.camp, Array.from(new Set([...pre.found, ...res.applied]))), by: 'AI + ระบบอ่านบรีฟ' });
       const miss = res.missing.length ? ` · ยังขาด: ${res.missing.join(', ')}` : '';
@@ -1045,6 +1046,7 @@ export default function App() {
 
               {tab === 'schedule' && (
                 <div className="space-y-3">
+                  <DayMixPanel camp={camp} plan={plan} set={set} />
                   <SectionTitle title="กำหนดการ" sub={plan.tpl && plan.tpl.exact ? 'ตามแม่แบบโปรแกรมจริงของทีม — ชื่อโรงเรียน/ที่พัก/ปี/จำนวนคน/งบ แทนด้วยข้อมูลจากบรีฟแล้ว' : "สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา · ช่อง 'กิจกรรมหลัก' เลือกจากคลังได้รายช่วง"} />
                   {camp.courseCode && (templatesOf(camp.courseCode).length > 0) && (
                     <div className="border border-brand-mist rounded-xl p-3 space-y-2 bg-white">
@@ -1662,6 +1664,39 @@ function AddonPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof b
         );
       })}
       {(plan.addonWarn || []).map(w => <div key={w} className="text-[13px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-3">{w}</div>)}
+    </div>
+  );
+}
+
+/* ธีมรายวัน (mix หลักสูตร): เลือกหลักสูตรของแต่ละวัน — วันนั้นใช้กำหนดการวันเดียวกันของหลักสูตรที่เลือก (แม่แบบจริงของทีม) */
+function DayMixPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; set: (p: Partial<Camp>) => void }) {
+  if (!camp.courseCode) return null;
+  const n = camp.durationMode === 'half' ? 1 : Math.max(1, camp.days || 1);
+  if (n < 2) return null;
+  const cur = Array.from({ length: n }, (_, i) => (camp.dayCourses || [])[i] || '');
+  const upd = (i: number, code: string) => { const next = [...cur]; next[i] = code === camp.courseCode ? '' : code; set({ dayCourses: next.some(Boolean) ? next : undefined }); };
+  const mixed = cur.some(x => x && x !== camp.courseCode);
+  return (
+    <div className="bg-white border border-brand-mist rounded-xl p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[15.5px] font-semibold">ธีมรายวัน (Mix หลักสูตร)</div>
+        {mixed && <button onClick={() => set({ dayCourses: undefined })} className="tap text-[13px] underline text-sub">ใช้หลักสูตรหลักทุกวัน</button>}
+      </div>
+      <div className="text-[13px] text-sub mt-0.5">เช่น วันที่ 1 ภาษาอังกฤษ · วันที่ 2 วิทยาศาสตร์ทางทะเล — วันที่เลือกจะใช้กำหนดการของหลักสูตรนั้น</div>
+      <div className="grid gap-2 mt-3 sm:grid-cols-2">
+        {cur.map((x, i) => {
+          const m = (plan.mix || []).find(z => z.day === i + 1);
+          return (
+            <label key={i} className="block">
+              <span className="text-[13px] font-medium">วันที่ {i + 1}</span>
+              <select value={x || camp.courseCode} onChange={e => upd(i, e.target.value)} className="mt-1 w-full border border-brand-mist rounded-lg px-3 py-2.5 bg-white text-[14.5px]">
+                {COURSES.map(co => <option key={co.code} value={co.code}>{courseLabel(co.code)}{co.code === camp.courseCode ? ' (หลักสูตรหลัก)' : ''} · {co.code}</option>)}
+              </select>
+              {m && mixed && <span className="text-[12px] text-sub">ที่มา: {m.source.replace(/__/, ' · ')}</span>}
+            </label>
+          );
+        })}
+      </div>
     </div>
   );
 }
