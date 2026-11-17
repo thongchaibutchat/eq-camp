@@ -2,6 +2,8 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DataHub from './DataHub';
 import Home from './Home';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
+import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv, teamLogUrl, teamKey, setTeamLog, appsScriptCode, newTeamKey, TEAM_LOG_URL, TEAM_LOG_SHEET } from './registry';
+import type { LogEv } from './registry';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
@@ -114,10 +116,12 @@ export default function App() {
     whoRef.current = { by, byName }; return whoRef.current;
   };
   const logEvent = async (action: string, c: Camp, dk?: DocKind) => {
+    // ทะเบียนโปรแกรม: เครื่องนี้ + ชีตทีม (ถ้าตั้งค่า) — ทำงานทุกที่ ไม่ต้องลงชื่อเข้าใช้
+    try { await recordEvent(makeEvent(action, c, dk, IN_CLAUDE ? 'claude.ai' : /github\.io$/.test(location.hostname) ? 'เว็บ' : 'ไฟล์ในเครื่อง')); } catch { /* เงียบ */ }
     try {
       const db = await useCap('db'); if (!db) return;          // เงียบ ๆ ถ้าเปิดนอก claude.ai / ไม่ได้ลงชื่อเข้าใช้
       const who = await whoami();
-      await db.collection('events').add({
+      await db.collection('events').add({ eid: '', programId: programIdOf(c),
         ts: new Date().toISOString(), action, docKind: dk || '',
         docCode: c.docCode || '', school: c.school || '', courseCode: c.courseCode || '', subject: c.subject || '',
         durationMode: c.durationMode || '', days: c.days || 0, nights: c.nights || 0,
@@ -607,7 +611,7 @@ export default function App() {
     { id: 'schedule', label: `4. กำหนดการ (${camp.days} วัน)`, icon: Calendar },
     { id: 'price', label: '5. ราคา & งบ', icon: Calculator },
     { id: 'images', label: `6. ภาพ (${camp.actImgs.length}+${camp.venueImgs.length})`, icon: ImageIcon },
-    { id: 'stats', label: 'สถิติ / ประวัติ', icon: BarChart3 }
+    { id: 'stats', label: 'ทะเบียนโปรแกรม', icon: BarChart3 }
   ] as const;
   const STEPS = [
     { id: 'brief', label: 'บรีฟ' },
@@ -1321,96 +1325,73 @@ function Stat({ label, value, tone }: { label: string; value: string; tone: 'sky
 // ===== สถิติ/ประวัติการสร้างไฟล์ (อ่านจาก db capability) =====
 type Ev = Record<string, any> & { id: string };
 const DK_LABEL: Record<string, string> = { program: 'โปรแกรมค่าย', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Run-down' };
+/* ทะเบียนโปรแกรมที่สร้างจากระบบนี้ — รวม 3 แหล่ง (เครื่องนี้ · ชีตทีม · บัญชีทีม claude.ai) ตัดซ้ำ แล้วนับ "โปรแกรม" (งานเดียวกันโหลดหลายไฟล์ = 1)
+ * ส่งออก CSV (เปิดใน Excel/Sheets) · สำรอง/นำเข้า JSON (รวมข้อมูลหลายเครื่อง) · ตั้งค่าชีตทีม (Apps Script) */
 function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>; saveText: (f: string, t: string, m: string) => void }) {
-  const [state, setState] = useState<'loading' | 'ok' | 'nodb'>('loading');
-  const [events, setEvents] = useState<Ev[]>([]);
-  const [tick, setTick] = useState(0); // บังคับ resubscribe เมื่อกดรีเฟรช
+  const [local, setLocal] = useState<LogEv[]>(() => loadLocal());
+  const [team, setTeam] = useState<{ state: 'off' | 'loading' | 'ok' | 'err'; events: LogEv[]; msg?: string }>({ state: teamLogUrl() ? 'loading' : 'off', events: [] });
+  const [cloud, setCloud] = useState<LogEv[]>([]);
+  const [tick, setTick] = useState(0);
+  const [q, setQ] = useState('');
+  const [setup, setSetup] = useState(false);
   useEffect(() => {
-    let unsub: (() => void) | null = null, alive = true;
-    const timer = setTimeout(() => { if (alive && state === 'loading') setState('nodb'); }, 10000);
-    (async () => {
-      const db = await useCap('db');
-      if (!alive) return;
-      if (!db) { setState('nodb'); return; }
-      try {
-        unsub = db.collection('events').orderBy('ts', 'desc').limit(1000).onSnapshot(
-          (snap: any) => { if (!alive) return; setEvents(snap.docs.map((d: any) => ({ id: d.id, ...(d.data() || {}) }))); setState('ok'); clearTimeout(timer); },
-          () => { if (alive) setState('nodb'); }
-        );
-      } catch { setState('nodb'); }
+    let alive = true; setLocal(loadLocal());
+    if (teamLogUrl()) { setTeam(t => ({ ...t, state: 'loading' })); readTeam().then(r => { if (alive) setTeam(r.ok ? { state: 'ok', events: r.events } : { state: 'err', events: [], msg: r.msg }); }); }
+    (async () => {      // บัญชีทีม claude.ai (ของเดิม) — เฉพาะเมื่อเปิดบน claude.ai และมีสิทธิ์
+      try { const db = await useCap('db'); if (!db || !alive) return;
+        const snap = await db.collection('events').orderBy('ts', 'desc').limit(2000).get();
+        if (alive) setCloud(snap.docs.map((d: any) => { const x = d.data() || {}; return { ...x, eid: x.eid || 'db-' + d.id, programId: x.programId || '', course: x.course || x.courseCode || x.subject || '', source: 'claude.ai' } as LogEv; }));
+      } catch { /* ไม่มีสิทธิ์ db */ }
     })();
-    return () => { alive = false; clearTimeout(timer); if (unsub) unsub(); };
+    return () => { alive = false; };
   }, [tick]);
-
-  const agg = useMemo(() => {
-    const byType: Record<string, number> = {}, byMonth: Record<string, number> = {}, byUser: Record<string, number> = {}, byCourse: Record<string, number> = {};
-    let pdf = 0;
-    for (const e of events) {
-      const dk = e.docKind || (e.action === 'pdf' ? 'program' : 'other');
-      byType[dk] = (byType[dk] || 0) + 1;
-      if (e.action === 'pdf') pdf++;
-      const m = (e.ts || '').slice(0, 7); if (m) byMonth[m] = (byMonth[m] || 0) + 1;
-      const who = e.byName || e.by || 'ไม่ระบุ'; byUser[who] = (byUser[who] || 0) + 1;
-      const co = e.courseCode || e.subject || '—'; byCourse[co] = (byCourse[co] || 0) + 1;
-    }
-    const months = Object.keys(byMonth).sort();
-    return { total: events.length, pdf, byType, byMonth, months, byUser, byCourse };
-  }, [events]);
-
-  const exportCsv = () => {
-    const cols = ['ts', 'action', 'docKind', 'docCode', 'school', 'courseCode', 'subject', 'durationMode', 'days', 'nights', 'students', 'teachers', 'normalPrice', 'specialPrice', 'province', 'region', 'byName', 'by'];
-    const esc = (v: any) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-    const rows = [cols.join(','), ...events.map(e => cols.map(c => esc(e[c])).join(','))];
-    saveText(`EQ_Camp_log_${new Date().toISOString().slice(0, 10)}.csv`, rows.join('\n'), 'text/csv');
-  };
-
-  if (state === 'loading') return <div className="py-10 text-center text-[13.5px] text-slate-400 flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" />กำลังโหลดประวัติการสร้างไฟล์…</div>;
-  if (state === 'nodb') return (
-    <div className="space-y-3">
-      <SectionTitle title="สถิติ / ประวัติการสร้างไฟล์" />
-      <div className="text-[14px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3 leading-relaxed">
-        ระบบบันทึกสถิติทำงานเมื่อเปิดลิงก์นี้บน <b>claude.ai</b> และ <b>ลงชื่อเข้าใช้ด้วยบัญชีทีม</b> เท่านั้น<br />
-        ถ้าเปิดจากไฟล์ในเครื่อง (ดับเบิลคลิก) หรือยังไม่ได้ลงชื่อเข้าใช้ จะยังสร้างไฟล์ได้ตามปกติ แต่จะไม่บันทึกประวัติ
-      </div>
-      <button onClick={() => { setState('loading'); setTick(t => t + 1); }} className="px-3 py-1.5 rounded-lg bg-brand hover:bg-brand-navy text-white text-[13px] font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" />ลองใหม่</button>
-    </div>
-  );
-  const maxM = Math.max(1, ...agg.months.map(m => agg.byMonth[m]));
-  const topCourse = Object.entries(agg.byCourse).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const users = Object.entries(agg.byUser).sort((a, b) => b[1] - a[1]);
+  const all = useMemo(() => dedupe([...team.events, ...cloud, ...local]), [team.events, cloud, local]);
+  const S = useMemo(() => summarize(all), [all]);
+  const shown = useMemo(() => { const t = q.trim().toLowerCase(); return t ? S.programs.filter(p => [p.school, p.docCode, p.course, p.dayThemes, p.venue, p.province].join(' ').toLowerCase().includes(t)) : S.programs; }, [S, q]);
+  const stamp = new Date().toISOString().slice(0, 10);
+  const exportCsv = () => saveText(`EQ_Camp_ทะเบียนโปรแกรม_${stamp}.csv`, programsCsv(shown), 'text/csv');
+  const backup = () => saveText(`EQ_Camp_ทะเบียน_สำรอง_${stamp}.json`, JSON.stringify({ _app: 'EQ Camp registry', _v: 1, events: all }, null, 1), 'application/json');
+  const importJson = (f: File) => { const r = new FileReader(); r.onload = () => { try { const j = JSON.parse(String(r.result)); const ev: LogEv[] = Array.isArray(j) ? j : j.events; if (!Array.isArray(ev)) throw 0; saveLocal([...ev, ...loadLocal()]); setLocal(loadLocal()); } catch { alert('ไฟล์นี้ไม่ใช่ไฟล์สำรองทะเบียนของ EQ Camp'); } }; r.readAsText(f); };
+  const maxM = Math.max(1, ...S.months.map(m => S.byMonth[m]));
+  const topCourse = Object.entries(S.byCourse).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const src = [team.state === 'ok' ? `ชีตทีม ${team.events.length} รายการ` : '', cloud.length ? `claude.ai ${cloud.length}` : '', `เครื่องนี้ ${local.length}`].filter(Boolean).join(' · ');
+  const Num = ({ n, l }: { n: string | number; l: string }) => <div className="rounded-xl py-4 px-2 bg-white border border-brand-mist text-center"><div className="text-[28px] font-semibold text-brand-navy leading-none tabular-nums">{n}</div><div className="text-[13px] text-sub mt-1.5">{l}</div></div>;
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-2">
-        <SectionTitle title="สถิติ / ประวัติการสร้างไฟล์" sub="บันทึกอัตโนมัติทุกครั้งที่ทีมสร้างไฟล์ (เก็บบนบัญชีทีม ตรวจย้อนหลังได้)" />
-        <div className="flex gap-1.5 shrink-0">
-          <button onClick={() => { setState('loading'); setTick(t => t + 1); }} title="รีเฟรช" className="px-2 py-1.5 rounded-lg border border-brand-mist hover:border-brand/50 text-brand text-[13px] font-medium flex items-center gap-1 tap"><RefreshCw className="w-3.5 h-3.5" /></button>
-          <button onClick={exportCsv} disabled={!events.length} className="px-2.5 py-1.5 rounded-lg bg-brand hover:bg-brand-navy disabled:opacity-40 text-white text-[13px] font-medium flex items-center gap-1 tap"><Download className="w-3.5 h-3.5" />CSV</button>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <SectionTitle title="ทะเบียนโปรแกรมที่สร้าง" sub={`บันทึกอัตโนมัติทุกครั้งที่สร้างไฟล์ · ข้อมูลจาก ${src}`} />
+        <div className="flex flex-wrap gap-1.5">
+          <button onClick={() => setTick(t => t + 1)} aria-label="รีเฟรช" className="tap px-2.5 py-2 rounded-lg border border-brand-mist hover:bg-paper"><RefreshCw className={`w-4 h-4 ${team.state === 'loading' ? 'animate-spin' : ''}`} /></button>
+          <button onClick={exportCsv} disabled={!shown.length} className="tap px-3 py-2 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium disabled:opacity-40 flex items-center gap-1.5"><Download className="w-4 h-4" />Excel (CSV)</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-xl py-4 bg-white border border-brand-mist"><div className="text-3xl font-semibold text-brand-navy leading-none">{agg.total}</div><div className="text-[13px] text-sub mt-1.5">ไฟล์ทั้งหมด</div></div>
-        <div className="rounded-xl py-4 bg-white border border-brand-mist"><div className="text-3xl font-semibold text-brand-navy leading-none">{agg.pdf}</div><div className="text-[13px] text-sub mt-1.5">เป็น PDF</div></div>
-        <div className="rounded-xl py-4 bg-white border border-brand-mist"><div className="text-3xl font-semibold text-brand-navy leading-none">{users.length}</div><div className="text-[13px] text-sub mt-1.5">ผู้ใช้งาน</div></div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <Num n={S.programs.length} l="โปรแกรม" />
+        <Num n={S.schools} l="โรงเรียน" />
+        <Num n={S.students.toLocaleString('en-US')} l="นักเรียนรวม" />
+        <Num n={S.files} l={`ไฟล์ที่สร้าง (PDF ${S.pdf})`} />
       </div>
+      {S.value > 0 && <div className="text-[13px] text-sub -mt-1">มูลค่าเสนอขายรวม (นักเรียน × ราคาพิเศษ) {money(S.value)} บาท</div>}
 
-      <div className="grid grid-cols-2 gap-2">
-        {(['program', 'quotation', 'booking', 'runsheet'] as const).map(dk => (
-          <div key={dk} className="rounded-xl border border-brand-mist px-3 py-2 flex items-center justify-between">
-            <span className="text-[13px] text-sub">{DK_LABEL[dk]}</span><span className="text-sm font-semibold text-brand">{agg.byType[dk] || 0}</span>
-          </div>
-        ))}
-      </div>
+      {team.state !== 'ok' && (
+        <div className="rounded-xl border border-brand-mist bg-white p-3.5 text-[13.5px] leading-relaxed">
+          <div className="font-semibold">{team.state === 'off' ? 'ตอนนี้นับเฉพาะงานที่สร้างบนเครื่องนี้' : `ชีตทีม: ${team.msg || 'กำลังโหลด…'}`}</div>
+          <div className="text-sub mt-0.5">ให้ทุกเครื่องในทีมนับรวมกันอัตโนมัติ: ตั้งค่า "ชีตบันทึกของทีม" ครั้งเดียว (Google Sheet ของทีม) — หรือใช้ปุ่มสำรอง/นำเข้าไฟล์ด้านล่างรวมข้อมูลจากเครื่องอื่น</div>
+          <button onClick={() => setSetup(v => !v)} className="tap mt-2 px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper font-medium">{setup ? 'ซ่อนการตั้งค่า' : 'ตั้งค่าชีตบันทึกของทีม'}</button>
+          {setup && <TeamLogSetup onSaved={() => { setSetup(false); setTick(t => t + 1); }} saveText={saveText} />}
+        </div>
+      )}
 
-      {agg.months.length > 0 && (
-        <div>
-          <div className="text-[13px] font-medium text-sub mb-1.5">ไฟล์ต่อเดือน</div>
-          <div className="flex items-end gap-1.5 h-24 border-b border-brand-mist pb-0">
-            {agg.months.slice(-12).map(m => (
-              <div key={m} className="flex-1 flex flex-col items-center justify-end gap-1" title={`${m}: ${agg.byMonth[m]}`}>
-                <span className="text-[11px] text-brand font-semibold">{agg.byMonth[m]}</span>
-                <div className="w-full rounded-t bg-brand/80" style={{ height: `${Math.round((agg.byMonth[m] / maxM) * 76)}px` }} />
-                <span className="text-[8px] text-slate-400 whitespace-nowrap">{m.slice(2)}</span>
+      {S.months.length > 0 && (
+        <div className="rounded-xl border border-brand-mist bg-white p-3.5">
+          <div className="text-[13.5px] font-semibold mb-2">โปรแกรมใหม่ต่อเดือน</div>
+          <div className="flex items-end gap-1.5 h-28">
+            {S.months.slice(-12).map(m => (
+              <div key={m} className="flex-1 flex flex-col items-center justify-end gap-1 min-w-0" title={`${m}: ${S.byMonth[m]} โปรแกรม`}>
+                <span className="text-[12px] text-brand-navy font-semibold tabular-nums">{S.byMonth[m]}</span>
+                <div className="w-full rounded-t bg-brand-navy/80" style={{ height: `${Math.round((S.byMonth[m] / maxM) * 80)}px` }} />
+                <span className="text-[11px] text-sub whitespace-nowrap">{thMonth(m)}</span>
               </div>
             ))}
           </div>
@@ -1418,50 +1399,77 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
       )}
 
       {topCourse.length > 0 && (
-        <div>
-          <div className="text-[13px] font-medium text-sub mb-1.5">หลักสูตร/วิชา ที่สร้างบ่อย</div>
-          <div className="space-y-1">
+        <div className="rounded-xl border border-brand-mist bg-white p-3.5">
+          <div className="text-[13.5px] font-semibold mb-2">โปรแกรมตามหลักสูตร</div>
+          <div className="space-y-1.5">
             {topCourse.map(([co, n]) => (
-              <div key={co} className="flex items-center gap-2"><span className="text-[12px] w-20 shrink-0 text-sub truncate" title={co}>{co}</span>
-                <div className="flex-1 h-3 rounded bg-brand-mist overflow-hidden"><div className="h-full bg-brand/70" style={{ width: `${Math.round((n / topCourse[0][1]) * 100)}%` }} /></div>
-                <span className="text-[12px] w-6 text-right font-semibold text-brand">{n}</span></div>
+              <div key={co} className="flex items-center gap-2 text-[13px]"><span className="w-36 shrink-0 truncate" title={co}>{co}</span>
+                <div className="flex-1 h-2.5 rounded bg-paper overflow-hidden"><div className="h-full bg-brand-navy/70" style={{ width: `${Math.round((n / topCourse[0][1]) * 100)}%` }} /></div>
+                <span className="w-8 text-right font-semibold tabular-nums">{n}</span></div>
             ))}
           </div>
         </div>
       )}
 
-      {users.length > 0 && (
-        <div>
-          <div className="text-[13px] font-medium text-sub mb-1.5 flex items-center gap-1"><Users className="w-3.5 h-3.5" />แยกตามผู้ใช้</div>
-          <div className="flex flex-wrap gap-1.5">
-            {users.map(([u, n]) => <span key={u} className="px-2 py-1 rounded-lg bg-slate-50 border border-brand-mist text-[12px]"><b className="text-brand-ink">{u}</b> <span className="text-sub">· {n}</span></span>)}
-          </div>
+      <div className="rounded-xl border border-brand-mist bg-white overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 border-b border-brand-mist">
+          <div className="text-[13.5px] font-semibold">รายการโปรแกรม ({shown.length})</div>
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน / รหัส / หลักสูตร / จังหวัด" aria-label="ค้นหาโปรแกรม" className="w-full sm:w-72 border border-brand-mist rounded-lg px-3 py-1.5 text-[13.5px]" />
         </div>
-      )}
+        <div className="max-h-[28rem] overflow-y-auto divide-y divide-brand-mist">
+          {shown.slice(0, 300).map(p => (
+            <div key={p.programId} className="px-3.5 py-2.5 text-[13.5px]">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                <span className="font-semibold min-w-0">{p.school || 'ไม่ระบุโรงเรียน'}</span>
+                <span className="text-[12.5px] text-sub tabular-nums">{p.last.slice(0, 10)}</span>
+              </div>
+              <div className="text-sub text-[13px] mt-0.5">{[p.docCode, p.course, p.dur, p.dates, p.venue].filter(Boolean).join(' · ')}</div>
+              {(p.dayThemes || p.addons) && <div className="text-sub text-[12.5px]">{[p.dayThemes, p.addons && 'เสริม ' + p.addons].filter(Boolean).join(' · ')}</div>}
+              <div className="text-[12.5px] mt-0.5"><span className="tabular-nums">{p.students} คน · {p.specialPrice ? money(p.specialPrice) + ' บ./ท่าน' : 'ไม่มีราคา'}</span><span className="text-sub"> · ไฟล์ {p.files}{p.pdf ? ` (PDF ${p.pdf})` : ''}{p.by.length ? ' · ' + p.by.join(', ') : ''}</span></div>
+            </div>
+          ))}
+          {!shown.length && <div className="px-3.5 py-8 text-center text-sub text-[13.5px]">{S.programs.length ? 'ไม่พบตามคำค้น' : 'ยังไม่มีโปรแกรม — เมื่อสร้างไฟล์ Word/PDF รายการจะขึ้นที่นี่อัตโนมัติ'}</div>}
+        </div>
+      </div>
 
-      <div>
-        <div className="text-[13px] font-medium text-sub mb-1.5 flex items-center gap-1"><History className="w-3.5 h-3.5" />ประวัติล่าสุด</div>
-        <div className="border border-brand-mist rounded-xl overflow-hidden max-h-72 overflow-y-auto">
-          <table className="w-full text-[12px]">
-            <thead className="bg-brand-mist/60 text-sub sticky top-0"><tr>
-              <th className="text-left px-2 py-1.5 font-medium">เวลา</th><th className="text-left px-2 py-1.5 font-medium">ผู้ใช้</th>
-              <th className="text-left px-2 py-1.5 font-medium">เอกสาร</th><th className="text-left px-2 py-1.5 font-medium">รหัส/โรงเรียน</th>
-              <th className="text-right px-2 py-1.5 font-medium">ราคา</th>
-            </tr></thead>
-            <tbody>
-              {events.slice(0, 80).map(e => (
-                <tr key={e.id} className="border-t border-brand-mist/70">
-                  <td className="px-2 py-1 text-sub whitespace-nowrap">{(e.ts || '').slice(0, 16).replace('T', ' ')}</td>
-                  <td className="px-2 py-1 text-slate-700 truncate max-w-[90px]" title={e.byName || e.by}>{e.byName || e.by || '—'}</td>
-                  <td className="px-2 py-1"><span className="text-brand">{DK_LABEL[e.docKind] || e.docKind || '—'}</span>{e.action === 'pdf' && <span className="ml-1 text-accent-deep font-semibold">PDF</span>}</td>
-                  <td className="px-2 py-1 text-sub truncate max-w-[150px]" title={`${e.docCode} · ${e.school}`}>{e.docCode}{e.school ? ` · ${e.school}` : ''}</td>
-                  <td className="px-2 py-1 text-right text-sub whitespace-nowrap">{e.specialPrice ? money(e.specialPrice) : '—'}</td>
-                </tr>
-              ))}
-              {!events.length && <tr><td colSpan={5} className="px-2 py-6 text-center text-slate-400">ยังไม่มีประวัติ — เมื่อทีมเริ่มสร้างไฟล์ รายการจะมาแสดงที่นี่</td></tr>}
-            </tbody>
-          </table>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 text-[13px]">
+        <button onClick={backup} disabled={!all.length} className="tap px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper disabled:opacity-40">สำรองทะเบียน (JSON)</button>
+        <label className="tap px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper cursor-pointer">นำเข้าจากเครื่องอื่น<input type="file" accept=".json,application/json" className="hidden" onChange={e => { const f = e.target.files && e.target.files[0]; if (f) importJson(f); e.target.value = ''; }} /></label>
+        <span className="text-sub">นับ 1 โปรแกรมต่อ รหัสเอกสาร + โรงเรียน + วันที่ + หลักสูตร (โหลดซ้ำไม่นับเพิ่ม)</span>
+      </div>
+    </div>
+  );
+}
+const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+const thMonth = (ym: string) => { const [y, m] = ym.split('-').map(Number); return m ? `${TH_M[m - 1]}${String((y + 543) % 100).padStart(2, '0')}` : ym; };
+/* ตั้งค่าชีตบันทึกของทีม: 1) สร้างโค้ด (มีรหัสทีมสุ่ม) 2) วางใน Apps Script ของชีต + Deploy 3) วางที่อยู่ Web app */
+function TeamLogSetup({ onSaved, saveText }: { onSaved: () => void; saveText: (f: string, t: string, m: string) => void }) {
+  const [url, setUrl] = useState(teamLogUrl()); const [key, setKey] = useState(teamKey() || newTeamKey());
+  const [copied, setCopied] = useState(false);
+  const code = appsScriptCode(key);
+  const valid = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url.trim());
+  return (
+    <div className="mt-3 space-y-3 border-t border-brand-mist pt-3">
+      <ol className="space-y-2 list-decimal ml-5">
+        <li>เปิด <a href={TEAM_LOG_SHEET} target="_blank" rel="noopener noreferrer" className="underline font-medium">ชีต "90 ทะเบียนโปรแกรมที่สร้าง"</a> (ในโฟลเดอร์ Sales Kit ของทีม) → เมนู <b>ส่วนขยาย → Apps Script</b></li>
+        <li>ลบโค้ดเดิม แล้ววางโค้ดนี้ทั้งหมด → บันทึก
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            <button onClick={async () => { setCopied(await copyText(code)); }} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">{copied ? 'คัดลอกแล้ว' : 'คัดลอกโค้ด'}</button>
+            <button onClick={() => saveText('EQ_Camp_ทะเบียน_AppsScript.gs', code, 'text/plain')} className="tap px-3 py-1.5 rounded-lg border border-brand-mist bg-white">ดาวน์โหลดโค้ด</button>
+          </div>
+          <div className="text-sub text-[12.5px] mt-1">รหัสทีม (ใช้อ่านข้อมูล — แชร์ให้เฉพาะคนในทีม): <b className="font-mono select-all">{key}</b> <button onClick={() => { setKey(newTeamKey()); setCopied(false); }} className="underline ml-1">สุ่มใหม่</button></div>
+        </li>
+        <li>กด <b>Deploy → New deployment → Web app</b> · Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy → อนุญาตสิทธิ์ → คัดลอก <b>Web app URL</b></li>
+        <li>วางที่อยู่ด้านล่าง แล้วกดบันทึก (เครื่องอื่นในทีม: วางที่อยู่ + รหัสทีมเดียวกัน)</li>
+      </ol>
+      <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
+        <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" aria-label="ที่อยู่ Web app" className="border border-brand-mist rounded-lg px-3 py-2 text-[13.5px] font-mono" />
+        <input value={key} onChange={e => setKey(e.target.value)} aria-label="รหัสทีม" className="border border-brand-mist rounded-lg px-3 py-2 text-[13.5px] font-mono" />
+      </div>
+      {url && !valid && <div className="text-[12.5px] text-amber-800">ที่อยู่ควรขึ้นต้น https://script.google.com/macros/s/ และลงท้าย /exec</div>}
+      <div className="flex flex-wrap gap-2">
+        <button disabled={!valid || !key.trim()} onClick={() => { setTeamLog(url, key); onSaved(); }} className="tap px-4 py-2 rounded-lg bg-accent hover:bg-accent-deep text-white font-semibold disabled:opacity-40">บันทึกและเชื่อมต่อ</button>
+        {TEAM_LOG_URL && <span className="text-[12.5px] text-sub self-center">เว็บนี้ตั้งค่าชีตทีมไว้แล้ว — ใส่เฉพาะรหัสทีมก็พอ</span>}
       </div>
     </div>
   );

@@ -194,6 +194,14 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - เปลี่ยนหลักสูตร/ระยะเวลา/แม่แบบ → ล้าง rowEdits + actsOverride (แถวเดิมไม่มีแล้ว) · schema optional ทั้ง 3 ฟิลด์
 - ตรวจ: stress 1,096 ไฟล์ · ปก LibreOffice ทุกแม่แบบ (+ธีมปาร์ตี้ + Add-on) หน้าเดียว (CHI 2 ตามต้นฉบับ) · `scripts/qa/e2e-edit.cjs` 28/28 (เดสก์ท็อป+iPhone) · `scripts/qa/e2e-full.cjs` ผ่าน
 
+## ทะเบียนโปรแกรมที่สร้าง (Program Registry) (17 พ.ย. 2569)
+- เดิม: บันทึกสถิติได้เฉพาะเปิดบน claude.ai + ลงชื่อเข้าใช้ (artifact db; artifact สาธารณะใช้ db ไม่ได้) → งานที่ทำบนเว็บสาธารณะไม่ถูกนับเลย
+- `web/registry.ts`: ทุกครั้งที่สร้าง Word/PDF/ครบชุด (`logEvent` ทุกเส้นทาง) → `makeEvent()` (ไม่เก็บต้นทุน/กำไร) บันทึก 3 ชั้น: **เครื่องนี้** (localStorage `eqcamp.registry.v1`, ≤5000) · **ชีตทีม** (POST no-cors ไป Apps Script web app ถ้าตั้งค่า) · **claude.ai db** (ของเดิม). แท็บ "ทะเบียนโปรแกรม" รวม 3 แหล่ง ตัดซ้ำด้วย `eid`
+- นับ "โปรแกรม" = `programIdOf(c)` = แฮช(รหัสเอกสาร + โรงเรียน + วันที่ + หลักสูตร) → โหลดงานเดิมซ้ำ/หลายไฟล์ = 1 โปรแกรม · `summarize()` → โปรแกรม · โรงเรียน · นักเรียนรวม · ไฟล์/PDF · มูลค่าเสนอขาย (นักเรียน×ราคาพิเศษ) · ต่อเดือน (เดือนที่สร้างครั้งแรก) · ตามหลักสูตร · รายการค้นหาได้ · ส่งออก CSV (Excel, BOM UTF-8) · สำรอง/นำเข้า JSON (รวมหลายเครื่อง)
+- **ชีตทีม**: Google Sheet "90 ทะเบียนโปรแกรมที่สร้าง (Program Log)" id **1UFcE7BnzNdyHlCCZzma7L7b0kVHoSjAYJpmfVqlM2vs** ในโฟลเดอร์ Sales Kit (หัวคอลัมน์ครบ) — **ต้องให้ทีมติดตั้ง Apps Script เอง** (โค้ดจาก `appsScriptCode(key)` ปุ่ม "คัดลอกโค้ด" ในหน้าตั้งค่า → Deploy Web app: Execute as Me, Anyone) แล้ววาง URL + รหัสทีม. เขียน = ใครก็ได้ (เพิ่มแถวอย่างเดียว, LockService) · อ่าน (doGet) ต้องมี `TEAM_KEY` → **ห้ามฝังรหัสทีมใน bundle สาธารณะ** (กันคนนอกดูรายชื่อโรงเรียน/ราคา) · URL ฝังได้ที่ `TEAM_LOG_URL` เมื่อทีมส่งมา (ทุกเครื่องส่งเข้าชีตอัตโนมัติ เหลือใส่แค่รหัสทีมเพื่อดูรวม)
+- artifact บน claude.ai: fetch ไป script.google.com อาจถูก CSP บล็อก → ชั้นเครื่องนี้ + db ยังทำงาน
+- ทดสอบ: `scripts/qa/e2e-registry.cjs` (จำลอง Apps Script ด้วย page.route: นับซ้ำ/รวมชีต/POST/ค้นหา/CSV) เดสก์ท็อป+iPhone ผ่าน
+
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)
 
