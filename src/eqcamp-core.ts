@@ -1232,7 +1232,7 @@ export function alignActs(orig: string[], plan: Plan, max: number): string[] {
   if (sum) out.push(curated(sum));
   return out;
 }
-export function compose(c: Camp, plan: Plan) {
+function composeBase(c: Camp, plan: Plan, titleExtraLines = 0) {
   const S = SUBJECTS[c.subject];
   const course = courseById(c.courseCode);
   const pool = subjectPool(c);
@@ -1276,8 +1276,8 @@ export function compose(c: Camp, plan: Plan) {
   const own = (c.actsOverride || []).map(x => String(x ?? '').trim()).filter(Boolean);
   const mixActs = (orig: string[]): string[] => {
     if (own.length) return own;
-    const wrap = `${dur} ${coverExtra}`.length > 68 ? 1 : 0;
-    return alignActs(orig, plan, Math.max(3, orig.length) - wrap);
+    // ชื่อค่ายรวมวิชายาวขึ้นจนเพิ่มบรรทัด → ลดรายการเท่าจำนวนบรรทัดที่เพิ่ม ให้ปกยังพอดี 1 หน้า
+    return alignActs(orig, plan, Math.max(3, orig.length - titleExtraLines));
   };
   // บูรณาการการเรียน: 5–7 ข้อ (ตัดให้ไม่เกิน 7 เพื่อให้อยู่ในหน้าแรก)
   const extra = (c.courseCode && c.subject === 'steam' && !isSteamProgram(c))
@@ -1309,21 +1309,8 @@ export function compose(c: Camp, plan: Plan) {
   // กิจกรรมเสริม (Add-on): 1 บรรทัด/วิชา = ชื่อกิจกรรมที่ลงกำหนดการจริง · งบอัตโนมัติเพิ่ม "ค่าจัดกิจกรรมเสริม…"
   const addonItems = (plan.addons || []).filter(a => a.titles.length).map(a => `กิจกรรมเสริม${a.label} ${a.titles.map(t => t.replace(/^กิจกรรมเสริม\S*\s*/, '')).join(' ')}`);
   const addonBudget = (plan.addons || []).filter(a => a.titles.length).map(a => `ค่าจัดกิจกรรมเสริม${a.label} (วิทยากรและอุปกรณ์)`);
-  // หน้าปก: ต่อท้ายบรรทัด "ระยะเวลาอบรม" (ไม่เพิ่มบรรทัด ปกยังพอดี 1 หน้า) เช่น "2 วัน 1 คืน + กิจกรรมเสริมภาษาอังกฤษ · ภาษาจีน"
-  //   ชื่อกิจกรรมเสริมแต่ละช่วงอยู่ในกำหนดการ · ไม่มีแถวระยะเวลา → เพิ่มแถว "กิจกรรมเสริม"
-  const adLabels = (plan.addons || []).filter(a => a.titles.length).map(a => a.label);
-  const mixText = plan.mix ? `(${plan.mix.map(m => `วันที่ ${m.day} ${m.label}`).join(' · ')})` : '';
-  const coverExtra = [mixText, adLabels.length ? `+ กิจกรรมเสริม${adLabels.join(' · ')}` : ''].filter(Boolean).join(' ');
-  const withAddonSec = (cv: CoverSec[]) => {
-    const extra = coverExtra;
-    if (!extra) return cv;
-    const out = cv.map(x => ({ ...x, rows: x.rows ? x.rows.map(r => [r[0], [...r[1]]] as [string, string[]]) : x.rows }));
-    for (const sec of out) for (const r of sec.rows || []) if (/ระยะเวลา/.test(r[0]) && r[1].length) { r[1][0] = `${r[1][0]} ${extra}`; return out; }
-    let i = -1; out.forEach((x, j) => { if (x.k === 'info') i = j; });
-    const row: [string, string[]] = ['ระยะเวลา', [`${dur} ${extra}`]];
-    if (i >= 0) out[i] = { ...out[i], rows: [...(out[i].rows || []), row] }; else out.push({ k: 'info', rows: [row] });
-    return out;
-  };
+  // หน้าปก: ไม่ต่อท้ายบรรทัดระยะเวลา/สถานที่ (ทีมไม่ทำกัน — ผู้ใช้ 17 พ.ย.) → วิชาที่ร่วมไปอยู่ในชื่อค่ายแทน (combineTitles)
+  const withAddonSec = (cv: CoverSec[]) => cv;
   autoBudget.push(...addonBudget);
   const base = { objectives, acts: mixActs(acts), integ, budget: custom.length ? custom : autoBudget, autoBudget, staff, p1, p2, dur, addonItems };
   // ===== หน้าปกตามแม่แบบจริงของทีม (ลำดับหัวข้อ/ถ้อยคำตามต้นฉบับ แทนค่าด้วยบรีฟ) =====
@@ -1361,6 +1348,69 @@ export function compose(c: Camp, plan: Plan) {
     { k: 'list', h: 'บูรณาการการเรียน (Instruction Integration)', items: integ }
   ];
   return { ...base, cover: withAddonSec(cover), titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, source: '' };
+}
+// ===== ชื่อค่ายรวมวิชา (Add-on / ธีมรายวัน) =====
+//   ไทย: ต่อ "และ<วิชา>" หลังชื่อไทย เช่น "ค่ายบูรณาการวิชาการสะเต็มศึกษาและภาษาอังกฤษ" (หลายวิชา: "… ภาษาอังกฤษ และภาษาจีน")
+//   อังกฤษ: แทรกก่อนคำว่า Camp เช่น "STEM & English Camp 2026" (หลายวิชา: "STEM, English & Chinese Camp")
+//   วิชาที่ชื่อเดิมมีอยู่แล้ว → ไม่ซ้ำ · ชื่อที่ไม่มีอักษรไทย/ละติน (ชื่อจีนของ CHI) → คงเดิม
+export const TITLE_TH: Record<string, string> = {
+  'PL STM 0101': 'สะเต็มศึกษา', 'PL LEA 0102': 'ภาวะผู้นำ', 'PL SEA 0103': 'วิทยาศาสตร์ทางทะเล', 'PL ENG 0104': 'ภาษาอังกฤษ', 'PL PRE 0105': 'คณิตศาสตร์และวิทยาศาสตร์',
+  'PL ENV 0106': 'สิ่งแวดล้อม', 'PL MAT 0107': 'คณิตศาสตร์', 'PL AST 0108': 'ดาราศาสตร์', 'PL CHI 0109': 'ภาษาจีน', 'PL FOR 0110': 'นิติวิทยาศาสตร์',
+  'PL COD 0111': 'หุ่นยนต์และโค้ดดิ้ง', 'PL GEO 0112': 'ธรณีวิทยา', 'PL ITD 0113': 'เทคโนโลยีสารสนเทศ', 'PL TI 0116': 'เทคโนโลยีโดรน'
+};
+export const TITLE_EN: Record<string, string> = {
+  'PL STM 0101': 'STEM', 'PL LEA 0102': 'Leadership', 'PL SEA 0103': 'Marine Science', 'PL ENG 0104': 'English', 'PL PRE 0105': 'Pre-Genius',
+  'PL ENV 0106': 'Environmental', 'PL MAT 0107': 'Math', 'PL AST 0108': 'Astronomy', 'PL CHI 0109': 'Chinese', 'PL FOR 0110': 'Forensic Science',
+  'PL COD 0111': 'Robotic Coding', 'PL GEO 0112': 'Geology', 'PL ITD 0113': 'IT Digital', 'PL TI 0116': 'Drone'
+};
+// รหัสวิชาที่ "ร่วม" กับค่ายหลัก: Add-on ที่ลงกำหนดการจริง + หลักสูตรของวันอื่น (ธีมรายวัน) ไม่ซ้ำ ไม่รวมหลักสูตรหลัก
+export function joinedCodes(c: Camp, plan: Plan): string[] {
+  const out: string[] = [];
+  const add = (x?: string) => { if (x && x !== c.courseCode && !out.includes(x)) out.push(x); };
+  for (const m of plan.mix || []) add(m.code);
+  for (const a of plan.addons || []) if (a.titles.length) add(a.code);
+  return out;
+}
+const TH_CHAR = /[\u0E00-\u0E7F]/;
+const thList = (xs: string[]) => xs.length === 1 ? `และ${xs[0]}` : ` ${xs.slice(0, -1).join(' ')} และ${xs[xs.length - 1]}`;
+const enList = (xs: string[]) => xs.length === 1 ? ` & ${xs[0]}` : `, ${xs.slice(0, -1).join(', ')} & ${xs[xs.length - 1]}`;
+export function combineTitle(s: string, codes: string[]): string {
+  if (!s || !codes.length) return s;
+  let out = s;
+  // ตัดส่วนที่ชื่อเดิมมีแล้ว (เช่น คณิตศาสตร์และวิทยาศาสตร์ + ชื่อมี "คณิตศาสตร์" → เติมแค่ "วิทยาศาสตร์")
+  const has = (w: string) => out.replace(/\s+/g, '').includes(w.replace(/\s+/g, ''));
+  const th = codes.map(x => (TITLE_TH[x] || courseLabel(x)).split('และ').filter(w => w && !has(w)).join('และ')).filter(Boolean);
+  // ข้ามคำนำ "หลักสูตร" (ชื่อค่ายภาษาอังกฤษล้วน เช่น หลักสูตร “Forensic Science Camp” → ไม่แทรกไทย)
+  const pre = (out.match(/^\s*หลักสูตร\s*/) || [''])[0].length;
+  let i = -1; for (let j = out.length - 1; j >= pre; j--) if (TH_CHAR.test(out[j])) { i = j; break; }
+  if (th.length && i >= 0) out = out.slice(0, i + 1) + thList(th) + out.slice(i + 1);
+  const en = codes.map(x => TITLE_EN[x]).filter(x => x && !new RegExp(`\\b${x.replace(/[^A-Za-z ]/g, '')}\\b`, 'i').test(s));
+  if (en.length) {
+    const m = [...out.matchAll(/\bcamp\b/gi)].pop();
+    if (m && m.index !== undefined) {
+      const before = out.slice(0, m.index).replace(/\s+$/, '');
+      // ชื่อเดิมมี "&" อยู่แล้ว (Drone & Innovation) → ใช้ "and" ไม่ให้ & ซ้อน
+      const join = en.length === 1 && /&/.test(before) ? ` and ${en[0]}` : enList(en);
+      out = `${before}${join} ${out.slice(m.index)}`;
+    } else if (/[A-Za-z]{3,}/.test(out) && !TH_CHAR.test(out)) {
+      out = out.replace(/(\S)(\s*[)”"]*\s*)$/, `$1${enList(en)}$2`);
+    }
+  }
+  return out;
+}
+// ประมาณจำนวนบรรทัดของชื่อ (18 pt หนา ≈ 66 ตัวอักษรฐาน/บรรทัด; ไม่นับสระบน-ล่าง/วรรณยุกต์)
+const titleLines = (s: string) => s ? Math.ceil(s.replace(/[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/g, '').length / 66) : 0;
+export function compose(c: Camp, plan: Plan) {
+  const k0 = composeBase(c, plan);
+  const codes = joinedCodes(c, plan);
+  if (!codes.length) return k0;
+  let titleTh = combineTitle(k0.titleTh, codes), titleEn = combineTitle(k0.titleEn, codes);
+  // ชื่อไทย+อังกฤษอยู่บรรทัดเดียว (STM: "…สะเต็มศึกษา STEM Camp 2026") แล้วยาวเกิน 1 บรรทัด → แยกอังกฤษเป็นบรรทัดล่าง "( … Camp 2026 )"
+  const sp = !titleEn && titleLines(titleTh) > 1 ? titleTh.match(/^(.*[\u0E00-\u0E7F])\s+([A-Za-z][^\u0E00-\u0E7F]*?)\s*([”"]?)$/) : null;
+  if (sp) { titleTh = `${sp[1]}${sp[3]}`; titleEn = `( ${sp[2]} )`; }
+  const more = titleLines(titleTh) + titleLines(titleEn) - titleLines(k0.titleTh) - titleLines(k0.titleEn);
+  const k = more > 0 ? composeBase(c, plan, more) : k0;
+  return { ...k, titleTh, nameTh: k.nameTh === k.titleTh ? titleTh : combineTitle(k.nameTh, codes), titleEn, joined: codes };
 }
 // หน้าปกเป็นลำดับหัวข้อ (ตามแม่แบบหรือแพตเทิร์นมาตรฐาน) — Word/PDF/พรีวิว เรนเดอร์จากโครงเดียวกัน
 //   list = รายการเลข "1.ข้อความ" (first = ย่อหน้าแรกเยื้องแบบวัตถุประสงค์) · para = ย่อหน้า · bullets = "-"/"•" · info = ป้าย<แท็บ>ค่า
