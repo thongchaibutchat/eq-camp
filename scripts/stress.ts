@@ -45,6 +45,16 @@ for (const t of TEMPLATES) {
   configs.push({ name:`TPLblank_${tag}`, camp: mk({ courseCode:t.code, templateId:t.id, school:'', students:40, teachers:0, durationMode:dm as any, days, nights, dates:'', province:'', venue:'', normalPrice:0, specialPrice:0, costPerPerson:0, startTime:'' }) });
 }
 
+// 5. กิจกรรมเสริม (Add-on): ทุกแม่แบบ + engine ครึ่งวัน/ไป-กลับ/พักค้าง × อังกฤษ+จีน+คณิต (มี/ไม่มีราคาเพิ่ม)
+const ADD_ALL = [{ code:'PL ENG 0104', price:300 }, { code:'PL CHI 0109', minutes:90 }, { code:'PL MAT 0107', price:0 }];
+for (const t of TEMPLATES) {
+  const dm = t.dur.startsWith('day') ? 'day' : 'overnight';
+  const days = dm === 'day' ? +t.dur.slice(3) : +t.dur.charAt(1), nights = dm === 'day' ? 0 : +t.dur.slice(2);
+  configs.push({ name:`ADD_${t.id.replace(/\s+/g, '_')}`, camp: mk({ courseCode:t.code, templateId:t.id, school:'โรงเรียนทดสอบเสริม', students:60, teachers:4, durationMode:dm as any, days, nights, dates:'x', province:'', venue:'ว', normalPrice:4000, specialPrice:3000, costPerPerson:1800, addons: ADD_ALL } as any) });
+}
+for (const [dm, d, n] of [['half',1,0],['day',1,0],['day',3,0],['overnight',2,1],['overnight',4,3]] as const)
+  configs.push({ name:`ADDeng_${dm}${d}${n}`, camp: mk({ courseCode:'PL STM 0101', templateId:'engine', school:'ร.ร.', students:40, teachers:2, durationMode:dm as any, days:d, nights:n, venue:'ว', normalPrice:3000, specialPrice:2500, costPerPerson:1000, addons: [{ code:'PL ENG 0104', ids:['__missing__'] }, { code:'PL CHI 0109', price:250 }] } as any) });
+
 let fail = 0, ok = 0;
 (async () => {
   const manifest: string[] = [];
@@ -63,6 +73,12 @@ let fail = 0, ok = 0;
         void check(cfg.camp, plan);
         // ตรวจ: ทุกวันต้องมีอย่างน้อย 1 แถว (ตารางว่าง = docx พัง)
         for (const d of plan.days) if (!d.items.length) throw new Error(`day ${d.day} has 0 rows`);
+        // Add-on: แถวเสริมต้องลงกำหนดการจริง · เวลาไม่ย้อนกลับในวัน (เริ่ม ≥ เริ่มแถวก่อนหน้า)
+        if ((cfg.camp as any).addons) {
+          const rows = plan.days.flatMap(d => d.items.filter(r => r.addon));
+          if (!rows.length && (plan.addons || []).some(a => a.titles.length)) throw new Error('addon rows missing');
+          for (const d of plan.days) { let prev = -1; for (const r of d.items) { const m = r.time.match(/(\d{1,2})[.:](\d{2})/); if (!m) continue; const v = +m[1] * 60 + +m[2]; if (r.addon && v < prev) throw new Error(`addon time goes back day ${d.day}: ${r.time}`); prev = Math.max(prev, v); } }
+        }
         const buf = Buffer.from(await packDocx(buildDoc(kind, cfg.camp, plan)));
         if (!buf || buf.length < 500) throw new Error('buffer too small');
         if (!(buf[0]===0x50 && buf[1]===0x4b)) throw new Error('not a zip (PK)');

@@ -9,9 +9,9 @@ import {
   BarChart3, History, RefreshCw, Users, X, Check, Info, ExternalLink, Copy
 } from 'lucide-react';
 import {
-  Camp, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
+  Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
   packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
-  showTeachers, notionActsInPlan, actStandard, notionActFor
+  showTeachers, notionActsInPlan, actStandard, notionActFor, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
 
@@ -121,7 +121,7 @@ export default function App() {
         docCode: c.docCode || '', school: c.school || '', courseCode: c.courseCode || '', subject: c.subject || '',
         durationMode: c.durationMode || '', days: c.days || 0, nights: c.nights || 0,
         students: c.students || 0, teachers: c.teachers || 0,
-        normalPrice: c.normalPrice || 0, specialPrice: c.specialPrice || 0,
+        normalPrice: withAddonPrice(c).normalPrice || 0, specialPrice: withAddonPrice(c).specialPrice || 0,
         province: c.province || '', region: (c.region || '') as string,
         by: who.by, byName: who.byName
       });
@@ -177,7 +177,7 @@ export default function App() {
     if (tplPrice && !(camp.normalPrice > 0) && !(camp.specialPrice > 0)) set({ normalPrice: tplPrice.n, specialPrice: tplPrice.s });
   }, [plan.tpl ? plan.tpl.id : '']);
   const ready = isReady(checks);
-  const total = camp.students * camp.specialPrice;
+  const total = camp.students * withAddonPrice(camp).specialPrice; // รวมราคากิจกรรมเสริม
   const cost = camp.students * camp.costPerPerson;
   const profit = total - cost;
   const margin = total ? (profit / total) * 100 : 0;
@@ -221,6 +221,7 @@ export default function App() {
 - subject (ใช้เมื่อ courseCode เป็น null): คณิต→"math"; วิทย์/ทะเล/ธรรมชาติ/STEAM→"steam"; อังกฤษ→"english"; AI/โค้ด/หุ่นยนต์/โดรน→"ai"; จีน→"chinese"; ผู้นำ/EQ→"leadership"
 - durationMode: "ครึ่งวัน"→"half"; "ไป-กลับ"/"วันเดย์"/1 วันไม่ค้างคืน→"day"; มีจำนวนคืน≥1→"overnight" (ตั้ง days/nights ให้สอดคล้อง); ถ้าบรีฟไม่บอกระยะเวลาเลย ใส่ durationMode/days/nights เป็น null
 - รองรับเลขไทยและคำไทย (เช่น "สองวันหนึ่งคืน"=2วัน1คืน)
+- คำว่า "เสริม/พ่วง/+/add-on" ตามด้วยวิชา (อังกฤษ/จีน/คณิต) = กิจกรรมเสริม ไม่ใช่ธีมหลัก → courseName ให้ใช้ธีมหลักของค่าย
 - ราคา: "ขายหัวละ/ราคาขาย/ลดเหลือ X"→specialPrice; "ปกติ X"→normalPrice (ตัวเลขล้วน ไม่มีคอมมา/บาท); ไม่พบให้ null
 - students/teachers: ดึงเฉพาะตัวเลขจำนวนคน (นักเรียน/ผู้เข้าร่วม = students; ครู/ครูผู้ควบคุม/อาจารย์ = teachers); ไม่พบให้ null (ห้ามเดาเป็น 0)
 - ตัวเลขไทย ๐-๙ แปลงเป็นตัวเลขอารบิกในช่องที่เป็นตัวเลข แต่ชื่อเฉพาะ (school/venue) ให้คงตัวอักษรตามบรีฟทุกตัว รวมวงเล็บและเลขไทย เช่น "โรงเรียนบดินทรเดชา (สิงห์ สิงหเสนี) ๔"
@@ -239,6 +240,8 @@ export default function App() {
       if (stale()) return;
       // ฐาน = ผลตัวอ่านปกติ → AI แก้/เติมเฉพาะช่องที่ให้ค่ามา (ช่องที่ AI ไม่พบ ใช้ผลตัวอ่านปกติ)
       const res = applyExtraction(pre.camp, r);
+      // AI ห้ามสลับธีมหลักไปเป็นวิชาที่บรีฟระบุว่าเป็น "กิจกรรมเสริม"
+      if ((pre.camp.addons || []).some(a => a.code === res.camp.courseCode) && pre.camp.courseCode) { res.camp.courseCode = pre.camp.courseCode; res.camp.subject = pre.camp.subject; res.camp.activityIds = pre.camp.activityIds; res.camp.docCode = pre.camp.docCode; }
       setCamp(res.camp);
       setBriefReport({ fields: briefFields(res.camp, Array.from(new Set([...pre.found, ...res.applied]))), by: 'AI + ระบบอ่านบรีฟ' });
       const miss = res.missing.length ? ` · ยังขาด: ${res.missing.join(', ')}` : '';
@@ -546,7 +549,7 @@ export default function App() {
       // ---- ราคา + รายละเอียดงบประมาณ: แบบเรียบตามเอกสารทีม (ไม่มีตาราง/กรอบ) ขึ้นหน้าใหม่เสมอ ----
       await step('ราคาและงบประมาณ', 65);
       await place(
-        `<div class="pline">ราคาปกติ ${money(camp.normalPrice)} <span class="red">ลดเหลือเพียง ${money(camp.specialPrice)} บ./ท่าน</span></div>` +
+        `<div class="pline">ราคาปกติ ${money(withAddonPrice(camp).normalPrice)} <span class="red">ลดเหลือเพียง ${money(withAddonPrice(camp).specialPrice)} บ./ท่าน</span></div>` + (addonPriceNote(camp) ? `<div class="pline">${esc(addonPriceNote(camp))}</div>` : '') +
         `<div class="pline">รายละเอียดงบประมาณมีดังนี้</div>` +
         kk.budget.map(x => `<div class="dl"><span class="d">-</span><span class="x">${esc(x)}</span></div>`).join(''),
         { newpage: true });
@@ -997,6 +1000,7 @@ export default function App() {
 
               {tab === 'activities' && (
                 <div className="space-y-3">
+                  <AddonPanel camp={camp} plan={plan} set={set} />
                   <SectionTitle title={`เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
                   {plan.tpl && plan.tpl.exact && <div className="text-[13px] text-brand-ink bg-paper border border-brand-mist rounded-lg px-3 py-2">ค่ายนี้ใช้กิจกรรมและกำหนดการจากแม่แบบจริงของทีม ({plan.tpl.source.replace('__', ' · ')}) — รายการด้านล่างใช้เมื่อเลือก “จัดอัตโนมัติ” ในขั้นกำหนดการ</div>}
                   <div className="flex items-center justify-between text-[13px]">
@@ -1105,7 +1109,7 @@ export default function App() {
                     <Stat label={`กำไร (${margin.toFixed(1)}%)`} value={money(profit)} tone={profit < 0 ? 'rose' : margin < 20 ? 'amber' : 'emerald'} />
                   </div>
                   <BudgetEditor items={camp.budgetItems && camp.budgetItems.length ? camp.budgetItems : null} auto={k.autoBudget}
-                    normal={camp.normalPrice} special={camp.specialPrice}
+                    normal={withAddonPrice(camp).normalPrice} special={withAddonPrice(camp).specialPrice} note={addonPriceNote(camp)}
                     onChange={items => set({ budgetItems: items })} />
                   <Field label="เงื่อนไขการชำระเงิน (ในใบเสนอราคา)"><input value={camp.payTerms} onChange={e => set({ payTerms: e.target.value })} className={inp} /></Field>
                   <div className="grid grid-cols-2 gap-2.5">
@@ -1183,7 +1187,7 @@ export default function App() {
 
             <div className="bg-white rounded-2xl border border-brand-mist shadow-card overflow-hidden">
               <div className="bg-brand-navy text-white px-4 py-2.5 text-[13.5px] font-semibold flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" />พรีวิว: {DOC_TYPES.find(d => d.id === kind)!.label}</div>
-              <div className="p-5 max-h-[70vh] overflow-y-auto font-doc doc-preview"><style>{FONT_FACE_CSS + ".doc-preview{font-family:'EQSarabun','TH Sarabun New',Sarabun,sans-serif;font-size:17px;line-height:1.3;color:#111}"}</style><Preview kind={kind} camp={camp} plan={plan} k={k} total={total} cost={cost} profit={profit} margin={margin} /></div>
+              <div className="p-5 max-h-[70vh] overflow-y-auto font-doc doc-preview"><style>{FONT_FACE_CSS + ".doc-preview{font-family:'EQSarabun','TH Sarabun New',Sarabun,sans-serif;font-size:17px;line-height:1.3;color:#111}"}</style><Preview kind={kind} camp={withAddonPrice(camp)} plan={plan} k={k} total={total} cost={cost} profit={profit} margin={margin} /></div>
             </div>
             <button onClick={() => download(kind)} disabled={busy} className="w-full py-3 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold shadow-lift tap flex items-center justify-center gap-2">
               <Download className="w-5 h-5" />{busy ? 'กำลังสร้างไฟล์...' : `ดาวน์โหลด ${DOC_TYPES.find(d => d.id === kind)!.label} เป็นไฟล์ Word (.docx)`}
@@ -1246,7 +1250,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div><label className="block text-[13.5px] font-medium text-brand-ink mb-1.5">{label}</label>{children}</div>;
 }
 // รายการงบประมาณ: แก้/เพิ่ม/ลบได้ทีละบรรทัด — เอกสารจะแสดงแบบ "-  รายการ" ไม่มีตาราง (ตามแบบทีม)
-function BudgetEditor({ items, auto, normal, special, onChange }: { items: string[] | null; auto: string[]; normal: number; special: number; onChange: (v: string[] | undefined) => void }) {
+function BudgetEditor({ items, auto, normal, special, note, onChange }: { items: string[] | null; auto: string[]; normal: number; special: number; note?: string; onChange: (v: string[] | undefined) => void }) {
   const list = items ?? auto;
   const edit = (next: string[]) => onChange(next);
   return (
@@ -1255,7 +1259,7 @@ function BudgetEditor({ items, auto, normal, special, onChange }: { items: strin
         <h3 className="text-[15px] font-semibold">รายละเอียดงบประมาณ</h3>
         {items && <button onClick={() => onChange(undefined)} className="tap text-[13px] text-sub hover:text-brand-ink">ใช้รายการอัตโนมัติ</button>}
       </div>
-      <p className="text-[14px] leading-relaxed">ราคาปกติ {money(normal)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(special)} บ./ท่าน</span><br />รายละเอียดงบประมาณมีดังนี้</p>
+      <p className="text-[14px] leading-relaxed">ราคาปกติ {money(normal)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(special)} บ./ท่าน</span>{note ? <><br />{note}</> : null}<br />รายละเอียดงบประมาณมีดังนี้</p>
       <ol className="space-y-1.5">
         {list.map((x, i) => (
           <li key={i} className="flex items-center gap-2">
@@ -1466,7 +1470,7 @@ function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
         : <div key={i}>{sec.h && <H>{sec.h}</H>}{sec.k === 'list' ? <OL items={sec.items || []} /> : (sec.items || []).map((x, j) => <p key={j} className={sec.k === 'para' ? 'indent-8 my-0.5' : 'pl-6 my-0'}>{x}</p>)}</div>)}
       <div className="my-3 border-t pt-2 text-center font-extrabold text-sky-900">กำหนดการ</div>
       <Sched plan={plan} />
-      <div className="mt-4 pt-3 border-t">ราคาปกติ {money(c.normalPrice)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(c.specialPrice)} บ./ท่าน</span></div>
+      <div className="mt-4 pt-3 border-t">ราคาปกติ {money(c.normalPrice)} <span className="text-[#FF0000]">ลดเหลือเพียง {money(c.specialPrice)} บ./ท่าน</span>{addonPriceNote(c) && <div>{addonPriceNote(c)}</div>}</div>
       <div>รายละเอียดงบประมาณมีดังนี้</div>
       {k.budget.map((b: string, i: number) => <div key={i} className="flex"><span className="w-8 shrink-0 pl-1">-</span><span>{b}</span></div>)}
       <PreviewPhotos title="ตัวอย่างภาพกิจกรรม" imgs={c.actImgs} />
@@ -1599,6 +1603,65 @@ function SaveSheet({ sheet, onClose, download }: { sheet: { files: { blob: Blob;
         {IN_APP && <div className="text-[13px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-3">เปิดจาก {IN_APP} อาจบันทึกไฟล์ไม่ได้ — ใช้ "บันทึก / ส่งต่อไฟล์" หรือเปิดหน้านี้ในเบราว์เซอร์ (Safari/Chrome)</div>}
         {IS_IOS && canShare && <div className="text-[12.5px] text-sub mt-3">iPhone/iPad: กด "บันทึก / ส่งต่อไฟล์" → "บันทึกไปยังไฟล์" หรือเลือก LINE/Mail เพื่อส่งต่อ</div>}
       </div>
+    </div>
+  );
+}
+
+/* กิจกรรมเสริม (Add-on): ค่ายหลัก + อังกฤษ/จีน/คณิต — ระบบแทรกลงกำหนดการให้เอง (core: applyAddons)
+ * เลือกวิชา → (ไม่บังคับ) เลือกกิจกรรม/ความยาว/ราคาเพิ่มต่อท่าน — ทุกค่าแก้ได้ เอกสารทั้ง 4 ชิ้นอัปเดตทันที */
+function AddonPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; set: (p: Partial<Camp>) => void }) {
+  const list = camp.addons || [];
+  const opts = ADDON_COURSES.filter(a => a.code !== camp.courseCode);
+  const get = (code: string) => list.find(x => x.code === code);
+  const upd = (code: string, patch: Partial<AddonSel> | null) => {
+    const rest = list.filter(x => x.code !== code);
+    set({ addons: patch === null ? rest : [...rest, { ...(get(code) || { code }), ...patch }].sort((a, b) => opts.findIndex(o => o.code === a.code) - opts.findIndex(o => o.code === b.code)) });
+  };
+  const planOf = (code: string) => (plan.addons || []).find(a => a.code === code);
+  return (
+    <div className="bg-white border border-brand-mist rounded-xl p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[15.5px] font-semibold">กิจกรรมเสริม (Add-on)</div>
+        <div className="text-[13px] text-sub">เพิ่มวิชาอื่นเข้าค่ายนี้ ระบบแทรกลงกำหนดการให้</div>
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3" role="group" aria-label="เลือกกิจกรรมเสริม">
+        {opts.map(o => { const on = !!get(o.code); return (
+          <button key={o.code} onClick={() => upd(o.code, on ? null : {})} aria-pressed={on}
+            className={`tap px-4 py-2 rounded-xl text-[14px] border font-medium ${on ? 'bg-brand-navy text-white border-brand-navy' : 'border-brand-mist hover:bg-paper'}`}>
+            {on ? '✓ ' : '+ '}{o.label}
+          </button>); })}
+      </div>
+      {opts.filter(o => get(o.code)).map(o => {
+        const sel = get(o.code)!; const pool = addonActivities(o.code); const pa = planOf(o.code);
+        const ids = sel.ids && sel.ids.length ? sel.ids : [];
+        const toggle = (id: string) => { const cur = ids.length ? ids : pool.filter(a => (pa?.titles || []).includes(addonRowTitle(o.code, a))).map(a => a.id); upd(o.code, { ids: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] }); };
+        const isOn = (a: typeof pool[number]) => ids.length ? ids.includes(a.id) : (pa?.titles || []).includes(addonRowTitle(o.code, a));
+        return (
+          <div key={o.code} className="mt-4 border-t border-brand-mist pt-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[14.5px] font-semibold">{o.label} <span className="text-sub font-normal text-[13px]">· {o.code} · ลงกำหนดการ {pa?.titles.length || 0} ช่วง</span></div>
+              <div className="flex flex-wrap items-center gap-2 text-[13.5px]">
+                <label className="flex items-center gap-1.5">ช่วงละ
+                  <select value={sel.minutes || 60} onChange={e => upd(o.code, { minutes: +e.target.value })} className="border border-brand-mist rounded-lg px-2 py-1.5 bg-white">
+                    {[45, 60, 90, 120].map(m => <option key={m} value={m}>{m} นาที</option>)}
+                  </select></label>
+                <label className="flex items-center gap-1.5">ราคาเพิ่ม
+                  <input type="number" inputMode="numeric" min={0} step={50} value={sel.price || ''} placeholder="0" onChange={e => upd(o.code, { price: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-24 border border-brand-mist rounded-lg px-2 py-1.5 text-right" aria-label={`ราคาเพิ่มต่อท่าน ${o.label}`} />บ./ท่าน</label>
+              </div>
+            </div>
+            <div className="text-[12.5px] text-sub mt-1">{ids.length ? 'เลือกเอง — 1 กิจกรรม = 1 ช่วง' : 'อัตโนมัติ — แตะกิจกรรมเพื่อเลือกเอง'} · ราคาเพิ่ม 0 = รวมในราคาเดิม{ids.length ? <> · <button className="underline" onClick={() => upd(o.code, { ids: [] })}>กลับเป็นอัตโนมัติ</button></> : null}</div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {pool.map(a => { const on = isOn(a); return (
+                <button key={a.id} onClick={() => toggle(a.id)} aria-pressed={on}
+                  className={`tap text-[13px] px-2.5 py-1.5 rounded-lg border text-left ${on ? 'border-brand-navy bg-paper text-brand-ink font-medium' : 'border-brand-mist text-sub hover:bg-paper'}`}>
+                  {addonRowTitle(o.code, a).replace(/^กิจกรรมเสริม\S*\s*/, '')}
+                </button>); })}
+            </div>
+          </div>
+        );
+      })}
+      {(plan.addonWarn || []).map(w => <div key={w} className="text-[13px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-3">{w}</div>)}
     </div>
   );
 }
