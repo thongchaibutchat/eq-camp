@@ -34,7 +34,7 @@ export type DurationMode = 'half' | 'day' | 'overnight';
 // src = id ภาพจากไฟล์ต้นฉบับของค่าย (web/photos/<id>.jpg) ที่ระบบดึงให้ · ไม่มี src = ภาพที่ทีมอัปโหลดเอง
 export interface Img { data?: Uint8Array; caption: string; src?: string }
 // slot = ดัชนีช่อง "กิจกรรมหลัก" (core) ทั่วทั้งกำหนดการ (0..N-1) ใช้ผูกกับ coreSlotIds เพื่อเลือกกิจกรรมรายช่วง
-export interface Row { time: string; title: string; sub?: string[]; slot?: number }
+export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
@@ -50,7 +50,11 @@ export interface Camp {
   templateId?: string;
   activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
+  /** กิจกรรมเสริม (Add-on) จากหลักสูตรอื่น (อังกฤษ/จีน/คณิต) แทรกลงกำหนดการค่ายหลัก */
+  addons?: AddonSel[];
 }
+/** code = รหัสหลักสูตรที่เป็น Add-on · ids = กิจกรรมที่เลือก (ว่าง = อัตโนมัติ 1 ช่วง/วัน) · minutes = ความยาว/ช่วง · price = บาท/ท่านที่บวกเพิ่ม (0 = รวมในราคาเดิม) */
+export interface AddonSel { code: string; ids?: string[]; minutes?: number; price?: number }
 
 /* ===================== SYSTEM DATA ===================== */
 export const SUBJECTS: Record<Subject, { label: string; titleTh: string; en: string; field: string; careers: string; extra: string[] }> = {
@@ -333,7 +337,7 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
 }
 // เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
 export function migrateCamp(raw: any): Camp {
-  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], extraActivities: raw?.extraActivities || [] };
+  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], addons: Array.isArray(raw?.addons) ? raw.addons.filter((x: any) => x && typeof x.code === 'string') : [], extraActivities: raw?.extraActivities || [] };
   if (out.durationMode !== 'half' && out.durationMode !== 'day' && out.durationMode !== 'overnight') {
     out.durationMode = Number(out.nights) > 0 ? 'overnight' : (Number(out.days) <= 1 ? 'day' : 'overnight');
   }
@@ -442,7 +446,15 @@ export function readBrief(raw: string, base: Camp): BriefRead {
   else if (!known && !c.province && provinceIn(noSchool)) c.province = provinceIn(noSchool);
   if (c.province && c.province !== base.province) found.push('province');
   // ตรวจจับหลักสูตร (ธีม) จริงจากบรีฟก่อน — ได้คลังกิจกรรมตรงธีม
-  const course = detectCourse(noSchool);
+  // กิจกรรมเสริม: "เสริม/พ่วง/+/add-on ภาษาอังกฤษ|จีน|คณิต" → addons (ตัดวลีนี้ออกก่อนตรวจหลักสูตรหลัก ไม่ให้ธีมหลักเพี้ยน)
+  const SUBJ = '(?:ภาษา)?\\s*(?:อังกฤษ|english|จีน|chinese|คณิต(?:ศาสตร์)?|math)';
+  const ADDON_RE = new RegExp(`(?:เสริม|add[\\s-]?on|พ่วง|\\+)\\s*(?:กิจกรรม|ทักษะ)?\\s*(${SUBJ}(?:\\s*(?:และ|กับ|,|/|\\+|&)\\s*${SUBJ})*)`, 'gi');
+  const adCodes: string[] = [];
+  for (const m of noSchool.matchAll(ADDON_RE)) for (const w0 of m[1].match(/อังกฤษ|english|จีน|chinese|คณิต|math/gi) || []) {
+    const w = w0.toLowerCase(); const code = /อังกฤษ|english/.test(w) ? 'PL ENG 0104' : /จีน|chinese/.test(w) ? 'PL CHI 0109' : 'PL MAT 0107';
+    if (!adCodes.includes(code)) adCodes.push(code);
+  }
+  const course = detectCourse(noSchool.replace(ADDON_RE, ' '));
   const prev = c.subject, prevCourse = c.courseCode;
   if (course) { c.courseCode = course.code; c.subject = course.family as Subject; found.push('course'); }
   else {
@@ -458,6 +470,7 @@ export function readBrief(raw: string, base: Camp): BriefRead {
   // รหัสเอกสารต้องอ้างจากรหัสหลักสูตรจริงเท่านั้น (ห้ามเดา) — ผูกหลักสูตรแล้วตั้ง docCode จากรหัสนั้น ถ้าบรีฟยังไม่ได้ระบุรหัสเอง
   if (c.courseCode && (!/^PL\s/i.test(c.docCode) || c.docCode === base.docCode)) c.docCode = docCodeFor(c.courseCode);
   if (c.courseCode !== prevCourse || c.durationMode !== base.durationMode || c.days !== base.days) { c.templateId = undefined; c.budgetItems = undefined; }
+  if (adCodes.length) { const keep = (base.addons || []).filter(a => adCodes.includes(a.code)); c.addons = adCodes.filter(x => x !== c.courseCode).map(code => keep.find(a => a.code === code) || { code }); }
   return { camp: c, found, fields: briefFields(c, found) };
 }
 // รายงานผลอ่านบรีฟ (ใช้ทั้งตัวอ่านปกติและ AI) — แสดงให้ฝ่ายขายเห็นว่าระบบเข้าใจบรีฟอย่างไร ก่อนสร้างไฟล์
@@ -478,7 +491,8 @@ export function briefFields(c: Camp, found: string[]): BriefField[] {
     { key: 'province', label: 'จังหวัด', value: c.province || '', ok: !!c.province },
     { key: 'normalPrice', label: 'ราคาปกติ', value: has('normalPrice') ? `${money(c.normalPrice)} บาท` : '', ok: has('normalPrice') },
     { key: 'specialPrice', label: 'ราคาพิเศษ', value: has('specialPrice') ? `${money(c.specialPrice)} บาท/ท่าน` : '', ok: has('specialPrice') },
-    { key: 'venuePhotos', label: 'ภาพโรงแรม', value: vs ? `${vs.photos.length} รูป (${vs.name})` : '', ok: !!vs }
+    { key: 'venuePhotos', label: 'ภาพโรงแรม', value: vs ? `${vs.photos.length} รูป (${vs.name})` : '', ok: !!vs },
+    ...(c.addons && c.addons.length ? [{ key: 'addons', label: 'กิจกรรมเสริม', value: c.addons.map(a => addonLabel(a.code)).join(' + '), ok: true }] : [])
   ];
 }
 export function parseBrief(t: string, base: Camp): Camp { return readBrief(t, base).camp; }
@@ -530,7 +544,8 @@ export const staffText = (n: number): string => {
   return '10 – 16';
 };
 
-export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo }
+export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo; addons?: AddonPlan[]; addonWarn?: string[] }
+export interface AddonPlan { code: string; label: string; titles: string[]; price: number }
 // สรุปแม่แบบที่ใช้กับค่ายนี้ (แสดงใน UI/ตรวจความถูกต้อง)
 export interface TplInfo {
   id: string; source: string; dur: string; exact: boolean; areaOK: boolean | null; area: string[];
@@ -709,11 +724,105 @@ export const photoCaption = (_c: Camp, _i: number): string => '';
 export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
   const p = templateFor(c);
-  if (p && p.exact) return planFromTemplate(c, p);
-  const plan = buildEngineSchedule(c);
-  if (p) plan.tpl = tplInfo(p);
-  return plan;
+  let plan: Plan;
+  if (p && p.exact) plan = planFromTemplate(c, p);
+  else { plan = buildEngineSchedule(c); if (p) plan.tpl = tplInfo(p); }
+  return applyAddons(c, plan);
 }
+/* ===================== กิจกรรมเสริม (Add-on) =====================
+ * ค่ายหลัก + กิจกรรมจากหลักสูตรอังกฤษ/จีน/คณิต แทรกลงกำหนดการจริง (ใช้กิจกรรมในคลังของหลักสูตรนั้นเท่านั้น — ไม่แต่งชื่อใหม่)
+ * วิธีแทรกต่อ 1 ช่วง (ค่าเริ่ม 60 นาที):
+ *   1) แบ่งช่วงกิจกรรมหลักที่ยาว ≥ ช่วงเสริม+60 นาที (ก่อน 18.00) — ท้ายช่วงเป็นกิจกรรมเสริม เวลาเลิกวันนั้นไม่เปลี่ยน
+ *   2) ไม่มีช่วงให้แบ่ง → แทรกก่อน "สรุป/ถอดบทเรียน" (หรือก่อนเดินทางกลับ/ท้ายวัน) แล้วเลื่อนรายการถัดไป
+ *      จนเจอช่วงพักผ่อน/เช็คอินที่ยาวพอดูดเวลาไว้ได้ · ถ้าไม่มี วันนั้นเลิกช้าลง → เตือนในหน้าตรวจ */
+export const ADDON_COURSES: { code: string; label: string }[] = [
+  { code: 'PL ENG 0104', label: 'ภาษาอังกฤษ' }, { code: 'PL CHI 0109', label: 'ภาษาจีน' }, { code: 'PL MAT 0107', label: 'คณิตศาสตร์' }
+];
+export const addonLabel = (code: string) => (ADDON_COURSES.find(a => a.code === code) || { label: courseById(code)?.name || code }).label;
+const ADDON_SKIP = /ระดมสมอง|Creative Learning Station|Morning|นันทนาการ|กลุ่มสัมพันธ์|ถอดบทเรียน|AAR/i;
+const addonName = (t: string) => tidyTitle(t).replace(/\s*[-–]?\s*(Part|EP)\.?\s*\d+\s*$/i, '').replace(/^กิจกรรม\s*/, '').replace(/^[“"]\s*|\s*[”"]$/g, '').replace(/\.\s*$/, '').trim();
+// กิจกรรมที่ใช้เป็น Add-on ได้ของหลักสูตร (กิจกรรมหลัก/ภาคค่ำ ไม่รวมกระบวนการกลาง) — รวม Part.1/Part.2 เป็นรายการเดียว
+export function addonActivities(code: string): Activity[] {
+  const seen = new Set<string>(); const out: Activity[] = [];
+  for (const a of LIB) {
+    if (a.courseCode !== code || !(a.kind === 'core' || a.kind === 'night') || ADDON_SKIP.test(a.title)) continue;
+    const k = addonName(a.title).toLowerCase(); if (!k || seen.has(k)) continue;
+    seen.add(k); out.push(a);
+  }
+  return out;
+}
+export const addonRowTitle = (code: string, a: Activity) => `กิจกรรมเสริม${addonLabel(code)} “${addonName(a.title)}”`;
+const activeAddons = (c: Camp): AddonSel[] => (c.addons || []).filter(x => x && x.code && x.code !== c.courseCode && addonActivities(x.code).length);
+const NO_SPLIT = /อาหาร|เดินทาง|เช็ค|ลงทะเบียน|พิธี|พักผ่อน|ทำธุระ|สรุป|ถอดบทเรียน|AAR|After Action|ปาร์ตี้|party|นันทนาการ|ละลายพฤติกรรม|กิจกรรมเสริม|ว่าง|5 STEPs/i;
+const ABSORB = /พักผ่อน|อัธยาศัย|เช็คอิน|ทำธุระ|เตรียมการแสดง/;
+const shiftTimes = (t: string, d: number) => t.replace(/(\d{1,2})[.:](\d{2})/g, (_m, h, mm) => fmt(+h * 60 + +mm + d));
+function insertAddonRow(items: Row[], row: Omit<Row, 'time'>, minutes: number): { items: Row[]; late: number } {
+  // 1) แบ่งช่วงยาว (เลือกช่วงที่ยาวที่สุด)
+  let best = -1, bestLen = 0;
+  items.forEach((r, i) => { const t = tmins(r.time); if (t.length < 2 || NO_SPLIT.test(r.title) || r.addon) return; const len = t[1] - t[0]; if (t[0] < 18 * 60 && len >= minutes + 60 && len > bestLen) { best = i; bestLen = len; } });
+  if (best >= 0) {
+    const [a, b] = tmins(items[best].time); const cut = b - minutes;
+    const out = [...items]; out.splice(best, 1, { ...items[best], time: rng(a, cut) }, { ...row, time: rng(cut, b) });
+    return { items: out, late: 0 };
+  }
+  // 2) แทรกก่อนสรุป / เดินทางกลับ / ท้ายวัน แล้วเลื่อนเวลา
+  let at = items.findIndex(r => /สรุป|ถอดบทเรียน|AAR|After Action/i.test(r.title));
+  const tail = (r: Row) => /เดินทางกลับ|เป็นต้นไป/.test(r.title + r.time);
+  if (at < 0 && items.length && tail(items[items.length - 1])) { at = items.length - 1; while (at > 0 && tail(items[at - 1])) at--; }
+  if (at < 0) at = items.length;
+  const prevEnd = at > 0 ? (tmins(items[at - 1].time).slice(-1)[0] ?? 9 * 60) : 9 * 60;
+  const start = at < items.length ? (tmins(items[at].time)[0] ?? prevEnd) : prevEnd;
+  const out: Row[] = items.slice(0, at); out.push({ ...row, time: rng(start, start + minutes) });
+  let shift = minutes; let late = 0;
+  for (let i = at; i < items.length; i++) {
+    const r = items[i]; const t = tmins(r.time);
+    if (!shift) { out.push(r); continue; }
+    if (ABSORB.test(r.title) && t.length >= 2 && t[1] - t[0] - shift >= 30) { out.push({ ...r, time: rng(t[0] + shift, t[1]) }); shift = 0; continue; }
+    out.push({ ...r, time: shiftTimes(r.time, shift) });
+  }
+  late = shift;
+  return { items: out, late };
+}
+function applyAddons(c: Camp, plan: Plan): Plan {
+  const sels = activeAddons(c); if (!sels.length) return plan;
+  const nDays = plan.days.length || 1;
+  const days = plan.days.map(d => ({ ...d, items: [...d.items] }));
+  const warn: string[] = []; const addons: AddonPlan[] = [];
+  const late: number[] = days.map(() => 0);
+  const count = days.map(() => 0);
+  // ค่าเริ่ม: พักค้าง = 1 ช่วง/คืน (วันกลับมักสั้น) · ไป-กลับ = 1 ช่วง/วัน · ครึ่งวัน = 1 ช่วง
+  const autoN = c.durationMode === 'overnight' ? Math.max(1, c.nights) : c.durationMode === 'half' ? 1 : nDays;
+  for (const sel of sels) {
+    const pool = addonActivities(sel.code);
+    const chosen = (sel.ids && sel.ids.length ? sel.ids.map(id => pool.find(a => a.id === id)).filter(Boolean) as Activity[] : pool.slice(0, autoN));
+    const minutes = [45, 60, 90, 120].includes(Number(sel.minutes)) ? Number(sel.minutes) : 60;
+    const titles: string[] = [];
+    for (const a of chosen) {
+      const title = addonRowTitle(sel.code, a);
+      // เลือกวันที่แทรกแล้ว "ไม่ทำให้เลิกช้า" ก่อน → วันที่มีกิจกรรมเสริมน้อยกว่า → วันแรก ๆ ; ถ้าทุกวันต้องเลื่อน เลือกวันที่เลื่อนน้อยสุด
+      const tries = days.map((d, i) => ({ i, r: insertAddonRow(d.items, { title, addon: sel.code }, minutes) }))
+        .sort((x, y) => (x.r.late - y.r.late) || (count[x.i] - count[y.i]) || (x.i - y.i));
+      const best = tries[0];
+      days[best.i].items = best.r.items; late[best.i] += best.r.late; count[best.i]++; titles.push(title);
+    }
+    addons.push({ code: sel.code, label: addonLabel(sel.code), titles, price: Math.max(0, Number(sel.price) || 0) });
+  }
+  late.forEach((m, i) => { if (m > 0) warn.push(`วันที่ ${i + 1} เลิกช้าลง ${m} นาทีเพราะแทรกกิจกรรมเสริม — ตรวจเวลาเดินทาง/อาหารในกำหนดการ`); });
+  return { ...plan, days, addons, addonWarn: warn };
+}
+// ราคารวมกิจกรรมเสริม: ราคาที่กรอกในขั้น "ราคา" = ราคาค่ายหลัก · เอกสารแสดงราคารวม Add-on แล้ว (ทำครั้งเดียว ไม่บวกซ้ำ)
+const PRICED = new WeakSet<object>();
+export const addonPriceSum = (c: Camp) => activeAddons(c).reduce((s, a) => s + Math.max(0, Number(a.price) || 0), 0);
+export function withAddonPrice(c: Camp): Camp {
+  if (PRICED.has(c)) return c;
+  const add = addonPriceSum(c); if (!add) return c;
+  const out = { ...c, normalPrice: (c.normalPrice || 0) + add, specialPrice: (c.specialPrice || 0) + add };
+  PRICED.add(out); return out;
+}
+export const addonPriceNote = (c: Camp): string => {
+  const xs = activeAddons(c).filter(a => (Number(a.price) || 0) > 0);
+  return xs.length ? `(รวมกิจกรรมเสริม ${xs.map(a => `${addonLabel(a.code)} ${money(Number(a.price))} บาท`).join(' · ')} ต่อท่าน)` : '';
+};
 function buildEngineSchedule(c: Camp): Plan {
   const pool = subjectPool(c);
   const sel = pool.filter(a => c.activityIds.includes(a.id));
@@ -989,7 +1098,23 @@ export function compose(c: Camp, plan: Plan) {
   const p1 = `นักเรียนห้องเรียนพิเศษ${c.level ? ` ระดับชั้น ${c.level}` : ''} จำนวน ${c.students} คน`;
   const p2 = showTeachers(c) ? `คุณครูผู้ดูแล ${c.teachers} คน รวม ${total} คน` : '';
   const dur = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน`;
-  const base = { objectives, acts, integ, budget, autoBudget, staff, p1, p2, dur };
+  // กิจกรรมเสริม (Add-on): 1 บรรทัด/วิชา = ชื่อกิจกรรมที่ลงกำหนดการจริง · งบอัตโนมัติเพิ่ม "ค่าจัดกิจกรรมเสริม…"
+  const addonItems = (plan.addons || []).filter(a => a.titles.length).map(a => `กิจกรรมเสริม${a.label} ${a.titles.map(t => t.replace(/^กิจกรรมเสริม\S*\s*/, '')).join(' ')}`);
+  const addonBudget = (plan.addons || []).filter(a => a.titles.length).map(a => `ค่าจัดกิจกรรมเสริม${a.label} (วิทยากรและอุปกรณ์)`);
+  // หน้าปก: ต่อท้ายบรรทัด "ระยะเวลาอบรม" (ไม่เพิ่มบรรทัด ปกยังพอดี 1 หน้า) เช่น "2 วัน 1 คืน + กิจกรรมเสริมภาษาอังกฤษ · ภาษาจีน"
+  //   ชื่อกิจกรรมเสริมแต่ละช่วงอยู่ในกำหนดการ · ไม่มีแถวระยะเวลา → เพิ่มแถว "กิจกรรมเสริม"
+  const adLabels = (plan.addons || []).filter(a => a.titles.length).map(a => a.label);
+  const withAddonSec = (cv: CoverSec[]) => {
+    if (!adLabels.length) return cv;
+    const out = cv.map(x => ({ ...x, rows: x.rows ? x.rows.map(r => [r[0], [...r[1]]] as [string, string[]]) : x.rows }));
+    for (const sec of out) for (const r of sec.rows || []) if (/ระยะเวลา/.test(r[0]) && r[1].length) { r[1][0] = `${r[1][0]} + กิจกรรมเสริม${adLabels.join(' · ')}`; return out; }
+    let i = -1; out.forEach((x, j) => { if (x.k === 'info') i = j; });
+    const row: [string, string[]] = ['กิจกรรมเสริม', [adLabels.join(' · ')]];
+    if (i >= 0) out[i] = { ...out[i], rows: [...(out[i].rows || []), row] }; else out.push({ k: 'info', rows: [row] });
+    return out;
+  };
+  autoBudget.push(...addonBudget);
+  const base = { objectives, acts, integ, budget: custom.length ? custom : autoBudget, autoBudget, staff, p1, p2, dur, addonItems };
   // ===== หน้าปกตามแม่แบบจริงของทีม (ลำดับหัวข้อ/ถ้อยคำตามต้นฉบับ แทนค่าด้วยบรีฟ) =====
   const tt = plan.tpl ? templateById(plan.tpl.id) : undefined;
   if (tt) {
@@ -1013,10 +1138,10 @@ export function compose(c: Camp, plan: Plan) {
       const items = sec.acts ? tActs : isObj && !tObj.length ? objectives : (sec.items || []).map(F);
       cover.push({ k: sec.k, h: sec.h, items, first: isObj });
     }
-    const tBudget = exact ? budgetFromTemplate(tt.budget, c, plan, staff) : autoBudget;
+    const tBudget = exact ? [...budgetFromTemplate(tt.budget, c, plan, staff), ...addonBudget] : autoBudget;
     const titleTh = F(tt.titles[0] || `หลักสูตร “${nameTh}”`), titleEn = tt.titles[1] ? F(tt.titles[1]) : '';
     return { ...base, objectives: tObj.length ? tObj : objectives, acts: tActs.length ? tActs : acts, integ: tInteg.length ? tInteg : integ,
-      autoBudget: tBudget, budget: custom.length ? custom : tBudget, titleTh, nameTh: titleTh, titleEn, cover, source: tt.source };
+      autoBudget: tBudget, budget: custom.length ? custom : tBudget, titleTh, nameTh: titleTh, titleEn, cover: withAddonSec(cover), source: tt.source };
   }
   const cover: CoverSec[] = [
     { k: 'list', h: 'วัตถุประสงค์การเรียนรู้', items: objectives, first: true },
@@ -1024,7 +1149,7 @@ export function compose(c: Camp, plan: Plan) {
     { k: 'list', h: 'กิจกรรมเชิงบูรณาการ', items: acts },
     { k: 'list', h: 'บูรณาการการเรียน (Instruction Integration)', items: integ }
   ];
-  return { ...base, titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, cover, source: '' };
+  return { ...base, cover: withAddonSec(cover), titleTh: `หลักสูตร “${nameTh}”`, nameTh: `“${nameTh}”`, titleEn: `( ${enName} )`, source: '' };
 }
 // หน้าปกเป็นลำดับหัวข้อ (ตามแม่แบบหรือแพตเทิร์นมาตรฐาน) — Word/PDF/พรีวิว เรนเดอร์จากโครงเดียวกัน
 //   list = รายการเลข "1.ข้อความ" (first = ย่อหน้าแรกเยื้องแบบวัตถุประสงค์) · para = ย่อหน้า · bullets = "-"/"•" · info = ป้าย<แท็บ>ค่า
@@ -1068,6 +1193,8 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
       ...(tp.depWarn ? [{ ok: false, soft: true, msg: tp.depWarn }] : []),
       ...(tp.dropped.length ? [{ ok: true, soft: true, msg: `ตัดรายการที่ไม่ถูกต้องในต้นฉบับ: ${tp.dropped.join(' · ')}` }] : [])
     ] : []),
+    ...((plan.addons || []).map(a => ({ ok: a.titles.length > 0, soft: true, msg: a.titles.length ? `กิจกรรมเสริม${a.label} ${a.titles.length} ช่วงในกำหนดการ${a.price ? ` · +${money(a.price)} บาท/ท่าน` : ' · รวมในราคาเดิม'}` : `กิจกรรมเสริม${a.label} ยังไม่ได้เลือกกิจกรรม` }))),
+    ...((plan.addonWarn || []).map(m => ({ ok: false, soft: true, msg: m }))),
     ...(c.courseCode ? [{ ok: realActs >= 6, soft: true, msg: realActs >= 6 ? `ภาพกิจกรรม ${realActs} รูป จากไฟล์ของค่ายนี้` : `ภาพกิจกรรมมี ${realActs} รูป (ควร 6–8 รูปจากไฟล์ของค่ายนี้)${realActs === 0 ? ' — ภาพยังโหลดไม่เสร็จหรือเปิดแบบออฟไลน์' : ''}` }] : [])
   ];
 }
@@ -1176,6 +1303,7 @@ const priceLine = (c: Camp, pb = false) => P([
 ], { pb, keep: true, after: 2 });
 const priceBudgetSection = (c: Camp, k: ReturnType<typeof compose>): Paragraph[] => [
   priceLine(c, true),
+  ...(addonPriceNote(c) ? [P(addonPriceNote(c), { keep: true, after: 2 })] : []),
   P('รายละเอียดงบประมาณมีดังนี้', { keep: true, after: 2 }),
   ...dashed(k.budget, true)
 ];
@@ -1294,7 +1422,8 @@ const equipmentSection = (plan: Plan): Paragraph[] => {
       return out;
     })];
 };
-export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<typeof compose>): Document {
+export function buildDoc(kind: DocKind, c0: Camp, planIn?: Plan, k0?: ReturnType<typeof compose>): Document {
+  const c = withAddonPrice(c0); // ราคาในเอกสาร = ค่ายหลัก + กิจกรรมเสริม (ที่กรอกราคาเพิ่ม)
   const plan = planIn || buildSchedule(c); const k = k0 || compose(c, plan);
   const total = c.students * c.specialPrice, cost = c.students * c.costPerPerson, profit = total - cost, margin = total ? (profit / total) * 100 : 0;
   let body: (Paragraph | Table)[] = [];
@@ -1315,7 +1444,7 @@ export function buildDoc(kind: DocKind, c: Camp, planIn?: Plan, k0?: ReturnType<
       tbl([new TableRow({ tableHeader: true, children: hd.map((h, i) => cell([P(h, { b: true, color: 'FFFFFF', al: CTR, after: 0 })], cols[i], { fill: BLUE, border: 'box' })) }),
         new TableRow({ children: [
           cell([P('1', { al: CTR, after: 0 })], cols[0], { border: 'box' }),
-          cell([P(k.titleTh, { after: 0 }), P(`${k.dur} · ${c.dates}`, { sz: 14, after: 0 }), P(`นักเรียน${c.level ? ' ' + c.level : ''} · รวมที่พัก อาหาร วิทยากร อุปกรณ์ ตามรายละเอียดในโปรแกรม`, { sz: 14, after: 0 })], cols[1], { border: 'box' }),
+          cell([P(k.titleTh, { after: 0 }), P(`${k.dur} · ${c.dates}`, { sz: 14, after: 0 }), ...(k.addonItems.length ? [P(k.addonItems.join(' · ') + (addonPriceNote(c) ? ' ' + addonPriceNote(c) : ''), { sz: 14, after: 0 })] : []), P(`นักเรียน${c.level ? ' ' + c.level : ''} · รวมที่พัก อาหาร วิทยากร อุปกรณ์ ตามรายละเอียดในโปรแกรม`, { sz: 14, after: 0 })], cols[1], { border: 'box' }),
           cell([P(String(c.students), { al: CTR, after: 0 })], cols[2], { border: 'box' }),
           cell([P(money(c.specialPrice), { al: RGT, after: 0 })], cols[3], { border: 'box' }),
           cell([P(money(total), { al: RGT, after: 0 })], cols[4], { border: 'box' })] }),

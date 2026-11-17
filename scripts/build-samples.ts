@@ -88,6 +88,11 @@ async function write(name: string, kind: DocKind, camp: Camp) {
 จัดที่ " โรงแรมกาสะรองรีสอร์ทพัทยา "
 " ราคาขายปกติ 5990 ลดเหลือเพียง 4790 บาทต่อท่าน "`, blankCamp());
   await write('15_program_BRIEF_freeform_robotics.docx', 'program', withPhotos(t5));
+  // 16: ค่ายหลัก STEM 2 วัน 1 คืน + กิจกรรมเสริมภาษาอังกฤษ (+300 บ./ท่าน) และภาษาจีน (รวมในราคา) — อ่านจากบรีฟ
+  const t6 = parseBrief('โรงเรียนสตรีวิทยา ม.2 จำนวน 80 คน ครู 6 คน ค่าย STEM 2 วัน 1 คืน วันที่ 20-21 ม.ค. 2570 ณ โรงแรมจันทรา รีสอร์ท จังหวัดนครนายก ราคาปกติ 4590 ลดเหลือ 3790 บาท เสริมภาษาอังกฤษ และภาษาจีน', blankCamp());
+  t6.addons = (t6.addons || []).map(a => a.code === 'PL ENG 0104' ? { ...a, price: 300 } : a);
+  await write('16_program_ADDON_STEM_eng_chi.docx', 'program', withPhotos(t6));
+  await write('16b_quotation_ADDON_STEM_eng_chi.docx', 'quotation', t6);
   console.log('  (แม่แบบทั้งหมด', TEMPLATES.length, 'ชุด)');
 
   // sample.export.json (ตาม schema.json)
