@@ -11,7 +11,7 @@ import {
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
   packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
-  showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
+  showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, scheduleActs, actInSchedule, PARTY_THEMES, isPartyRow, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
 
@@ -94,6 +94,7 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
+  const [editRow, setEditRow] = useState<{ day: number; i: number } | null>(null);
   // มือถือ: เมื่อไฟล์พร้อม แสดงแผ่น "บันทึก/แชร์/เปิด" ให้ผู้ใช้แตะเอง (iOS/Android ต้องมีการแตะสด ๆ จึงแชร์/ดาวน์โหลดได้แน่นอน)
   const [saveSheet, setSaveSheet] = useState<{ files: { blob: Blob; name: string }[]; title: string } | null>(null);
   // ความคืบหน้าการสร้าง PDF (มือถือใช้เวลานานกว่า — ต้องเห็นว่ายังทำงานอยู่)
@@ -266,7 +267,7 @@ export default function App() {
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
     const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
     // ระยะเวลาเปลี่ยน → ค่าที่พัก/มื้ออาหารในงบเปลี่ยน: คืนรายการงบเป็นอัตโนมัติ กันตัวเลขค้างผิด
-    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined }));
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined }));
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — จัดกำหนดการใหม่แล้ว${hadBudget ? ' · รายการงบกลับเป็นอัตโนมัติ (แก้ได้อีกครั้งในขั้นราคา & งบ)' : ''}`);
   };
@@ -274,7 +275,7 @@ export default function App() {
   const changeCourse = (code: string) => {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined });
+    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined });
     const nT = templatesOf(code).length;
     flash(nT ? `เลือก "${co.name}" (${code}) — ใช้แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนี้` : `เลือก "${co.name}" (${code}) — ยังไม่มีแม่แบบจริง ระบบจัดจากคลังกิจกรรม (รอตรวจ)`);
   };
@@ -1001,6 +1002,7 @@ export default function App() {
 
               {tab === 'activities' && (
                 <div className="space-y-3">
+                  <ActsEditor camp={camp} plan={plan} acts={k.acts} set={set} />
                   <AddonPanel camp={camp} plan={plan} set={set} />
                   <SectionTitle title={`เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
                   {plan.tpl && plan.tpl.exact && <div className="text-[13px] text-brand-ink bg-paper border border-brand-mist rounded-lg px-3 py-2">ค่ายนี้ใช้กิจกรรมและกำหนดการจากแม่แบบจริงของทีม ({plan.tpl.source.replace('__', ' · ')}) — รายการด้านล่างใช้เมื่อเลือก “จัดอัตโนมัติ” ในขั้นกำหนดการ</div>}
@@ -1047,11 +1049,12 @@ export default function App() {
               {tab === 'schedule' && (
                 <div className="space-y-3">
                   <DayMixPanel camp={camp} plan={plan} set={set} />
+                  <PartyPanel camp={camp} plan={plan} set={set} />
                   <SectionTitle title="กำหนดการ" sub={plan.tpl && plan.tpl.exact ? 'ตามแม่แบบโปรแกรมจริงของทีม — ชื่อโรงเรียน/ที่พัก/ปี/จำนวนคน/งบ แทนด้วยข้อมูลจากบรีฟแล้ว' : "สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา · ช่อง 'กิจกรรมหลัก' เลือกจากคลังได้รายช่วง"} />
                   {camp.courseCode && (templatesOf(camp.courseCode).length > 0) && (
                     <div className="border border-brand-mist rounded-xl p-3 space-y-2 bg-white">
                       <div className="text-[13px] text-sub">แม่แบบที่ใช้</div>
-                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, budgetItems: undefined })} className={inp}>
+                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, rowEdits: undefined, actsOverride: undefined, budgetItems: undefined })} className={inp}>
                         {plan.tpl && plan.tpl.exact
                           ? plan.tpl.options.map(o => <option key={o.id} value={o.id}>แม่แบบจริง · {o.label}</option>)
                           : <option value="">ไม่มีแม่แบบ {durKeyLabel(durKeyOf(camp))} — หน้าปกจาก {plan.tpl ? plan.tpl.source.replace('__', ' · ') : '-'}</option>}
@@ -1072,9 +1075,12 @@ export default function App() {
                       <div className="bg-brand text-white text-[13.5px] font-semibold px-3 py-1.5">วันที่ {d.day}</div>
                       <div className="divide-y divide-slate-100">
                         {d.items.map((r, i) => (
-                          <div key={i} className="flex gap-2 px-2.5 py-1.5 text-[13px]">
+                          editRow && editRow.day === d.day && editRow.i === i
+                            ? <RowEditForm key={i} day={d.day} row={r} camp={camp} set={set} onDone={() => setEditRow(null)} />
+                            : <div key={i} className="group flex gap-2 px-2.5 py-1.5 text-[13px]">
                             <span className="font-semibold text-sub w-28 shrink-0">{r.time}</span>
                             <span className="text-slate-800 flex-1 min-w-0">
+                              {r.orig && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-amber-50 text-amber-800 text-[11px] font-semibold">{r.party && camp.partyTheme && !(camp.rowEdits || []).some(e => e.day === d.day && e.from === r.orig) ? 'ธีมปาร์ตี้' : 'แก้แล้ว'}</span>}
                               {r.slot !== undefined && <span className="inline-block mb-0.5 px-1 rounded bg-brand-mist text-brand text-[11px] font-semibold">กิจกรรมหลัก #{r.slot + 1}</span>}
                               <span className="block">{r.title}{r.sub?.map((s, j) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
                               {r.slot !== undefined && (
@@ -1087,6 +1093,7 @@ export default function App() {
                                 </select>
                               )}
                             </span>
+                            <button onClick={() => setEditRow({ day: d.day, i })} aria-label={`แก้ไขแถว ${r.time} ${r.title}`} className="tap self-start shrink-0 px-2 py-1 rounded-md text-[12.5px] text-sub hover:text-brand-ink hover:bg-paper border border-transparent hover:border-brand-mist">แก้ไข</button>
                           </div>
                         ))}
                       </div>
@@ -1697,6 +1704,103 @@ function DayMixPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof 
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/* กิจกรรมเชิงบูรณาการ (หน้าปก) — อัตโนมัติ = ตรงกับกำหนดการเท่านั้น · ทีมแก้เองได้ (เพิ่มจากกำหนดการ/แก้ถ้อยคำ/ลบ/เลื่อนลำดับ)
+ * ทุกข้อมีป้าย "ตรงกำหนดการ" / "ไม่พบในกำหนดการ" ให้เห็นทันที */
+function ActsEditor({ camp, plan, acts, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; acts: string[]; set: (p: Partial<Camp>) => void }) {
+  const own = camp.actsOverride && camp.actsOverride.length ? camp.actsOverride : null;
+  const list = own ?? acts;
+  const edit = (next: string[]) => set({ actsOverride: next });
+  const sched = scheduleActs(plan);
+  const options = sched.filter(a => !list.some(l => l === a.name));
+  const [adding, setAdding] = useState('');
+  const move = (i: number, d: number) => { const n = [...list]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; edit(n); };
+  const bad = list.filter(x => x.trim() && !actInSchedule(x, plan)).length;
+  return (
+    <div className="bg-white border border-brand-mist rounded-xl p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[15.5px] font-semibold">กิจกรรมเชิงบูรณาการ (หน้าปก)</div>
+        <div className="text-[13px] text-sub">{own ? 'แก้เอง' : 'อัตโนมัติ — ดึงจากกำหนดการ'}{own && <> · <button onClick={() => set({ actsOverride: undefined })} className="tap underline">กลับเป็นอัตโนมัติ</button></>}</div>
+      </div>
+      <div className="text-[13px] text-sub mt-0.5">ทุกข้อต้องมีอยู่ในกำหนดการ — แก้ชื่อกิจกรรมในขั้น "กำหนดการ" แล้วหน้าปกเปลี่ยนตามเอง</div>
+      <ol className="mt-3 space-y-1.5">
+        {list.map((x, i) => { const ok = actInSchedule(x, plan); return (
+          <li key={i} className="flex items-start gap-2">
+            <span className="text-sub text-[13px] w-5 pt-2.5 text-right shrink-0">{i + 1}.</span>
+            {own
+              ? <input value={x} onChange={e => edit(list.map((y, j) => j === i ? e.target.value : y))} aria-label={`กิจกรรมข้อ ${i + 1}`} className="flex-1 min-w-0 border border-brand-mist rounded-lg px-3 py-2 text-[14px]" />
+              : <span className="flex-1 min-w-0 text-[14px] py-2 leading-snug">{x}</span>}
+            <span className={`shrink-0 mt-2 text-[11.5px] px-1.5 py-0.5 rounded-md ${ok ? 'bg-paper text-sub border border-brand-mist' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>{ok ? 'ตรงกำหนดการ' : 'ไม่พบในกำหนดการ'}</span>
+            {own && <span className="shrink-0 flex">
+              <button onClick={() => move(i, -1)} aria-label="เลื่อนขึ้น" className="tap px-1.5 py-2 text-sub disabled:opacity-30" disabled={i === 0}>↑</button>
+              <button onClick={() => move(i, 1)} aria-label="เลื่อนลง" className="tap px-1.5 py-2 text-sub disabled:opacity-30" disabled={i === list.length - 1}>↓</button>
+              <button onClick={() => edit(list.filter((_, j) => j !== i))} aria-label={`ลบข้อ ${i + 1}`} className="tap px-1.5 py-2 text-rose-600"><X className="w-4 h-4" /></button>
+            </span>}
+          </li>); })}
+      </ol>
+      {bad > 0 && <div className="text-[13px] text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-2">{bad} ข้อไม่พบในกำหนดการ — แก้ข้อความให้ตรง หรือเพิ่มกิจกรรมนั้นในกำหนดการ</div>}
+      <div className="flex flex-wrap items-center gap-2 mt-3">
+        {!own && <button onClick={() => edit([...acts])} className="tap px-3.5 py-2 rounded-lg border border-brand-mist text-[13.5px] font-medium hover:bg-paper">แก้รายการเอง</button>}
+        {options.length > 0 && <select value={adding} onChange={e => { const v = e.target.value; if (!v) return; edit([...list.slice(0, Math.max(0, list.length - (/AAR|After Action/.test(list[list.length - 1] || '') ? 1 : 0))), v, ...(/AAR|After Action/.test(list[list.length - 1] || '') ? [list[list.length - 1]] : [])]); setAdding(''); }}
+          aria-label="เพิ่มกิจกรรมจากกำหนดการ" className="min-w-0 flex-1 sm:flex-none border border-brand-mist rounded-lg px-3 py-2 text-[13.5px] bg-white">
+          <option value="">+ เพิ่มจากกำหนดการ…</option>
+          {options.map((a, i) => <option key={i} value={a.name}>วันที่ {a.day} · {a.time.replace(/\s*น\.$/, '')} · {a.name.replace(/^กิจกรรม\s*/, '').slice(0, 60)}</option>)}
+        </select>}
+      </div>
+    </div>
+  );
+}
+/* ธีมปาร์ตี้ภาคค่ำ — เลือกจากธีมที่ทีมเคยจัดจริง หรือพิมพ์เอง · ใช้กับทุกคืน (แก้รายคืนได้ด้วยปุ่ม "แก้ไข" ที่แถว) */
+function PartyPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; set: (p: Partial<Camp>) => void }) {
+  const cur = camp.partyTheme || '';
+  const [custom, setCustom] = useState(!PARTY_THEMES.includes(cur) && !!cur);
+  const rows = plan.days.flatMap(d => d.items.filter(r => r.party).map(r => ({ day: d.day, r })));
+  if (!rows.length) return null;
+  return (
+    <div className="bg-white border border-brand-mist rounded-xl p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[15.5px] font-semibold">ธีมปาร์ตี้ภาคค่ำ</div>
+        {cur && <button onClick={() => { set({ partyTheme: undefined }); setCustom(false); }} className="tap text-[13px] underline text-sub">ใช้ธีมเดิมของแม่แบบ</button>}
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-3" role="group" aria-label="เลือกธีมปาร์ตี้">
+        {PARTY_THEMES.map(t => (
+          <button key={t} onClick={() => { set({ partyTheme: t }); setCustom(false); }} aria-pressed={cur === t}
+            className={`tap px-3 py-1.5 rounded-lg text-[13.5px] border ${cur === t ? 'bg-brand-navy text-white border-brand-navy' : 'border-brand-mist hover:bg-paper'}`}>{t}</button>
+        ))}
+        <button onClick={() => setCustom(true)} aria-pressed={custom} className={`tap px-3 py-1.5 rounded-lg text-[13.5px] border ${custom ? 'bg-brand-navy text-white border-brand-navy' : 'border-brand-mist hover:bg-paper'}`}>พิมพ์ธีมเอง</button>
+      </div>
+      {custom && <input autoFocus value={cur} onChange={e => set({ partyTheme: e.target.value || undefined })} placeholder="เช่น Hawaii Night, ย้อนยุค 90s" aria-label="ธีมปาร์ตี้"
+        className="mt-2 w-full border border-brand-mist rounded-lg px-3 py-2.5 text-[14.5px]" />}
+      <ul className="mt-3 space-y-1 text-[13.5px]">
+        {rows.map(({ day, r }, i) => <li key={i} className="flex gap-2"><span className="text-sub w-36 shrink-0">วันที่ {day} · {r.time.replace(/\s*น\.$/, '')}</span><span className="min-w-0">{r.title}</span></li>)}
+      </ul>
+    </div>
+  );
+}
+/* แก้ไขแถวกำหนดการ (เวลา/ชื่อ/ลบ/คืนค่าเดิม) → camp.rowEdits อ้างวัน + ชื่อแถวเดิม */
+function RowEditForm({ day, row, camp, set, onDone }: { day: number; row: any; camp: Camp; set: (p: Partial<Camp>) => void; onDone: () => void }) {
+  const from = row.orig ?? row.title;
+  const [title, setTitle] = useState(row.title); const [time, setTime] = useState(row.time); const [sub, setSub] = useState((row.sub || []).join('\n'));
+  const others = (camp.rowEdits || []).filter(e => !(e.day === day && e.from === from));
+  const save = (patch: { to?: string; time?: string; sub?: string[] } | null) => { set({ rowEdits: patch ? [...others, { day, from, ...patch }] : (others.length ? others : undefined) }); onDone(); };
+  const edited = (camp.rowEdits || []).some(e => e.day === day && e.from === from);
+  return (
+    <div className="px-2.5 py-2.5 bg-paper space-y-2">
+      <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
+        <input value={time} onChange={e => setTime(e.target.value)} aria-label="เวลา" className="border border-brand-mist rounded-lg px-2.5 py-2 text-[14px] bg-white" />
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save({ to: title.trim() || row.title, time: time.trim() || row.time, sub: sub.split('\n').map(x => x.trim()).filter(Boolean) }); if (e.key === 'Escape') onDone(); }} aria-label="ชื่อรายการ" className="border border-brand-mist rounded-lg px-2.5 py-2 text-[14px] bg-white" />
+      </div>
+      <textarea value={sub} onChange={e => setSub(e.target.value)} rows={Math.min(4, Math.max(1, sub.split('\n').length))} placeholder="รายละเอียดใต้รายการ (บรรทัดละ 1 ข้อ ไม่ใส่ก็ได้)" aria-label="รายละเอียด" className="w-full border border-brand-mist rounded-lg px-2.5 py-2 text-[13.5px] bg-white" />
+      <div className="flex flex-wrap gap-2 text-[13.5px]">
+        <button onClick={() => save({ to: title.trim() || row.title, time: time.trim() || row.time, sub: sub.split('\n').map(x => x.trim()).filter(Boolean) })} className="tap px-3.5 py-1.5 rounded-lg bg-brand-navy text-white font-medium">บันทึก</button>
+        <button onClick={onDone} className="tap px-3.5 py-1.5 rounded-lg border border-brand-mist bg-white">ยกเลิก</button>
+        {edited && <button onClick={() => save(null)} className="tap px-3.5 py-1.5 rounded-lg border border-brand-mist bg-white">คืนค่าเดิม</button>}
+        <button onClick={() => save({ to: '' })} className="tap px-3.5 py-1.5 rounded-lg text-rose-600 ml-auto">ลบแถวนี้</button>
+      </div>
+      <div className="text-[12px] text-sub">ต้นฉบับ: {from}</div>
     </div>
   );
 }
