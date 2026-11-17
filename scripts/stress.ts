@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
 // คำผิดที่รู้จัก — รายการกลาง data/typo-fixes.json
 const TYPO_JSON = JSON.parse(fs.readFileSync('data/typo-fixes.json', 'utf8'));
 const TYPO_BAD: string[] = TYPO_JSON.fixes.map((f: string[]) => f[0]).filter((w: string) => w.trim().length > 1);
@@ -107,6 +107,12 @@ let fail = 0, ok = 0;
         // กิจกรรมเชิงบูรณาการบนหน้าปกต้องตรงกับกำหนดการทุกข้อ (ยกเว้นทีมแก้เอง ซึ่งหน้าตรวจจะเตือนแทน)
         if (!(cfg.camp.actsOverride && cfg.camp.actsOverride.some(Boolean))) { const miss = k.acts.filter(a => !actInSchedule(a, plan)); if (miss.length) throw new Error('cover act not in schedule: ' + miss[0]); }
         if (cfg.camp.partyTheme && plan.days.some(d => d.items.some(r => r.party)) && !plan.days.some(d => d.items.some(r => r.party && r.title.includes(String(cfg.camp.partyTheme).trim())))) throw new Error('party theme not applied');
+        // ชื่อค่ายรวมวิชา: มี Add-on/ธีมรายวัน → ชื่อไทยหรืออังกฤษต้องมีวิชาที่ร่วม · หน้าปกห้ามต่อท้ายบรรทัดระยะเวลา/สถานที่
+        for (const code of joinedCodes(cfg.camp, plan)) {
+          const both = `${k.titleTh} ${k.titleEn}`.replace(/\s+/g, '');
+          if (!both.includes(TITLE_TH[code].replace(/\s+/g, '')) && !new RegExp(TITLE_EN[code], 'i').test(both)) throw new Error(`joined title missing ${code}: ${k.titleTh} ${k.titleEn}`);
+        }
+        for (const sec of k.cover) for (const r of sec.rows || []) if (/ระยะเวลา|สถานที่/.test(r[0]) && /กิจกรรมเสริม|วันที่ \d/.test(r[1].join(' '))) throw new Error('cover duration/venue line has add-on/mix note: ' + r[1].join(' '));
         // Add-on: แถวเสริมต้องลงกำหนดการจริง · เวลาไม่ย้อนกลับในวัน (เริ่ม ≥ เริ่มแถวก่อนหน้า)
         if ((cfg.camp as any).addons) {
           const rows = plan.days.flatMap(d => d.items.filter(r => r.addon));

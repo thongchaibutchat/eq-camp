@@ -1626,6 +1626,17 @@ function SaveSheet({ sheet, onClose, download }: { sheet: { files: { blob: Blob;
 
 /* กิจกรรมเสริม (Add-on): ค่ายหลัก + อังกฤษ/จีน/คณิต — ระบบแทรกลงกำหนดการให้เอง (core: applyAddons)
  * เลือกวิชา → (ไม่บังคับ) เลือกกิจกรรม/ความยาว/ราคาเพิ่มต่อท่าน — ทุกค่าแก้ได้ เอกสารทั้ง 4 ชิ้นอัปเดตทันที */
+/* ชื่อค่ายรวมวิชา — โชว์ผลจริงที่จะลงเอกสาร (ชื่อไทย "…และภาษาอังกฤษ" + อังกฤษ "… & English Camp") */
+function JoinedTitle({ camp, plan }: { camp: Camp; plan: ReturnType<typeof buildSchedule> }) {
+  const k = compose(camp, plan) as ReturnType<typeof compose> & { joined?: string[] };
+  if (!k.joined || !k.joined.length) return null;
+  return (
+    <div className="mt-3 text-[13.5px] bg-paper rounded-lg px-3 py-2">
+      <span className="text-sub">ชื่อค่ายในเอกสาร</span>
+      <div className="font-semibold text-brand-ink">{k.titleTh}</div>
+      {k.titleEn && <div className="text-brand-ink">{k.titleEn}</div>}
+    </div>);
+}
 function AddonPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; set: (p: Partial<Camp>) => void }) {
   const list = camp.addons || [];
   const opts = ADDON_COURSES.filter(a => a.code !== camp.courseCode);
@@ -1639,8 +1650,9 @@ function AddonPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof b
     <div className="bg-white border border-brand-mist rounded-xl p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="text-[15.5px] font-semibold">กิจกรรมเสริม (Add-on)</div>
-        <div className="text-[13px] text-sub">เพิ่มวิชาอื่นเข้าค่ายนี้ ระบบแทรกลงกำหนดการให้</div>
+        <div className="text-[13px] text-sub">เพิ่มวิชาอื่นเข้าค่ายนี้ ระบบแทรกลงกำหนดการและเติมชื่อค่ายให้</div>
       </div>
+      <JoinedTitle camp={camp} plan={plan} />
       <div className="flex flex-wrap gap-2 mt-3" role="group" aria-label="เลือกกิจกรรมเสริม">
         {opts.map(o => { const on = !!get(o.code); return (
           <button key={o.code} onClick={() => upd(o.code, on ? null : {})} aria-pressed={on}
@@ -1698,6 +1710,7 @@ function DayMixPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof 
         {mixed && <button onClick={() => set({ dayCourses: undefined })} className="tap text-[13px] underline text-sub">ใช้หลักสูตรหลักทุกวัน</button>}
       </div>
       <div className="text-[13px] text-sub mt-0.5">เช่น วันที่ 1 ภาษาอังกฤษ · วันที่ 2 วิทยาศาสตร์ทางทะเล — วันที่เลือกจะใช้กำหนดการของหลักสูตรนั้น</div>
+      <JoinedTitle camp={camp} plan={plan} />
       <div className="grid gap-2 mt-3 sm:grid-cols-2">
         {cur.map((x, i) => {
           const m = (plan.mix || []).find(z => z.day === i + 1);
