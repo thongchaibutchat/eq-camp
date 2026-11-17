@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
 // คำผิดที่รู้จัก — รายการกลาง data/typo-fixes.json
 const TYPO_JSON = JSON.parse(fs.readFileSync('data/typo-fixes.json', 'utf8'));
 const TYPO_BAD: string[] = TYPO_JSON.fixes.map((f: string[]) => f[0]).filter((w: string) => w.trim().length > 1);
@@ -71,6 +71,15 @@ TEMPLATES.forEach((t, k) => {
 for (const [dm, d, n] of [['day',2,0],['day',3,0],['overnight',2,1],['overnight',3,2],['overnight',4,3]] as const)
   configs.push({ name:`MIXeng_${dm}${d}${n}`, camp: mk({ courseCode:'PL ENG 0104', templateId:'engine', school:'ร.ร.', students:40, teachers:2, durationMode:dm as any, days:d, nights:n, venue:'ว', normalPrice:3000, specialPrice:2500, costPerPerson:1000, dayCourses: ['', 'PL SEA 0103', 'PL STM 0101', 'not-a-course'] } as any) });
 
+// 7. ธีมปาร์ตี้ + แก้ไขแถว + แก้รายการกิจกรรมเอง (พักค้างทุกแม่แบบ)
+TEMPLATES.filter(t => t.dur.startsWith('o')).forEach((t, k) => {
+  const days = +t.dur.charAt(1), nights = +t.dur.slice(2);
+  const base = mk({ courseCode:t.code, templateId:t.id, school:'โรงเรียนทดสอบแก้ไข', students:60, teachers:4, durationMode:'overnight', days, nights, dates:'x', province:'', venue:'ว', normalPrice:4000, specialPrice:3000, costPerPerson:1800 });
+  const p0 = buildSchedule(base); const r0 = p0.days[0].items[1];
+  configs.push({ name:`EDIT_${t.id.replace(/\s+/g, '_')}`, camp: { ...base, partyTheme: ['Under The Sea', 'ย้อนยุค 90s', 'Hawaii <Night> & "Fun"'][k % 3], rowEdits: [{ day: 1, from: r0.title, to: 'กิจกรรม “ทดสอบแก้ไขแถว”', time: '09.15 – 10.00 น.' }, { day: days, from: p0.days[days - 1].items[0].title, to: '' }, { day: 9, from: 'ไม่มี' }],
+    actsOverride: k % 2 ? ['กิจกรรม “ทดสอบแก้ไขแถว”', '', 'ข้อความที่ไม่มีในกำหนดการ'] : undefined } as any });
+});
+
 let fail = 0, ok = 0;
 (async () => {
   const manifest: string[] = [];
@@ -95,6 +104,9 @@ let fail = 0, ok = 0;
           const nums = plan.days.flatMap(d => d.items).map(r => r.title.match(/(?:รับประทานอาหาร(?:เช้า|กลางวัน|เที่ยง|เย็น)|Have \w+|Time for (?:lunch|breakfast|dinner))\S*\s*\((\d+)\)/i)).filter(Boolean).map(m => +m![1]);
           nums.forEach((v, i) => { if (v !== i + 1) throw new Error('meal numbering broken: ' + nums.join(',')); });
         }
+        // กิจกรรมเชิงบูรณาการบนหน้าปกต้องตรงกับกำหนดการทุกข้อ (ยกเว้นทีมแก้เอง ซึ่งหน้าตรวจจะเตือนแทน)
+        if (!(cfg.camp.actsOverride && cfg.camp.actsOverride.some(Boolean))) { const miss = k.acts.filter(a => !actInSchedule(a, plan)); if (miss.length) throw new Error('cover act not in schedule: ' + miss[0]); }
+        if (cfg.camp.partyTheme && plan.days.some(d => d.items.some(r => r.party)) && !plan.days.some(d => d.items.some(r => r.party && r.title.includes(String(cfg.camp.partyTheme).trim())))) throw new Error('party theme not applied');
         // Add-on: แถวเสริมต้องลงกำหนดการจริง · เวลาไม่ย้อนกลับในวัน (เริ่ม ≥ เริ่มแถวก่อนหน้า)
         if ((cfg.camp as any).addons) {
           const rows = plan.days.flatMap(d => d.items.filter(r => r.addon));

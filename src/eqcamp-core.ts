@@ -34,7 +34,7 @@ export type DurationMode = 'half' | 'day' | 'overnight';
 // src = id ภาพจากไฟล์ต้นฉบับของค่าย (web/photos/<id>.jpg) ที่ระบบดึงให้ · ไม่มี src = ภาพที่ทีมอัปโหลดเอง
 export interface Img { data?: Uint8Array; caption: string; src?: string }
 // slot = ดัชนีช่อง "กิจกรรมหลัก" (core) ทั่วทั้งกำหนดการ (0..N-1) ใช้ผูกกับ coreSlotIds เพื่อเลือกกิจกรรมรายช่วง
-export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string }
+export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string; orig?: string; party?: boolean }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
@@ -52,10 +52,17 @@ export interface Camp {
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
   /** กิจกรรมเสริม (Add-on) จากหลักสูตรอื่น (อังกฤษ/จีน/คณิต) แทรกลงกำหนดการค่ายหลัก */
   addons?: AddonSel[];
+  /** รายการกิจกรรมเชิงบูรณาการบนหน้าปกที่ทีมแก้เอง (ว่าง = อัตโนมัติ ตรงกับกำหนดการ) */
+  actsOverride?: string[];
+  /** แก้ไขแถวกำหนดการเอง: วัน + ชื่อแถวเดิม → ชื่อใหม่/เวลาใหม่ */
+  rowEdits?: RowEdit[];
+  /** ธีมปาร์ตี้ภาคค่ำ (ใช้กับทุกแถวปาร์ตี้/การแสดงภาคค่ำ ยกเว้นแถวที่แก้เอง) */
+  partyTheme?: string;
   /** ธีมรายวัน (mix หลักสูตร): ดัชนี = วัน (0 = วันที่ 1), ค่า = รหัสหลักสูตรของวันนั้น · '' / ไม่ระบุ = หลักสูตรหลัก */
   dayCourses?: string[];
 }
 /** code = รหัสหลักสูตรที่เป็น Add-on · ids = กิจกรรมที่เลือก (ว่าง = อัตโนมัติ 1 ช่วง/วัน) · minutes = ความยาว/ช่วง · price = บาท/ท่านที่บวกเพิ่ม (0 = รวมในราคาเดิม) */
+export interface RowEdit { day: number; from: string; to?: string; time?: string; sub?: string[] }
 export interface AddonSel { code: string; ids?: string[]; minutes?: number; price?: number }
 
 /* ===================== SYSTEM DATA ===================== */
@@ -339,7 +346,7 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
 }
 // เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
 export function migrateCamp(raw: any): Camp {
-  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], addons: Array.isArray(raw?.addons) ? raw.addons.filter((x: any) => x && typeof x.code === 'string') : [], dayCourses: Array.isArray(raw?.dayCourses) ? raw.dayCourses.map((x: any) => typeof x === 'string' ? x : '') : [], extraActivities: raw?.extraActivities || [] };
+  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], addons: Array.isArray(raw?.addons) ? raw.addons.filter((x: any) => x && typeof x.code === 'string') : [], actsOverride: Array.isArray(raw?.actsOverride) ? raw.actsOverride.filter((x: any) => typeof x === 'string') : undefined, rowEdits: Array.isArray(raw?.rowEdits) ? raw.rowEdits.filter((x: any) => x && typeof x.from === 'string' && Number.isFinite(+x.day)).map((x: any) => ({ day: +x.day, from: x.from, ...(typeof x.to === 'string' ? { to: x.to } : {}), ...(typeof x.time === 'string' ? { time: x.time } : {}), ...(Array.isArray(x.sub) ? { sub: x.sub.filter((y: any) => typeof y === 'string') } : {}) })) : undefined, partyTheme: typeof raw?.partyTheme === 'string' ? raw.partyTheme : undefined, dayCourses: Array.isArray(raw?.dayCourses) ? raw.dayCourses.map((x: any) => typeof x === 'string' ? x : '') : [], extraActivities: raw?.extraActivities || [] };
   if (out.durationMode !== 'half' && out.durationMode !== 'day' && out.durationMode !== 'overnight') {
     out.durationMode = Number(out.nights) > 0 ? 'overnight' : (Number(out.days) <= 1 ? 'day' : 'overnight');
   }
@@ -487,6 +494,9 @@ export function readBrief(raw: string, base: Camp): BriefRead {
   // รหัสเอกสารต้องอ้างจากรหัสหลักสูตรจริงเท่านั้น (ห้ามเดา) — ผูกหลักสูตรแล้วตั้ง docCode จากรหัสนั้น ถ้าบรีฟยังไม่ได้ระบุรหัสเอง
   if (c.courseCode && (!/^PL\s/i.test(c.docCode) || c.docCode === base.docCode)) c.docCode = docCodeFor(c.courseCode);
   if (c.courseCode !== prevCourse || c.durationMode !== base.durationMode || c.days !== base.days) { c.templateId = undefined; c.budgetItems = undefined; }
+  // ธีมปาร์ตี้: "ปาร์ตี้ธีม Under The Sea" / "ธีมปาร์ตี้ ฮาวาย" / "party theme Neon Night"
+  const pt = noSchool.match(/(?:ธีม\s*ปาร์ตี้|ปาร์ตี้\s*ธีม|party\s*theme)\s*[:：-]?\s*([A-Za-z][A-Za-z0-9&'\- ]{1,30}?[A-Za-z0-9](?=\s*(?:[\u0E00-\u0E7F,.]|$))|[\u0E00-\u0E7F]+)/i);
+  if (pt) { c.partyTheme = pt[1].trim(); found.push('partyTheme'); }
   if (dayMap.size && c.courseCode) { const n = c.durationMode === 'half' ? 1 : Math.max(1, c.days || 1); c.dayCourses = Array.from({ length: n }, (_, i) => { const x = dayMap.get(i); return x && x !== c.courseCode ? x : ''; }); if (!c.dayCourses.some(Boolean)) c.dayCourses = undefined; }
   else if (c.courseCode !== prevCourse) c.dayCourses = undefined;
   if (adCodes.length) { const keep = (base.addons || []).filter(a => adCodes.includes(a.code)); c.addons = adCodes.filter(x => x !== c.courseCode).map(code => keep.find(a => a.code === code) || { code }); }
@@ -511,6 +521,7 @@ export function briefFields(c: Camp, found: string[]): BriefField[] {
     { key: 'normalPrice', label: 'ราคาปกติ', value: has('normalPrice') ? `${money(c.normalPrice)} บาท` : '', ok: has('normalPrice') },
     { key: 'specialPrice', label: 'ราคาพิเศษ', value: has('specialPrice') ? `${money(c.specialPrice)} บาท/ท่าน` : '', ok: has('specialPrice') },
     { key: 'venuePhotos', label: 'ภาพโรงแรม', value: vs ? `${vs.photos.length} รูป (${vs.name})` : '', ok: !!vs },
+    ...(c.partyTheme ? [{ key: 'partyTheme', label: 'ธีมปาร์ตี้', value: c.partyTheme, ok: true }] : []),
     ...(c.dayCourses && c.dayCourses.some(Boolean) ? [{ key: 'dayCourses', label: 'ธีมรายวัน', value: Array.from({ length: c.durationMode === 'half' ? 1 : c.days }, (_, i) => `วันที่ ${i + 1} ${courseLabel(dayCourseOf(c, i))}`).join(' · '), ok: true }] : []),
     ...(c.addons && c.addons.length ? [{ key: 'addons', label: 'กิจกรรมเสริม', value: c.addons.map(a => addonLabel(a.code)).join(' + '), ok: true }] : [])
   ];
@@ -564,7 +575,7 @@ export const staffText = (n: number): string => {
   return '10 – 16';
 };
 
-export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo; addons?: AddonPlan[]; addonWarn?: string[]; mix?: DayMix[] }
+export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo; addons?: AddonPlan[]; addonWarn?: string[]; mix?: DayMix[]; editMissed?: number }
 export interface DayMix { day: number; code: string; label: string; source: string }
 export interface AddonPlan { code: string; label: string; titles: string[]; price: number }
 // สรุปแม่แบบที่ใช้กับค่ายนี้ (แสดงใน UI/ตรวจความถูกต้อง)
@@ -764,7 +775,33 @@ export const venuePhotoSetFor = (venue?: string) => {
 export const photoCaption = (_c: Camp, _i: number): string => '';
 export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
-  return applyAddons(c, applyDayMix(c, basePlan(c)));
+  return applyEdits(c, applyAddons(c, applyDayMix(c, basePlan(c))));
+}
+/* ===================== ธีมปาร์ตี้ + แก้ไขแถวกำหนดการเอง =====================
+ * แถวปาร์ตี้/การแสดงภาคค่ำ (เริ่ม ≥ 17.00 น.) ติดธง party · camp.partyTheme → เปลี่ยนชื่อธีมทุกแถวปาร์ตี้ (คงวงเล็บทักษะท้ายเดิม)
+ * camp.rowEdits = แก้ชื่อ/เวลา/ลบ ทีละแถว (อ้างวัน + ชื่อแถวเดิม → ถ้ากำหนดการเปลี่ยนจนหาแถวเดิมไม่เจอ = เตือนในหน้าตรวจ ไม่เดา)
+ * ทำเป็นขั้นสุดท้ายของ buildSchedule → หน้าปก (กิจกรรมเชิงบูรณาการ) อ่านจากกำหนดการที่แก้แล้วเสมอ */
+export const PARTY_THEMES = ['Netflix Lovers', 'The Talent Show', 'Under The Sea', 'Chinatown Party', 'Bohemian', 'The Mask', 'Spy Night Party', 'Dress As Your Initial', 'The Arcane Magic', 'Sports Fest', 'Networking Night'];
+const PARTY_ROW = /ปาร์ตี้|party|การแสดง|talent show|ธีม|netflix|night show/i;
+export const isPartyRow = (r: Row): boolean => { const t = tmins(r.time)[0]; return t !== undefined && t >= 17 * 60 && PARTY_ROW.test(r.title) && !/อาหาร|Dinner|พักผ่อน|sweet dream|เดินทาง/i.test(r.title) && !r.addon; };
+export const partyTitle = (orig: string, theme: string): string => { const paren = (orig.match(/(\([^()]*\))\s*$/) || [])[1]; const t = theme.trim(); const inner = /^[“"].*[”"]$/.test(t) ? t.slice(1, -1).trim() : t; return `กิจกรรมปาร์ตี้ธีม “${inner}”${paren ? ' ' + paren : ''}`; };
+function applyEdits(c: Camp, plan: Plan): Plan {
+  const theme = String(c.partyTheme || '').trim(); const edits = (c.rowEdits || []).filter(e => e && e.from && e.day);
+  const days: Day[] = plan.days.map(d => ({ ...d, items: d.items.map(r => {
+    if (!isPartyRow(r)) return r;
+    return theme ? { ...r, party: true, orig: r.title, title: partyTitle(r.title, theme) } : { ...r, party: true };
+  }) }));
+  let missed = 0;
+  for (const e of edits) {
+    const d = days.find(x => x.day === e.day); const i = d ? d.items.findIndex(r => (r.orig ?? r.title) === e.from && !(r as any)._e) : -1;
+    if (!d || i < 0) { missed++; continue; }
+    const r = d.items[i];
+    if (e.to === '' && d.items.length > 1) { d.items.splice(i, 1); continue; }      // ลบแถว (ไม่ลบแถวสุดท้ายของวัน)
+    const sub = Array.isArray(e.sub) ? e.sub.map(x => String(x ?? '').trim()).filter(Boolean) : r.sub;
+    d.items[i] = { ...r, orig: r.orig ?? r.title, title: e.to ? e.to.trim() : r.title, time: e.time ? e.time.trim() : r.time, sub: sub && sub.length ? sub : undefined, _e: true } as Row;
+  }
+  for (const d of days) d.items = d.items.map(r => { if ((r as any)._e) { const { _e, ...x } = r as any; return x; } return r; });
+  return { ...plan, days, editMissed: missed };
 }
 function basePlan(c: Camp): Plan {
   const p = templateFor(c);
@@ -1123,6 +1160,78 @@ function buildEngineSchedule(c: Camp): Plan {
 }
 
 /* ===================== SENTENCE COMPOSER ===================== */
+export const actBase = (t: string) => tidyTitle(t).replace(/\s*\(ต่อยอด\)\s*$/, '').replace(/\s*[-–]?\s*(EP|Part)\.?\s*\d+\s*$/i, '').replace(/\s*#EP\.?\s*\d+\s*$/i, '').trim();
+export const asKijakam = (t: string) => { const x = actBase(t); if (/^กิจกรรม/.test(x)) return x; return /[“"”]/.test(x) ? `กิจกรรม${x}` : `กิจกรรม “${x}”`; };
+const baseName = actBase;
+/* ===================== กิจกรรมเชิงบูรณาการ ↔ กำหนดการ =====================
+ * กฎ (ผู้ใช้กำหนด 17 พ.ย. 2569): รายการกิจกรรมเชิงบูรณาการบนหน้าปก "ต้องตรงกับสิ่งที่มีในกำหนดการเท่านั้น"
+ *   - ไล่ตามลำดับกำหนดการจริง (หลังธีมรายวัน/Add-on/แก้ไขแถว) · ถ้าข้อความเดิมของแม่แบบตรงกับแถวนั้น ใช้ถ้อยคำเดิมของทีม ไม่งั้นใช้ชื่อแถว
+ *   - ข้อสรุป/AAR ใส่เมื่อกำหนดการมีแถวสรุป/ถอดบทเรียน/AAR จริงเท่านั้น
+ *   - จำนวนข้อไม่เกินเดิม (ปกพอดี 1 หน้า) · เลือกสลับวันให้ทุกวันมีตัวแทน · ทุกข้อขึ้นต้น "กิจกรรม"
+ *   - ทีมแก้เองได้ (camp.actsOverride) — ข้อที่ไม่พบในกำหนดการ → เตือนในหน้าตรวจ */
+const ACT_NOT = /อาหาร|เดินทาง|เช็ค|ลงทะเบียน|พิธี|พักผ่อน|ทำธุระ|สัมภาระ|ถ่ายภาพ|มอบ|ปิดค่าย|ว่าง|สรุป|ถอดบทเรียน|AAR|After Action|Break|Lunch|Dinner|Breakfast|Registration|Ceremony|Conclusion|Check|Sweet dream|เป็นต้นไป/i;
+const SUMMARY_ROW = /สรุป|ถอดบทเรียน|AAR|After Action|Conclusion/i;
+export const actKey = (s: string): string => String(s || '').toLowerCase().replace(/^\s*กิจกรรม(?:เสริม\S*|ปาร์ตี้|การแสดง)?\s*(?:ธีม)?/, '').replace(/กิจกรรม/g, '').replace(/\([^)]*\)/g, '').replace(/(?:part|ep)\.?\s*\d+|#\s*(?:ep\.?\s*)?\d+|activity\s*\d+\s*:/gi, '').replace(/[^a-z0-9฀-๿]/g, '');
+// ชื่อกิจกรรมจากแถวกำหนดการ → "กิจกรรม “ชื่อ” (วงเล็บท้าย)"
+export const actName = (t: string): string => {
+  const x = actBase(t).replace(/^Activity\s*\d+\s*:\s*/i, '').replace(/\s*\.?\s*#\s*(EP\.?\s*)?\d+\s*(?=”|$)/i, '').replace(/\.\s*(?=\()/g, ' ').replace(/\.\s*(?=”|$)/g, '').trim();
+  const m = x.match(/^(.*?)\s*(\([^()]*\))?$/);
+  return m && m[2] && !/^กิจกรรม/.test(m[1]) ? `${asKijakam(m[1])} ${m[2]}` : asKijakam(x);
+};
+export interface SchedAct { day: number; time: string; title: string; name: string; key: string; summary?: boolean; orig?: string }
+// แถวกิจกรรมในกำหนดการ (ไม่รวมมื้ออาหาร/เดินทาง/พัก/ลงทะเบียน และแถวกิจกรรมเสริม Add-on ที่มีบรรทัดของตัวเองบนปก)
+export function scheduleActs(plan: Plan): SchedAct[] {
+  const out: SchedAct[] = [];
+  for (const d of plan.days) for (const r of d.items) {
+    if (r.addon) continue;
+    if (SUMMARY_ROW.test(r.title) && !/เดินทาง|อาหาร/.test(r.title)) { out.push({ day: d.day, time: r.time, title: r.title, name: summaryName(r.title), key: actKey(r.title), summary: true }); continue; }
+    if (ACT_NOT.test(r.title)) continue;
+    const name = actName(r.title), key = actKey(name); if (key.length < 2) continue;
+    out.push({ day: d.day, time: r.time, title: r.title, name, key, orig: r.orig });
+  }
+  return out;
+}
+const summaryName = (t: string) => { const x = actBase(t).replace(/\.\s*$/, ''); return (/^กิจกรรม/.test(x) ? x : /^[฀-๿]/.test(x) ? `กิจกรรม${x}` : asKijakam(x)).replace(/^กิจกรรมสรุปกิจกรรม/, 'กิจกรรมสรุป'); };
+// ข้อความหนึ่งข้อตรงกับแถวกำหนดการไหม (ใช้ทั้งจัดอัตโนมัติและตรวจข้อที่ทีมแก้เอง)
+const lineMatchesRow = (line: string, a: SchedAct): boolean => {
+  if (/AAR|After Action/i.test(line)) return !!a.summary && /AAR|After Action|ถอดบทเรียน/i.test(a.title);
+  if (/ถอดบทเรียน|สรุปการเรียนรู้|Conclusion/i.test(line)) return !!a.summary;
+  const q = (line.match(/“([^”]+)”/) || [])[1];
+  const k = actKey(q || line), rk = actKey(a.title);
+  if (k.length < 3 || !rk) return false;
+  return rk.includes(k) || (rk.length >= 6 && k.includes(rk));
+};
+export function actInSchedule(line: string, plan: Plan): boolean { return scheduleActs(plan).some(a => lineMatchesRow(line, a)); }
+export function alignActs(orig: string[], plan: Plan, max: number): string[] {
+  const S = scheduleActs(plan);
+  const used = new Set<number>();
+  const curated = (a: SchedAct) => { const j = orig.findIndex((l, i) => !used.has(i) && lineMatchesRow(l, a)); if (j >= 0) { used.add(j); return orig[j]; } return a.name; };
+  const acts = S.filter(a => !a.summary);
+  const sum = [...S].reverse().find(a => a.summary && /AAR|After Action|ถอดบทเรียน/i.test(a.title)) || [...S].reverse().find(a => a.summary);
+  const n = Math.max(1, max - (sum ? 1 : 0));
+  // เลือก n ข้อตามความสำคัญ: กิจกรรมแรกของค่าย (เปิด/ละลายพฤติกรรม) → ปาร์ตี้ภาคค่ำ → ข้อที่ทีมเขียนไว้ในแม่แบบ → กิจกรรมหลัก → อุ่นเครื่อง/นันทนาการ
+  //   ไม่ซ้ำชื่อ · ทุกวันมีตัวแทนถ้าทำได้ · แล้วเรียงตามลำดับกำหนดการ
+  const WARM = /นันทนาการ|สันทนาการ|Reboot|Warm up|Wake up|Morning|Boost Up|Recreation|ทบทวน/i;
+  const partyRow = (a: SchedAct) => plan.days.some(d => d.day === a.day && d.items.some(r => r.party && r.title === a.title));
+  const uniq: SchedAct[] = []; const seen = new Set<string>();
+  for (const a of acts) { const kk = actKey(a.name); if (!seen.has(kk)) { seen.add(kk); uniq.push(a); } }
+  const curatedHit = (a: SchedAct) => orig.some(l => lineMatchesRow(l, a) || (!!a.orig && lineMatchesRow(l, { ...a, title: a.orig })));   // แถวที่ทีมแก้ชื่อ = ยังเป็นข้อเดิมของแม่แบบ
+  const score = (a: SchedAct, i: number) => i === 0 ? 0 : partyRow(a) ? 1 : curatedHit(a) ? 2 : WARM.test(a.title) ? 5 : 3;
+  const ranked = uniq.map((a, i) => ({ a, s: score(a, i), i })).sort((x, y) => x.s - y.s || x.i - y.i);
+  const pickIdx: SchedAct[] = ranked.slice(0, n).map(x => x.a);
+  for (const d of Array.from(new Set(uniq.map(a => a.day)))) {          // วันที่ยังไม่มีตัวแทน → แทนข้อความสำคัญต่ำสุด
+    if (pickIdx.some(a => a.day === d)) continue;
+    const cand = ranked.find(x => x.a.day === d); if (!cand || pickIdx.length < n) { if (cand) pickIdx.push(cand.a); continue; }
+    const counts = (day: number) => pickIdx.filter(a => a.day === day).length;
+    const sc = (a: SchedAct) => ranked.find(x => x.a === a)!.s;
+    const drop = [...pickIdx].filter(a => counts(a.day) > 1 && sc(a) >= 2).sort((x, y) => sc(y) - sc(x) || pickIdx.indexOf(y) - pickIdx.indexOf(x))[0];
+    if (drop) pickIdx.splice(pickIdx.indexOf(drop), 1, cand.a);
+  }
+  const ordered = acts.filter(a => pickIdx.includes(a));
+  const out = ordered.map(curated);
+  if (sum) out.push(curated(sum));
+  return out;
+}
 export function compose(c: Camp, plan: Plan) {
   const S = SUBJECTS[c.subject];
   const course = courseById(c.courseCode);
@@ -1147,8 +1256,6 @@ export function compose(c: Camp, plan: Plan) {
   // กิจกรรมเชิงบูรณาการ — แพตเทิร์นเอกสารจริงทีม (REA: docs/REA_PROGRAM_LAYOUT.md) เดินตามวงจรการเรียนรู้ 5 ขั้น
   //   1 อุ่นเครื่อง/สร้างสัมพันธ์ → 2 ระดมสมองประลองปัญญา → 3 ฐานการเรียนรู้ของหลักสูตร → (ภาคค่ำ: เฉพาะพักค้าง) → 4 ระดมสมอง ถอดบทเรียน → 5 AAR
   //   ทุกข้อขึ้นต้นด้วยคำว่า "กิจกรรม" เสมอ — ห้ามใส่ชื่อกิจกรรมเปล่า ๆ
-  const baseName = (t: string) => tidyTitle(t).replace(/\s*\(ต่อยอด\)\s*$/, '').replace(/\s*[-–]?\s*(EP|Part)\.?\s*\d+\s*$/i, '').replace(/\s*#EP\.?\s*\d+\s*$/i, '').trim();
-  const asKijakam = (t: string) => { const x = baseName(t); if (/^กิจกรรม/.test(x)) return x; return /[“"”]/.test(x) ? `กิจกรรม${x}` : `กิจกรรม “${x}”`; };
   const firstOf = (k: Kind) => ordered.find(a => a.kind === k);
   const warm = firstOf('opening') || firstOf('recreation');
   const warmLine = warm ? (/\(/.test(warm.title) ? asKijakam(warm.title) : `${asKijakam(warm.title)} (กระบวนการสันทนาการสร้างสัมพันธ์)`)
@@ -1164,20 +1271,13 @@ export function compose(c: Camp, plan: Plan) {
     'กิจกรรมทดสอบหลังการเรียนรู้ (After Action Review : AAR)'
   ];
   const dur = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน`;
-  // ค่าย mix หลักสูตรรายวัน: รายการกิจกรรมเชิงบูรณาการต้องตรงกับกำหนดการจริง → ดึงชื่อกิจกรรมจากแถวกำหนดการของแต่ละวัน
-  //   (สลับวันละรายการ ไม่ซ้ำ) จำนวนข้อเท่าเดิม (ปกยังหน้าเดียว) · ข้อสุดท้ายคง AAR ถ้าต้นฉบับมี · ขึ้นต้น "กิจกรรม" เสมอ
-  const NOT_ACT = /อาหาร|เดินทาง|เช็ค|ลงทะเบียน|พิธี|พักผ่อน|ทำธุระ|สัมภาระ|ถ่ายภาพ|มอบ|ปิดค่าย|ว่าง|สรุป|ถอดบทเรียน|AAR|After Action|Break|Lunch|Dinner|Breakfast|Registration|Ceremony|Conclusion|Check|Sweet dream/i;
+  // กิจกรรมเชิงบูรณาการ = ตรงกับกำหนดการเท่านั้น (alignActs) · ทีมแก้เอง → actsOverride
+  //   บรรทัดระยะเวลายาวจนขึ้นบรรทัดใหม่ (ธีมรายวัน + Add-on) → ลดรายการ 1 ข้อ ให้ปกยังพอดี 1 หน้า
+  const own = (c.actsOverride || []).map(x => String(x ?? '').trim()).filter(Boolean);
   const mixActs = (orig: string[]): string[] => {
-    if (!plan.mix || !orig.length) return orig;
-    const keepLast = /AAR|After Action/i.test(orig[orig.length - 1] || '');
-    const nameOf = (t: string) => { const m = baseName(t).replace(/^Activity\s*\d+\s*:\s*/i, '').replace(/\s*\.?\s*#\s*(EP\.?\s*)?\d+\s*(?=”|$)/i, '').replace(/\.\s*(?=\(|”|$)/g, '').match(/^(.*?)\s*(\([^()]*\))?$/); return m && m[2] && !/^กิจกรรม/.test(m[1]) ? `${asKijakam(m[1])} ${m[2]}` : asKijakam(m ? m[0] : t); };
-    const perDay = plan.days.map(d => d.items.filter(r => !r.addon && !NOT_ACT.test(r.title)).map(r => nameOf(r.title)));
-    // บรรทัดระยะเวลายาวจนขึ้นบรรทัดใหม่ (ธีมรายวัน + Add-on) → ลดรายการกิจกรรม 1 ข้อ ให้ปกยังพอดี 1 หน้า
+    if (own.length) return own;
     const wrap = `${dur} ${coverExtra}`.length > 68 ? 1 : 0;
-    const out: string[] = []; const n = Math.max(1, (keepLast ? orig.length - 1 : orig.length) - wrap);
-    const key = (x: string) => x.replace(/^กิจกรรม/, '').replace(/\([^)]*\)/g, '').replace(/[^a-z0-9\u0E00-\u0E7F]/gi, '').toLowerCase(); const seenK = new Set<string>();
-    for (let k = 0; out.length < n && perDay.some(l => k < l.length); k++) for (const l of perDay) if (k < l.length && !seenK.has(key(l[k])) && out.length < n) { seenK.add(key(l[k])); out.push(l[k]); }
-    return [...out, ...(keepLast ? [orig[orig.length - 1]] : [])];
+    return alignActs(orig, plan, Math.max(3, orig.length) - wrap);
   };
   // บูรณาการการเรียน: 5–7 ข้อ (ตัดให้ไม่เกิน 7 เพื่อให้อยู่ในหน้าแรก)
   const extra = (c.courseCode && c.subject === 'steam' && !isSteamProgram(c))
@@ -1306,6 +1406,8 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     ] : []),
     ...((plan.addons || []).map(a => ({ ok: a.titles.length > 0, soft: true, msg: a.titles.length ? `กิจกรรมเสริม${a.label} ${a.titles.length} ช่วงในกำหนดการ${a.price ? ` · +${money(a.price)} บาท/ท่าน` : ' · รวมในราคาเดิม'}` : `กิจกรรมเสริม${a.label} ยังไม่ได้เลือกกิจกรรม` }))),
     ...((plan.addonWarn || []).map(m => ({ ok: false, soft: true, msg: m }))),
+    ...(plan.editMissed ? [{ ok: false, soft: true, msg: `แก้ไขกำหนดการ ${plan.editMissed} แถว หาแถวเดิมไม่พบแล้ว (กำหนดการเปลี่ยน) — ตรวจในขั้น "กำหนดการ"` }] : []),
+    ...((c.actsOverride || []).map(x => String(x ?? '').trim()).filter(Boolean).map((x, i) => actInSchedule(x, plan) ? null : { ok: false, soft: true, msg: `กิจกรรมเชิงบูรณาการข้อ ${i + 1} "${x.slice(0, 40)}" ไม่พบในกำหนดการ` }).filter(Boolean) as { ok: boolean; msg: string; soft?: boolean }[]),
     ...(plan.mix ? [{ ok: true, soft: true, msg: `ธีมรายวัน: ${plan.mix.map(m => `วันที่ ${m.day} ${m.label}`).join(' · ')}` },
       { ok: false, soft: true, msg: 'ค่าย mix หลักสูตร — ตรวจรายการงบ (อุปกรณ์/ทัศนศึกษา/วิทยากร) ให้ครอบคลุมกิจกรรมทุกวัน' }] : []),
     ...(c.courseCode ? [{ ok: realActs >= 6, soft: true, msg: realActs >= 6 ? `ภาพกิจกรรม ${realActs} รูป จากไฟล์ของค่ายนี้` : `ภาพกิจกรรมมี ${realActs} รูป (ควร 6–8 รูปจากไฟล์ของค่ายนี้)${realActs === 0 ? ' — ภาพยังโหลดไม่เสร็จหรือเปิดแบบออฟไลน์' : ''}` }] : [])
