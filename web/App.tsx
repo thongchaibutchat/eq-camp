@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DataHub from './DataHub';
 import Home from './Home';
+import Nsr from './Nsr';
+import type { NsrPrefill } from './Nsr';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv, teamLogUrl, teamKey, setTeamLog, appsScriptCode, newTeamKey, TEAM_LOG_URL, TEAM_LOG_SHEET } from './registry';
 import type { LogEv } from './registry';
@@ -65,13 +67,13 @@ export default function App() {
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
   // หน้า: home (หน้าแรก/แคตตาล็อก) · build (สร้างเอกสาร) · hub (คลังข้อมูล) — ผูกกับ #ลิงก์ ให้ปุ่มย้อนกลับ/บุ๊กมาร์กทำงานทุกเบราว์เซอร์
-  type View = 'home' | 'build' | 'hub';
-  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') ? 'build' : h.startsWith('#/data') ? 'hub' : 'home'; };
+  type View = 'home' | 'build' | 'hub' | 'nsr';
+  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : 'home'; };
   const [view, setViewState] = useState<View>(fromHash);
   const [hubInit, setHubInit] = useState<{ key: number; sec?: 'overview' | 'courses'; course?: string }>({ key: 0 });
   const setView = (v: View) => {
     setViewState(v);
-    const h = v === 'build' ? '#/build' : v === 'hub' ? '#/data' : '#/';
+    const h = v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : '#/';
     try { if (location.hash !== h) history.pushState(null, '', h); } catch { /* sandbox */ }
     try { window.scrollTo(0, 0); } catch { /* ignore */ }
   };
@@ -219,6 +221,15 @@ export default function App() {
   const margin = total ? (profit / total) * 100 : 0;
 
   const set = (patch: Partial<Camp>) => setCamp(c => ({ ...c, ...patch }));
+  // หน้า NSR: เริ่มงานใหม่จากเอกสารที่กำลังทำ (ชื่องาน/จังหวัด/จำนวนคน/ราคาพิเศษ/จำนวนวัน) — ไม่ส่งต้นทุนใด ๆ
+  const nsrPrefill = (): NsrPrefill | null => {
+    const c = withAddonPrice(camp);
+    if (!c.school && !c.students) return null;
+    const course = c.courseCode ? courseLabel(c.courseCode) : (c.subject || 'ค่าย');
+    const dur = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days}วัน${c.nights}คืน`;
+    const school = (c.school || '').replace(/^โรงเรียน/, '');
+    return { name: `${course} ${dur}`.trim(), tab: school ? `${course}@${school}` : course, province: c.province || '', participants: c.students || null, teachers: c.teachers || null, price: c.specialPrice || c.normalPrice || null, days: c.durationMode === 'half' ? 1 : (c.days || null) };
+  };
   const flash = (t: string, ok = true) => { setBanner({ t, ok }); window.clearTimeout((flash as any)._t); (flash as any)._t = window.setTimeout(() => setBanner(null), 4200); };
 
   // mode: 'new' = เริ่มจากค่าว่าง (กันข้อมูลงานเก่าปน), 'update' = แก้งานปัจจุบัน
@@ -672,12 +683,12 @@ export default function App() {
     { id: 'images', label: `ภาพ (${camp.actImgs.length + camp.venueImgs.length})` }
   ] as const;
   const AUX = TABS.filter(t => t.id === 'db' || t.id === 'stats');
-  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }] as const;
+  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }, { id: 'nsr', label: 'คำนวณ NSR' }] as const;
   const navOn = (id: string) => id === view;
   const goNav = (id: string) => {
     if (id === 'catalog') { setView('home'); window.setTimeout(() => { try { document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); } catch { /* ignore */ } }, 60); return; }
     if (id === 'hub') setHubInit(h => ({ key: h.key + 1 }));
-    setView(id as 'home' | 'build' | 'hub');
+    setView(id as 'home' | 'build' | 'hub' | 'nsr');
   };
   const stepIdx = STEPS.findIndex(s => s.id === tab);
 
@@ -789,7 +800,9 @@ export default function App() {
           </div>
         )}
 
-        {view === 'hub' ? (
+        {view === 'nsr' ? (
+          <Nsr flash={(t, w) => flash(t, !w)} prefill={nsrPrefill} />
+        ) : view === 'hub' ? (
           <DataHub key={hubInit.key} initialSec={hubInit.sec} venues={allVenues} currentCourse={hubInit.course || camp.courseCode} currentVenue={camp.venue}
             onUseCourse={code => { changeCourse(code); setKind('program'); setTab('header'); setView('build'); }}
             onUseVenue={v => { set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }); setView('build'); setTab('header'); flash(`ใช้ที่พัก "${v.name}" ในเอกสารแล้ว`); }}
