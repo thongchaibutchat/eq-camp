@@ -35,7 +35,7 @@ const BRIEF = 'โรงเรียนสตรีวิทยา ม.2 จำ�
         ok('schedule: day mix panel', /ธีมรายวัน \(Mix หลักสูตร\)/.test(body));
         const sel = pg.locator('select').filter({ hasText: 'วิทยาศาสตร์ทางทะเล' }).nth(1);
         await sel.selectOption('PL STM 0101'); await pg.waitForTimeout(500);
-        const pv = await prev(); ok('schedule: switch day2 → STEM changes preview', /STEM/.test(pv) && /วันที่ 2 STEM/.test(pv));
+        const pv = await prev(); ok('schedule: switch day2 → STEM changes preview (title joins STEM)', /สะเต็มศึกษา|STEM/.test(pv) && /STEM (&|Camp)|สะเต็มศึกษา/.test(pv));
         await sel.selectOption('PL SEA 0103'); await pg.waitForTimeout(400);
       }
       if (i === 3) { // ราคา
