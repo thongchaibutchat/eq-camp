@@ -1,17 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, RefreshCw, ExternalLink, Plus, Trash2, Copy, Check, AlertTriangle, Settings, Save, FilePlus, ChevronLeft, X, Phone, CalendarCheck, Scissors } from 'lucide-react';
+import { Wand2, Search, RefreshCw, ExternalLink, Plus, Trash2, Copy, Check, AlertTriangle, Settings, Save, FilePlus, ChevronLeft, X, Phone, CalendarCheck, Scissors } from 'lucide-react';
 import {
   NsrJob, NsrIndexRow, CostLine, StaffLine, Num, computeNsr, parseNsrTab, indexRow, newJob, jobToGrid, gridMeta, diffForTab, tabNameFor, applyAuto, keyOf, hintOf,
   STD_LINES, APPROVAL_MATRIX, APPROVAL_RULES, FAST_TRACK, NSR_MASTER_TAB, fmt, pctText, readNum, staffPay
 } from '../src/nsr-core';
-import { Conn, TabInfo, scriptConn, mcpConn, scriptUrl, scriptKey, setScript, nsrAppsScript, newNsrKey, connError, sheetUrl, setSheetUrl } from './nsr-sheet';
-import { copyText } from './platform';
+import { Conn, TabInfo, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
+import { hubReady, onRev, onHubState, HubState } from './hub';
+import { draftFromBrief, draftFromCamp, aiPrompt, applyAi, NsrDraft, DraftField } from '../src/nsr-brief';
+import type { Camp } from '../src/eqcamp-core';
 
 /* คำนวณ NSR — ตารางต้นทุน/ยอดขายของทีม (ถอดแบบจากชีต NSR) อยู่หน้าเดียวกับเครื่องมือทำหลักสูตร
  * ซ้าย: งานย้อนหลังทุกแท็บในชีต (ค้นหา/กรอง) · ขวา: ตารางคำนวณทีละขั้น พร้อมสูตร + ระดับอนุมัติ
  * แก้แล้วบันทึกกลับชีตได้ (แท็บเดิม = แก้เฉพาะช่องที่เปลี่ยน · แท็บใหม่ = โครงเดียวกับแท็บงานจริง) */
 
-export interface NsrPrefill { name: string; tab: string; province: string; participants: number | null; teachers: number | null; price: number | null; days: number | null }
+export interface NsrPrefill { camp: Camp; brief: string }
 type Entry = { row: NsrIndexRow; job: NsrJob; local?: boolean };
 const LS_CACHE = 'eqcamp.nsr.cache.v1', LS_LOCAL = 'eqcamp.nsr.local.v1';
 const lsGet = (k: string) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
@@ -24,13 +26,12 @@ const clone = (j: NsrJob): NsrJob => JSON.parse(JSON.stringify(j));
 const tabUrl = (sheetId?: number) => (sheetUrl() ? sheetUrl() + (sheetId != null ? `#gid=${sheetId}` : '') : '');
 const timeTh = (d: Date | null) => (d ? d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
 
-export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | null; flash: (t: string, warn?: boolean) => void }) {
+export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: () => NsrPrefill | null; flash: (t: string, warn?: boolean) => void; onConnect: () => void; openTab?: string }) {
   // ── การเชื่อมชีต ──
   const [conn, setConn] = useState<Conn | null>(null);
   const [connState, setConnState] = useState<'none' | 'connecting' | 'live' | 'error'>('none');
   const [connMsg, setConnMsg] = useState('');
   const [lastSync, setLastSync] = useState<Date | null>(null);
-  const [showSetup, setShowSetup] = useState(false);
   const [tabs, setTabs] = useState<TabInfo[]>([]);
   const [entries, setEntries] = useState<Map<string, Entry>>(() => {
     const m = new Map<string, Entry>(); const c = lsGet(LS_CACHE);
@@ -61,17 +62,18 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
   // ต่อชีต: Apps Script ที่ตั้งไว้ → ตัวเชื่อมบน claude.ai → ไม่มี
   const connect = async () => {
     setConnState('connecting'); setConnMsg('');
-    let c: Conn | null = null;
-    const url = scriptUrl(), key = scriptKey();
-    if (url && key) c = scriptConn(url, key);
-    else c = await mcpConn().catch(() => null);
-    if (!c) { setConn(null); setConnState('none'); setConnMsg(url && !key ? 'ยังไม่ได้ใส่รหัสทีม' : ''); return; }
+    const c: Conn | null = hubReady() ? hubConn() : await mcpConn().catch(() => null);
+    if (!c) { setConn(null); setConnState('none'); return; }
     try {
       const list = await c.listTabs();
-      setConn(c); setTabs(list); setConnState('live'); setLastSync(new Date());
+      setConn(c); setTabs(list); setConnState('live'); setLastSync(new Date()); sinceRef.current = Date.now();
       await loadTabs(c, list, true);
     } catch (e: any) { setConn(null); setConnState('error'); setConnMsg(c.kind === 'mcp' ? connError(e) : String(e?.message || e)); }
   };
+  const sinceRef = useRef(0);
+  // เชื่อม/เปลี่ยนการตั้งค่าศูนย์กลางทีม → ต่อใหม่
+  const [hub, setHub] = useState<HubState | null>(null);
+  useEffect(() => onHubState(s => setHub(prev => { if (prev && prev.status === 'off' && s.status !== 'off') setTimeout(connect, 0); return s; })), []);
   useEffect(() => { connect(); }, []);
 
   const putEntries = (list: { title: string; sheetId: number; index: number; grid: any }[], all?: TabInfo[]) => {
@@ -99,40 +101,44 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
     finally { setLoadPct(null); }
   };
 
-  // อัปเดตต่อเนื่อง: แท็บที่เปิดอยู่ทุก 15 วิ · รายชื่อแท็บทุก 30 วิ (แท็บใหม่โหลดทันที) · ทั้งชีตทุก 5 นาที — หยุดเมื่อซ่อนหน้า
+  // เรียลไทม์: ศูนย์กลางทีมแจ้งเลขรุ่นใหม่ (ทุก ~5 วิ) → ถามว่าแท็บไหนเปลี่ยน แล้วอ่านเฉพาะแท็บนั้น · รายชื่อแท็บตรวจทุก 30 วิ · ทั้งชีตทุก 10 นาที (กันพลาดกรณีแก้ผ่านช่องทางอื่น)
+  const applyFresh = (t: { title: string; sheetId: number; index: number; grid: any }) => {
+    const j = jobRef.current;
+    if (!j || j.tab !== t.title) return;
+    const fresh = parseNsrTab(t.title, t.grid, t.sheetId, t.index); if (!fresh) return;
+    const before = JSON.stringify((origRef.current && { ...origRef.current, warnings: [] }) || null), after = JSON.stringify({ ...fresh, warnings: [] });
+    if (before !== after) { if (dirtyRef.current) setRemote(fresh); else { setJob(clone(fresh)); setOrig(fresh); } }
+  };
   useEffect(() => {
     if (!conn || connState !== 'live') return;
-    let alive = true; let n = 0;
-    const tick = async () => {
-      if (!alive || document.visibilityState === 'hidden') return;
-      n++;
+    let alive = true, busyR = false, lastList = Date.now(), lastFull = Date.now();
+    const refresh = async () => {
+      if (busyR || !alive) return; busyR = true;
       try {
-        const j = jobRef.current;
-        if (j?.tab) {
-          const [t] = await conn.readTabs([j.tab]);
-          if (t && alive) {
-            const fresh = parseNsrTab(t.title, t.grid, t.sheetId, t.index);
-            if (fresh) {
-              putEntries([t]);
-              const before = JSON.stringify((origRef.current && { ...origRef.current, warnings: [] }) || null), after = JSON.stringify({ ...fresh, warnings: [] });
-              if (before !== after) { if (dirtyRef.current) setRemote(fresh); else { setJob(clone(fresh)); setOrig(fresh); } }
-            }
+        const since = sinceRef.current; const now = Date.now();
+        let titles: string[] = [];
+        if (conn.changes) {
+          const ids = await conn.changes(since - 2000);
+          const byId = new Map(tabsRef.current.map(t => [t.sheetId, t.title]));
+          titles = ids.map(id => byId.get(id)).filter(Boolean) as string[];
+          if (ids.some(id => !byId.has(id)) || now - lastList > 30000) {
+            const list = await conn.listTabs(); if (!alive) return; setTabs(list); lastList = now;
+            const known = new Set([...entriesRef.current.keys()]);
+            titles.push(...list.filter(t => t.title !== NSR_MASTER_TAB && !known.has(t.title)).map(t => t.title));
+            const m = new Map(list.map(t => [t.sheetId, t.title])); titles.push(...ids.map(id => m.get(id)).filter(Boolean) as string[]);
+            putEntries([], list);
           }
-        }
-        if (n % 2 === 0) {
-          const list = await conn.listTabs(); if (!alive) return;
-          setTabs(list);
-          const known = new Set([...entriesRef.current.keys()]);
-          const fresh = list.filter(t => t.title !== NSR_MASTER_TAB && !known.has(t.title));
-          if (fresh.length) putEntries(await conn.readTabs(fresh.map(t => t.title)));
-          if (list.length < known.size + 1) putEntries([], list);
-        }
-        if (n % 20 === 0) await loadTabs(conn, tabsRef.current, true);
-        setLastSync(new Date());
+        } else if (jobRef.current?.tab) titles = [jobRef.current.tab];
+        titles = [...new Set(titles)].filter(t => t !== NSR_MASTER_TAB);
+        if (titles.length) { const part = await conn.readTabs(titles); if (!alive) return; putEntries(part); part.forEach(applyFresh); }
+        sinceRef.current = now; setLastSync(new Date());
+        if (now - lastFull > 600000) { lastFull = now; await loadTabs(conn, tabsRef.current, true); }
       } catch { /* ชั่วคราว — รอบถัดไปลองใหม่ */ }
+      finally { busyR = false; }
     };
-    const id = window.setInterval(tick, 15000);
-    return () => { alive = false; window.clearInterval(id); };
+    const unsub = conn.kind === 'script' ? onRev((_r, changed) => { if (changed) refresh(); else setLastSync(new Date()); }) : (() => { const id = window.setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 15000); return () => window.clearInterval(id); })();
+    const id2 = window.setInterval(() => { if (document.visibilityState !== 'hidden' && Date.now() - lastList > 30000) refresh(); }, 30000);
+    return () => { alive = false; unsub(); window.clearInterval(id2); };
   }, [conn, connState]);
   const origRef = useRef<NsrJob | null>(null); origRef.current = orig;
   const entriesRef = useRef(entries); entriesRef.current = entries;
@@ -160,14 +166,42 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
 
   // ── เปิด/สร้างงาน ──
   const confirmLeave = () => !dirtyRef.current || !job || window.confirm('งานที่เปิดอยู่ยังไม่ได้บันทึก — เปิดงานอื่นและทิ้งการแก้ไข?');
-  const openEntry = (e: Entry) => { if (!confirmLeave()) return; setJob(clone(e.job)); setOrig(e.local ? null : e.job); setRemote(null); setConflicts(null); setNewTab(null); setPane('calc'); try { window.scrollTo(0, 0); } catch { /* */ } };
-  const startNew = (from?: NsrPrefill | null) => {
+  const openEntry = (e: Entry) => { if (!confirmLeave()) return; setDraft(null); setJob(clone(e.job)); setOrig(e.local ? null : e.job); setRemote(null); setConflicts(null); setNewTab(null); setPane('calc'); try { window.scrollTo(0, 0); } catch { /* */ } };
+  const startNew = () => {
     if (!confirmLeave()) return;
-    const j = newJob();
-    if (from) { j.name = from.name; j.province = from.province; j.participants = from.participants; j.teachers = from.teachers; j.price = from.price; if (from.days) j.staff = j.staff.map(s => ({ ...s, days: from.days })); (j as any).tabHint = from.tab; }
-    setJob(j); setOrig(null); setRemote(null); setConflicts(null); setNewTab(null); setPane('calc');
+    setJob(newJob()); setOrig(null); setRemote(null); setConflicts(null); setNewTab(null); setDraft(null); setBriefOpen(false); setPane('calc');
   };
-  const copyAsNew = () => { if (!job) return; const j = clone(job); j.id = 'new:' + Date.now().toString(36); (j as any).tabHint = 'ปรับงบ ' + (job.tab || job.name); delete j.tab; delete j.sheetId; delete j.layout; delete j.sheet; j.lines = j.lines.map(l => ({ ...l, row: undefined, sheetTotal: undefined, priceFormula: undefined })); j.staff = j.staff.map(s => ({ ...s, row: undefined })); j.warnings = []; setJob(j); setOrig(null); setNewTab(null); flash('คัดลอกเป็นงานใหม่แล้ว — บันทึกเป็นแท็บใหม่ได้'); };
+  // ── บรีฟ → ตารางคำนวณทั้งก้อน ──
+  const [briefOpen, setBriefOpen] = useState(false);
+  const [briefText, setBriefText] = useState('');
+  const [useAi, setUseAi] = useState(true);
+  const [aiOk, setAiOk] = useState(false);
+  const [draft, setDraft] = useState<(NsrDraft & { ai?: { used: number; rejected: string[]; notes: string[] } | null }) | null>(null);
+  useEffect(() => { const cl = (window as any).claude; if (cl && typeof cl.use === 'function') cl.use('sample').then((x: any) => setAiOk(!!x)).catch(() => {}); }, []);
+  const history = () => [...entriesRef.current.values()].map(e => e.job);
+  const loadDraft = (d: NsrDraft, ai?: { used: number; rejected: string[]; notes: string[] } | null) => {
+    const j = d.job; (j as any).tabHint = d.tabName;
+    setJob(j); setOrig(null); setRemote(null); setConflicts(null); setNewTab(null); setDraft({ ...d, ai: ai || null }); setPane('calc');
+  };
+  const runBrief = async (text: string) => {
+    if (!text.trim()) { flash('วางบรีฟก่อน', true); return; }
+    if (!confirmLeave()) return;
+    let d = draftFromBrief(text, history());
+    loadDraft(d); setBriefOpen(false);
+    if (useAi && aiOk) {
+      setBusy('ai');
+      try {
+        const sample = await (window as any).claude.use('sample');
+        const raw = await sample.json(aiPrompt(text, d), { modelTier: 'default' });
+        const r = applyAi(d, text, raw); d = r.draft;
+        loadDraft(d, { used: r.used, rejected: r.rejected, notes: r.notes });
+        flash(r.used ? `AI เติม/แก้ ${r.used} ช่อง (ทุกช่องมีหลักฐานจากบรีฟ)` : 'AI ตรวจแล้ว ไม่มีอะไรต้องเพิ่ม');
+      } catch { flash('AI ไม่ตอบ — ใช้ผลจากตัวอ่านบรีฟ (คำนวณครบแล้ว)', true); }
+      finally { setBusy(''); }
+    } else flash('อ่านบรีฟและคำนวณครบแล้ว — ตรวจช่องที่ “ไม่พบ” แล้วบันทึกเป็นแท็บใหม่');
+  };
+  const fromCurrent = () => { const p = prefill(); if (!p || !confirmLeave()) return; loadDraft(draftFromCamp(p.camp, history(), p.brief)); flash('ดึงจากเอกสารที่ทำอยู่ + กำหนดการจริงแล้ว'); };
+  const copyAsNew = () => { if (!job) return; setDraft(null); const j = clone(job); j.id = 'new:' + Date.now().toString(36); (j as any).tabHint = 'ปรับงบ ' + (job.tab || job.name); delete j.tab; delete j.sheetId; delete j.layout; delete j.sheet; j.lines = j.lines.map(l => ({ ...l, row: undefined, sheetTotal: undefined, priceFormula: undefined })); j.staff = j.staff.map(s => ({ ...s, row: undefined })); j.warnings = []; setJob(j); setOrig(null); setNewTab(null); flash('คัดลอกเป็นงานใหม่แล้ว — บันทึกเป็นแท็บใหม่ได้'); };
 
   // ── บันทึก ──
   const saveLocal = (j: NsrJob) => { const next = [{ ...j, updated: new Date().toISOString() }, ...local.filter(x => x.id !== j.id)].slice(0, 100); setLocal(next); lsSet(LS_LOCAL, next); };
@@ -207,6 +241,8 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
     finally { setBusy(''); }
   };
 
+  const openedRef = useRef('');
+  useEffect(() => { if (openTab && openedRef.current !== openTab) { const e = entries.get(openTab); if (e) { openedRef.current = openTab; openEntry(e); } } }, [openTab, entries]);
   const calc = useMemo(() => (job ? computeNsr(job) : null), [job]);
   const inPlace = job && orig && job.tab ? diffForTab(orig, job) : null;
   const isLocal = !!job && local.some(x => x.id === job.id);
@@ -221,21 +257,20 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
         </div>
         <div className={`flex items-center gap-2 text-[13.5px] px-3 py-2 rounded-xl border ${connState === 'live' ? 'border-emerald-200 bg-emerald-50' : connState === 'error' ? 'border-amber-300 bg-amber-50' : 'border-brand-mist bg-white'}`} role="status" aria-live="polite">
           <span className={`w-2 h-2 rounded-full ${connState === 'live' ? 'bg-emerald-500' : connState === 'connecting' ? 'bg-sky-500 animate-pulse' : connState === 'error' ? 'bg-amber-500' : 'bg-gray-300'}`} />
-          {connState === 'live' ? <span>เชื่อมชีตแล้ว · {conn?.kind === 'mcp' ? 'บัญชี Google ของคุณ' : 'Apps Script'} · อัปเดต {timeTh(lastSync)}{loadPct ? ` · กำลังโหลด ${loadPct.done}/${loadPct.total} แท็บ` : ''}</span>
+          {connState === 'live' ? <span>เชื่อมชีตแล้ว · {conn?.kind === 'mcp' ? 'บัญชี Google ของคุณ' : 'ศูนย์กลางทีม'} · อัปเดต {timeTh(lastSync)}{loadPct ? ` · กำลังโหลด ${loadPct.done}/${loadPct.total} แท็บ` : ''}</span>
             : connState === 'connecting' ? <span>กำลังเชื่อมชีต…</span>
             : connState === 'error' ? <span>เชื่อมชีตไม่ได้: {connMsg}</span>
             : <span>ยังไม่เชื่อมชีต{cacheAt ? ` · แสดงข้อมูลล่าสุดในเครื่อง (${new Date(cacheAt).toLocaleDateString('th-TH')})` : ' · คำนวณได้ บันทึกในเครื่องนี้'}</span>}
           {connState === 'live' && <button onClick={() => conn && loadTabs(conn, tabs, true)} disabled={!!loadPct} aria-label="โหลดทุกแท็บใหม่" title="โหลดทุกแท็บใหม่" className="tap p-1 rounded-md hover:bg-white disabled:opacity-40"><RefreshCw className={`w-4 h-4 ${loadPct ? 'animate-spin' : ''}`} /></button>}
         </div>
-        <button onClick={() => setShowSetup(s => !s)} aria-expanded={showSetup} className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><Settings className="w-4 h-4" />ตั้งค่าการเชื่อม</button>
+        {connState !== 'live' && <button onClick={onConnect} className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><Settings className="w-4 h-4" />เชื่อมต่อทีม</button>}
         {connState === 'live' && sheetUrl() && <a href={sheetUrl()} target="_blank" rel="noopener" className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><ExternalLink className="w-4 h-4" />เปิดชีต</a>}
       </div>
-      {showSetup && <Setup onSaved={() => { setShowSetup(false); connect(); }} />}
 
       {/* มือถือ: สลับ รายการ / ตารางคำนวณ */}
       <div className="lg:hidden flex border-b border-brand-mist mb-3" role="tablist">
         {([['list', `งานย้อนหลัง (${all.length})`], ['calc', job ? 'ตารางคำนวณ' : 'งานใหม่']] as const).map(([id, l]) => (
-          <button key={id} role="tab" aria-selected={pane === id} onClick={() => { if (id === 'calc' && !job) startNew(null); else setPane(id); }}
+          <button key={id} role="tab" aria-selected={pane === id} onClick={() => { if (id === 'calc' && !job) setBriefOpen(true); setPane(id); }}
             className={`tap px-4 py-2.5 text-[15px] border-b-2 -mb-px ${pane === id ? 'border-brand-navy font-semibold' : 'border-transparent text-sub'}`}>{l}</button>
         ))}
       </div>
@@ -243,9 +278,10 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
       <div className="grid lg:grid-cols-[minmax(300px,380px)_1fr] gap-4 items-start">
         {/* ── งานย้อนหลัง ── */}
         <section aria-label="งานย้อนหลัง" className={`${pane === 'list' ? '' : 'hidden'} lg:block ${card} p-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:flex lg:flex-col`}>
-          <div className="flex gap-2 mb-2">
-            <button onClick={() => startNew(null)} className="tap flex-1 px-3 py-2.5 rounded-xl bg-brand-navy text-white text-[14px] font-semibold flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />งานใหม่</button>
-            {prefill() && <button onClick={() => startNew(prefill())} title="ใช้ชื่องาน จำนวนคน ราคา จากเอกสารที่กำลังทำ" className="tap flex-1 px-3 py-2.5 rounded-xl border border-brand-mist hover:bg-paper text-[14px] font-medium">จากเอกสารที่ทำอยู่</button>}
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <button onClick={() => { setBriefOpen(true); setPane('calc'); if (!briefText) setBriefText(prefill()?.brief || ''); }} className="tap col-span-2 px-3 py-2.5 rounded-xl bg-brand-navy text-white text-[14px] font-semibold flex items-center justify-center gap-1.5"><Wand2 className="w-4 h-4" />คำนวณจากบรีฟ</button>
+            <button onClick={startNew} className="tap px-3 py-2 rounded-xl border border-brand-mist hover:bg-paper text-[14px] font-medium flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />งานว่าง</button>
+            <button onClick={fromCurrent} disabled={!prefill()} title="ใช้ข้อมูลและกำหนดการของเอกสารที่กำลังทำ" className="tap px-3 py-2 rounded-xl border border-brand-mist hover:bg-paper disabled:opacity-40 text-[14px] font-medium">จากเอกสารที่ทำอยู่</button>
           </div>
           <label className="relative block">
             <span className="sr-only">ค้นหางาน</span>
@@ -267,7 +303,7 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
           </div>
           <div className="text-[12.5px] text-sub mt-2">{shown.length} งาน{loadPct && !entries.size ? ' · กำลังโหลดจากชีต…' : ''}</div>
           <ul className="mt-1 -mx-1 lg:overflow-y-auto lg:flex-1 divide-y divide-brand-mist/70">
-            {!all.length && <li className="px-2 py-6 text-[14px] text-sub">{connState === 'none' ? 'เชื่อมชีต NSR เพื่อดูงานย้อนหลังทั้งหมด (ตั้งค่าการเชื่อม) — หรือเริ่มงานใหม่ได้เลย' : connState === 'error' ? 'อ่านชีตไม่ได้ — ดูข้อความด้านบน' : 'กำลังโหลด…'}</li>}
+            {!all.length && <li className="px-2 py-6 text-[14px] text-sub">{connState === 'none' ? 'เชื่อมต่อทีมเพื่อดูงานย้อนหลังทุกแท็บในชีต NSR — หรือเริ่มจากบรีฟ/งานใหม่ได้เลย' : connState === 'error' ? 'อ่านชีตไม่ได้ — ดูข้อความด้านบน' : 'กำลังโหลด…'}</li>}
             {shown.slice(0, limit).map(e => {
               const on = !!job && (job.id === e.job.id || (!!job.tab && job.tab === e.row.tab));
               return (
@@ -293,15 +329,9 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
 
         {/* ── ตารางคำนวณ ── */}
         <section aria-label="ตารางคำนวณ NSR" className={`${pane === 'calc' ? '' : 'hidden'} lg:block min-w-0`}>
-          {!job || !calc ? (
-            <div className={`${card} p-6 text-[15px] text-sub`}>
-              <div className="text-[17px] font-semibold text-brand-ink mb-1">เลือกงานจากรายการ หรือเริ่มงานใหม่</div>
-              ทุกบรรทัดคิดเป็นเงิน <b className="text-brand-ink font-semibold">ต่อผู้เข้าร่วม 1 คน</b> เหมือนชีต · ระบบแสดงสูตรทุกขั้น และระดับอนุมัติตาม Approval Matrix ทันทีที่พิมพ์
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button onClick={() => startNew(null)} className="tap px-4 py-2.5 rounded-xl bg-brand-navy text-white text-[14px] font-semibold">เริ่มงานใหม่</button>
-                {prefill() && <button onClick={() => startNew(prefill())} className="tap px-4 py-2.5 rounded-xl border border-brand-mist hover:bg-paper text-[14px] font-medium">เริ่มจากเอกสารที่ทำอยู่</button>}
-              </div>
-            </div>
+          {briefOpen || !job || !calc ? (
+            <BriefBox text={briefText} setText={setBriefText} onRun={runBrief} aiOk={aiOk} useAi={useAi} setUseAi={setUseAi} busy={busy === 'ai'}
+              hasHistory={entries.size} onClose={job ? () => setBriefOpen(false) : undefined} onBlank={startNew} />
           ) : (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -322,6 +352,7 @@ export default function Nsr({ prefill, flash }: { prefill: () => NsrPrefill | nu
                 </div>
               )}
 
+              {draft && calc && <DraftSummary d={draft} calc={calc} onOpenRef={t => { const e = entriesRef.current.get(t); if (e) openEntry(e); }} onClose={() => setDraft(null)} />}
               <div className="grid xl:grid-cols-[1fr_340px] gap-3 items-start">
                 <div className="space-y-3 min-w-0">
                   <JobInfo job={job} set={p => setJob({ ...job, ...p })} />
@@ -613,34 +644,82 @@ function Approval({ calc }: { calc: ReturnType<typeof computeNsr> }) {
   );
 }
 
-function Setup({ onSaved }: { onSaved: () => void }) {
-  const [url, setUrl] = useState(scriptUrl());
-  const [key, setKey] = useState(scriptKey() || newNsrKey());
-  const [copied, setCopied] = useState(false);
-  const [sheet, setSheet] = useState(sheetUrl());
-  const code = nsrAppsScript(key);
+
+// ── บรีฟ → คำนวณทั้งก้อน ──
+const EX_BRIEF = 'โรงเรียนตัวอย่างวิทยา ค่าย STEM 3 วัน 2 คืน นักเรียน 80 คน ครู 6 คน พักที่ภูวิวรีสอร์ท ห้องละ 1,500 บาท พัก 4 คน รถบัส 2 คัน ราคา 3,290 บาท/ท่าน';
+function BriefBox({ text, setText, onRun, aiOk, useAi, setUseAi, busy, hasHistory, onClose, onBlank }: { text: string; setText: (s: string) => void; onRun: (s: string) => void; aiOk: boolean; useAi: boolean; setUseAi: (b: boolean) => void; busy: boolean; hasHistory: number; onClose?: () => void; onBlank: () => void }) {
   return (
-    <div className={`${card} p-4 mb-4 text-[14px]`}>
-      <div className="flex items-start justify-between gap-2"><div className="text-[16px] font-semibold">เชื่อมเว็บกับชีต NSR</div></div>
-      <p className="text-sub mt-1">ใช้ได้ทุกเครื่อง (คอม/มือถือ/เว็บสาธารณะ) · ทำครั้งเดียวโดยเจ้าของชีต แล้วแจกที่อยู่ + รหัสทีมให้ทีมขาย — รหัสทีมไม่ฝังในเว็บ คนนอกจึงอ่านต้นทุนไม่ได้</p>
-      <ol className="list-decimal pl-5 mt-2 space-y-1">
-        <li>เปิดชีต NSR ของทีม (ตัวอย่างตารางคำนวนต้นทุนยอดขาย NSR) → ส่วนขยาย → Apps Script</li>
-        <li>ลบโค้ดเดิม วางโค้ดด้านล่าง แล้วบันทึก <button onClick={async () => setCopied(await copyText(code))} className="tap ml-1 px-2.5 py-1 rounded-lg bg-brand-navy text-white text-[13px] font-medium inline-flex items-center gap-1">{copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}{copied ? 'คัดลอกแล้ว' : 'คัดลอกโค้ด'}</button></li>
-        <li>ทำให้ใช้งานได้ → การทำให้ใช้งานได้รายการใหม่ → ประเภท “เว็บแอป” · เรียกใช้ในฐานะ “ฉัน” · ผู้มีสิทธิ์เข้าถึง “ทุกคน” → คัดลอก URL</li>
-        <li>วาง URL และรหัสทีมด้านล่าง แล้วกด “เชื่อมต่อ”</li>
-      </ol>
-      <div className="grid sm:grid-cols-[1fr_16rem_auto] gap-2 mt-3 items-end">
-        <label className="text-[13px] text-sub">ที่อยู่ Web app<input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink" /></label>
-        <label className="text-[13px] text-sub">รหัสทีม<input value={key} onChange={e => { setKey(e.target.value); setCopied(false); }} className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink font-mono" /></label>
-        <button onClick={() => { setScript(url, key); onSaved(); }} disabled={!/^https:\/\/script\.google(usercontent)?\.com\//.test(url.trim()) || !key.trim()} className="tap px-4 py-2 rounded-lg bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold">เชื่อมต่อ</button>
+    <div className={`${card} p-4 sm:p-5`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h2 className="text-[18px] font-semibold">คำนวณ NSR จากบรีฟ</h2>
+          <p className="text-[14px] text-sub mt-0.5">วางบรีฟตามที่ได้รับ ระบบเติมตารางให้ทั้งก้อน: จำนวนคน/ราคา จากบรีฟ · คืน/มื้อ จากกำหนดการจริง · ราคาต่อหน่วยและทีมวิทยากร จากงานจริงที่ใกล้ที่สุด{hasHistory ? ` (${hasHistory} งานในชีต)` : ''} · ที่เหลือตามสูตรทีม — ทุกช่องบอกที่มา</p>
+        </div>
+        {onClose && <button onClick={onClose} aria-label="ปิด" className="tap p-1.5 rounded-lg hover:bg-paper text-sub"><X className="w-5 h-5" /></button>}
       </div>
-      <details className="mt-3 text-[13px]"><summary className="cursor-pointer text-sub">ใช้บัญชี Google ของฉันบน claude.ai แทน (ไม่ต้องติดตั้ง Apps Script)</summary>
-        <label className="block mt-2 text-sub">ลิงก์ชีต NSR<input value={sheet} onChange={e => setSheet(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/…" className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink" /></label>
-        <button onClick={() => { setSheetUrl(sheet); onSaved(); }} disabled={!/\/spreadsheets\/d\//.test(sheet)} className="tap mt-2 px-3 py-1.5 rounded-lg border border-brand-mist disabled:opacity-40">บันทึกลิงก์ในเครื่องนี้</button>
-        <div className="text-sub mt-1">ใช้ได้เมื่อเปิดหน้านี้บน claude.ai ที่ได้รับสิทธิ์ใช้ตัวเชื่อม Google Sheets · ลิงก์เก็บในเครื่องนี้เท่านั้น ไม่อยู่ในเว็บ</div>
-      </details>
-      <p className="text-[12.5px] text-sub mt-2">รหัสทีมในโค้ดต้องตรงกับช่องรหัสทีม · เปลี่ยนรหัสต้องคัดลอกโค้ดใหม่และ Deploy ใหม่ · ที่อยู่ web app + รหัสทีมเก็บในเครื่องนี้เท่านั้น</p>
-      {(url || scriptKey()) && <button onClick={() => { setScript('', ''); setUrl(''); onSaved(); }} className="tap mt-2 text-[13px] text-red-700 flex items-center gap-1"><X className="w-3.5 h-3.5" />เลิกเชื่อม Apps Script บนเครื่องนี้</button>}
+      <label className="block mt-3"><span className="sr-only">บรีฟ</span>
+        <textarea value={text} onChange={e => setText(e.target.value)} rows={6} placeholder={'เช่น ' + EX_BRIEF} aria-label="บรีฟสำหรับคำนวณ NSR"
+          className="w-full px-3 py-2.5 rounded-xl border border-brand-mist text-[15px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-navy/30" />
+      </label>
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        <button onClick={() => onRun(text)} disabled={busy || !text.trim()} className="tap px-4 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14.5px] font-semibold flex items-center gap-1.5"><Wand2 className="w-4 h-4" />{busy ? 'AI กำลังตรวจ…' : 'อ่านบรีฟและคำนวณ'}</button>
+        {aiOk && <label className="flex items-center gap-1.5 text-[13.5px]"><input type="checkbox" checked={useAi} onChange={e => setUseAi(e.target.checked)} />ให้ AI ตรวจและเติมจากบรีฟ</label>}
+        {!text && <button onClick={() => setText(EX_BRIEF)} className="tap text-[13.5px] text-brand-navy underline underline-offset-2">ใส่บรีฟตัวอย่าง</button>}
+        <button onClick={onBlank} className="tap ml-auto text-[13.5px] text-sub hover:text-brand-ink">หรือเริ่มตารางว่าง</button>
+      </div>
+      {!hasHistory && <div className="mt-3 text-[13px] text-amber-800">ยังไม่ได้เชื่อมชีต NSR — ราคาต่อหน่วยและทีมวิทยากรจะว่างไว้ให้ใส่เอง (เชื่อมต่อทีมเพื่อใช้งานจริงเป็นงานอ้างอิง)</div>}
+    </div>
+  );
+}
+const SRC_TONE: Record<string, string> = { 'บรีฟ': 'bg-brand-navy text-white', 'กำหนดการ': 'bg-sky-100 text-sky-900', 'งานอ้างอิง': 'bg-emerald-50 text-emerald-800 border border-emerald-200', 'สูตร': 'bg-paper text-brand-ink border border-brand-mist', 'AI': 'bg-violet-50 text-violet-800 border border-violet-200', 'ไม่พบ': 'bg-amber-50 text-amber-800 border border-amber-300' };
+function DraftSummary({ d, calc, onOpenRef, onClose }: { d: NsrDraft & { ai?: { used: number; rejected: string[]; notes: string[] } | null }; calc: ReturnType<typeof computeNsr>; onOpenRef: (tab: string) => void; onClose: () => void }) {
+  const [open, setOpen] = useState(() => typeof window === 'undefined' || window.innerWidth >= 1024);
+  const t = calc.tier; const p20 = calc.minPrice.find(m => m.m === 0.2)?.price;
+  const miss = d.fields.filter(f => f.src === 'ไม่พบ').length;
+  return (
+    <div className={`${card} p-4`}>
+      <div className="flex items-center gap-2">
+        <button onClick={() => setOpen(o => !o)} aria-expanded={open} className="tap text-left flex-1 min-w-0">
+          <div className="text-[15.5px] font-semibold">ผลอ่านบรีฟ · {d.fields.length} ช่อง{miss ? ` · ไม่พบ ${miss}` : ' · ครบ'}{d.ai ? ` · AI เติม ${d.ai.used}` : ''}</div>
+          <div className="text-[13px] text-sub truncate">ชื่อแท็บที่แนะนำ: {d.tabName}{d.refs.length ? ` · อ้างอิง ${d.refs.length} งาน` : ''}</div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13.5px]" aria-live="polite">
+            <span className={`font-semibold tabular-nums ${t ? (t.tone === 'bad' ? 'text-red-700' : t.tone === 'warn' ? 'text-amber-700' : t.tone === 'ok' ? 'text-emerald-700' : 'text-brand-navy') : 'text-sub'}`}>NSR {pctText(calc.pct)}</span>
+            {t && <span className={`text-[12px] px-1.5 py-0.5 rounded-md border ${TONE[t.tone]}`}>{t.label}{t.approver ? ` · ${t.approver}` : ''}</span>}
+            {calc.profit != null && <span className="tabular-nums">กำไร/ท่าน {fmt(calc.profit)}</span>}
+            {p20 != null && <span className="text-sub tabular-nums">ขายขั้นต่ำ NSR 20% = {fmt(p20)}</span>}
+          </div>
+        </button>
+        <button onClick={onClose} aria-label="ซ่อนผลอ่านบรีฟ" className="tap p-1.5 rounded-lg hover:bg-paper text-sub"><X className="w-4 h-4" /></button>
+      </div>
+      {open && (
+        <div className="mt-3 grid lg:grid-cols-2 gap-3">
+          <ul className="space-y-1.5" aria-label="ที่มาของแต่ละช่อง">
+            {d.fields.map((f: DraftField, i) => (
+              <li key={i} className="flex items-start gap-2 text-[13.5px]">
+                <span className={`shrink-0 text-[11.5px] px-1.5 py-0.5 rounded-md font-medium ${SRC_TONE[f.src]}`}>{f.src}</span>
+                <span className="min-w-0"><b className="font-medium">{f.label}</b> {f.value}{f.note && <span className="text-sub"> · {f.note}</span>}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="space-y-2">
+            {d.refs.length > 0 && (
+              <div>
+                <div className="text-[13px] font-semibold mb-1">งานอ้างอิง (หลักสูตร/วัน/จำนวนคนใกล้กัน)</div>
+                <ul className="space-y-1">{d.refs.map(r => (
+                  <li key={r.tab}><button onClick={() => onOpenRef(r.tab)} className="tap w-full text-left text-[13px] px-2 py-1.5 rounded-lg hover:bg-paper flex justify-between gap-2"><span className="truncate">{r.tab}</span><span className="text-sub shrink-0 tabular-nums">{r.participants} คน · {r.days} วัน · NSR {pctText(r.pct)}</span></button></li>
+                ))}</ul>
+              </div>
+            )}
+            {(d.warnings.length > 0 || (d.ai && (d.ai.rejected.length || d.ai.notes.length))) && (
+              <ul className="text-[13px] text-amber-800 list-disc pl-5 space-y-0.5">
+                {d.warnings.map((w, i) => <li key={'w' + i}>{w}</li>)}
+                {d.ai?.notes.map((w, i) => <li key={'n' + i}>AI: {w}</li>)}
+                {d.ai?.rejected.map((w, i) => <li key={'r' + i}>ไม่ใช้ข้อเสนอ AI — {w}</li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

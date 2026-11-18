@@ -438,9 +438,10 @@ export function readBrief(raw: string, base: Camp): BriefRead {
   if ((m = t.match(/(?:ลด\s*เหลือ(?:\s*เพียง)?|ราคา\s*พิเศษ|เหลือ(?:\s*เพียง)?|โปรโมชั่น|โปร)\s*(?:ท่านละ|คนละ|หัวละ)?\s*([\d,]{3,})/))) { c.specialPrice = num(m[1]); found.push('specialPrice'); }
   if (!found.includes('normalPrice') && !found.includes('specialPrice') && (m = t.match(/(?:ราคา(?:ขาย)?|ท่านละ|คนละ|หัวละ)\s*([\d,]{3,})\s*บาท/))) { c.normalPrice = c.specialPrice = num(m[1]); found.push('normalPrice', 'specialPrice'); }
   // ---- สถานที่/โรงแรม: "ณ …" / "จัดที่ …" / "สถานที่ …" / "พักที่ …" / หรือคำว่า โรงแรม…/…รีสอร์ท ----
-  const VSTOP = '(?=\\s*(?:ราคา|งบประมาณ|งบ|โทร|ติดต่อ|โดย|จังหวัด|จ\\.|อำเภอ|วันที่|นักเรียน|จำนวน|ครู|เป็นเวลา|ค่ะ|ครับ|นะคะ|$)|[,;])';
+  const VSTOP = '(?=\\s*(?:ราคา|งบประมาณ|งบ|โทร|ติดต่อ|โดย|จังหวัด|จ\\.|อำเภอ|วันที่|นักเรียน|จำนวน|ครู|เป็นเวลา|ห้อง(?:ละ|พัก)|คืนละ|รถ(?:บัส|ตู้)|ค่ะ|ครับ|นะคะ|$)|[,;])';
   let venueText = '';
   if ((m = t.match(new RegExp(`(?:\\sณ|จัด(?:ค่าย)?(?:ที่|ณ)|สถานที่(?:จัด)?(?:ค่าย)?|ที่พัก(?:คือ)?|พักที่)\\s*:?\\s*(.+?)${VSTOP}`))) && m[1].trim().length >= 3) venueText = m[1];
+  else if ((m = t.match(/(?:พัก|นอน)(?:ที่)?\s*([ก-๙A-Za-z]{2,}(?:รีสอร์ท|โรงแรม|resort|hotel)[ก-๙A-Za-z]*)/i))) venueText = m[1];   // "พักภูวิวรีสอร์ท"
   else if ((m = t.match(/([A-Z][\w&'.-]*(?:\s+[A-Z][\w&'.-]*)*\s+(?:Hotel|Resort|Spa|Villa|Inn|Lodge)\b(?:\s+(?:and\s+)?[A-Z][\w&'.-]*)*)/))) venueText = m[1];   // ชื่ออังกฤษ เช่น Fortune Hotel Korat
   else if ((m = t.match(new RegExp(`((?:โรงแรม|รีสอร์ท|resort|hotel)\\S*(?:\\s(?!ราคา|จังหวัด|วันที่)\\S+){0,3}?)${VSTOP}`, 'i')))) venueText = m[1];
   venueText = venueText.replace(/^(ที่|ณ)\s*/, '').replace(/[.\s]+$/, '').trim();

@@ -34,3 +34,25 @@ export const ago = (iso?: string): string => {
   if (s < 86400 * 7) return `${Math.floor(s / 86400)} วันที่แล้ว`;
   try { return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }); } catch { return iso.slice(0, 10); }
 };
+
+// ── งานของทีม (ศูนย์กลางทีม): ทุกเครื่องเห็นงานเดียวกัน เปิดทำต่อจากมือถือ/คอมเครื่องไหนก็ได้ ──
+import { hubReady, hubCall, enqueue, deviceId } from './hub';
+export interface TeamJob { id: string; savedAt: string; name: string; course?: string; school?: string; dates?: string; duration?: string; docCode?: string; files?: number; lastFileAt?: string; by?: string; dev?: string; deleted?: boolean }
+const TKEY = 'eqcamp.jobs.team.v1';
+export const loadTeamJobs = (): TeamJob[] => { try { const a = JSON.parse(localStorage.getItem(TKEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
+export async function refreshTeamJobs(): Promise<TeamJob[] | null> {
+  if (!hubReady()) return null;
+  try { const j = await hubCall('jobs', {}, 30000); const list: TeamJob[] = (j.jobs || []).filter((x: any) => x && x.id); try { localStorage.setItem(TKEY, JSON.stringify(list)); } catch { /* quota */ } return list; }
+  catch { return null; }
+}
+export async function fetchTeamJob(id: string): Promise<(TeamJob & { snap: any }) | null> {
+  const j = await hubCall('job.get', { id }, 30000); return j.job && j.job.snap ? j.job : null;
+}
+// ส่งงานขึ้นทีม (เข้าคิว — งานเดียวกันส่งเฉพาะครั้งล่าสุด)
+export function pushJob(j: Job) {
+  if (!hubReady()) return;
+  const { snap, ...meta } = j;
+  enqueue('job.put', { job: { ...meta, docCode: snap?.camp?.docCode || '', snap } }, 'job:' + j.id);
+}
+export function pushDelete(id: string) { if (hubReady()) enqueue('job.del', { id }, 'job:' + id); }
+export const isMine = (t: TeamJob) => !t.dev || t.dev === deviceId();
