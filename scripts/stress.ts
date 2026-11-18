@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, dayEndOf, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
 // คำผิดที่รู้จัก — รายการกลาง data/typo-fixes.json
 const TYPO_JSON = JSON.parse(fs.readFileSync('data/typo-fixes.json', 'utf8'));
 const TYPO_BAD: string[] = TYPO_JSON.fixes.map((f: string[]) => f[0]).filter((w: string) => w.trim().length > 1);
@@ -80,6 +80,18 @@ TEMPLATES.filter(t => t.dur.startsWith('o')).forEach((t, k) => {
     actsOverride: k % 2 ? ['กิจกรรม “ทดสอบแก้ไขแถว”', '', 'ข้อความที่ไม่มีในกำหนดการ'] : undefined } as any });
 });
 
+// 8. ขยายเวลาเลิก + เพิ่มช่วงเวลาเอง: ทุกแม่แบบ (วันสุดท้ายจบ 16.00/17.00) + engine ไป-กลับ/พักค้าง + ค่าแย่ (เวลาเดิม/อ่านไม่ได้/วันไม่มี)
+TEMPLATES.forEach((t, k) => {
+  const dm = t.dur.startsWith('o') ? 'overnight' : t.dur === 'half' ? 'half' : 'day';
+  const days = dm === 'overnight' ? +t.dur.charAt(1) : dm === 'day' ? (+t.dur.slice(3) || 1) : 1, nights = dm === 'overnight' ? +t.dur.slice(2) : 0;
+  configs.push({ name:`EXT_${t.id.replace(/\s+/g, '_')}`, camp: mk({ courseCode:t.code, templateId:t.id, school:'โรงเรียนทดสอบขยาย', students:60, teachers:4, durationMode:dm as any, days, nights, dates:'x', province:'', venue:'ว', normalPrice:4000, specialPrice:3000, costPerPerson:1800,
+    dayExtends: [{ day: days, end: k % 2 ? '17.00' : '16.00' }, { day: 9, end: '16.00' }],
+    rowAdds: [{ day: 1, time: '10.00 – 10.15 น.', title: 'ถ่ายภาพหมู่ <ทั้งค่าย> & "ทีม"' }, { day: 1, time: 'ไม่ระบุ', title: 'รายการท้ายวัน' }, { day: 1, time: '', title: '' }] } as any) });
+});
+for (const [dm, d, n] of [['day', 1, 0], ['day', 2, 0], ['overnight', 2, 1], ['overnight', 3, 2]] as const)
+  configs.push({ name:`EXTeng_${dm}${d}${n}`, camp: mk({ courseCode:'PL STM 0101', templateId:'engine', school:'ร.ร.', students:40, teachers:2, durationMode:dm as any, days:d, nights:n, venue:'ว', normalPrice:3000, specialPrice:2500, costPerPerson:1000,
+    dayExtends: [{ day: d, end: '16.30' }, { day: 1, end: '07.00' }, { day: 1, end: 'xx' }], addons: [{ code:'PL ENG 0104' }] } as any) });
+
 let fail = 0, ok = 0;
 (async () => {
   const manifest: string[] = [];
@@ -113,6 +125,18 @@ let fail = 0, ok = 0;
           if (!both.includes(TITLE_TH[code].replace(/\s+/g, '')) && !new RegExp(TITLE_EN[code], 'i').test(both)) throw new Error(`joined title missing ${code}: ${k.titleTh} ${k.titleEn}`);
         }
         for (const sec of k.cover) for (const r of sec.rows || []) if (/ระยะเวลา|สถานที่/.test(r[0]) && /กิจกรรมเสริม|วันที่ \d/.test(r[1].join(' '))) throw new Error('cover duration/venue line has add-on/mix note: ' + r[1].join(' '));
+        // ขยายเวลาเลิก: วันที่ขยายต้องเลิกตรงเวลาที่ตั้ง · มีช่วงที่ขยาย · เวลาเริ่มไม่ย้อน · ช่วงที่เพิ่มเองต้องอยู่ในกำหนดการ
+        for (const x of ((cfg.camp as any).dayExtends || []) as { day: number; end: string }[]) {
+          const d = plan.days[x.day - 1]; if (!d || !/^\d{2}\.\d{2}$/.test(x.end)) continue;
+          const before = buildSchedule({ ...cfg.camp, dayExtends: undefined } as any).days[x.day - 1];
+          const tm = (s: string) => { const m = s.match(/(\d{1,2})[.:](\d{2})/); return m ? +m[1] * 60 + +m[2] : -1; };
+          if (tm(dayEndOf(before)) + 15 > tm(x.end)) continue;            // เวลาที่ตั้งไม่เกินเวลาเดิม → ต้องไม่เปลี่ยน (เตือน)
+          if (dayEndOf(d) !== x.end) throw new Error(`extend day ${x.day}: ends ${dayEndOf(d)} not ${x.end}`);
+          if (!d.items.some(r => r.ext)) throw new Error(`extend day ${x.day}: no added rows`);
+          let prev = -1; for (const r of d.items) { const v = tm(r.time); if (v < 0) continue; if (v + 1 < prev) throw new Error(`extend day ${x.day}: time goes back at ${r.time} ${r.title}`); prev = v; }
+        }
+        for (const a of ((cfg.camp as any).rowAdds || []) as { day: number; title: string }[]) if (a.title && a.day <= plan.days.length && !plan.days[a.day - 1].items.some(r => r.title === a.title.trim())) throw new Error('rowAdd missing: ' + a.title);
+        if (/ตัวอย่างกิจกรรม/.test(JSON.stringify(k.budget))) throw new Error('budget has stray heading');
         // Add-on: แถวเสริมต้องลงกำหนดการจริง · เวลาไม่ย้อนกลับในวัน (เริ่ม ≥ เริ่มแถวก่อนหน้า)
         if ((cfg.camp as any).addons) {
           const rows = plan.days.flatMap(d => d.items.filter(r => r.addon));

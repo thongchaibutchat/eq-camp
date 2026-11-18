@@ -4,6 +4,8 @@ import Home from './Home';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv, teamLogUrl, teamKey, setTeamLog, appsScriptCode, newTeamKey, TEAM_LOG_URL, TEAM_LOG_SHEET } from './registry';
 import type { LogEv } from './registry';
+import { loadJobs, saveJob, removeJob, newJobId, ago } from './jobs';
+import type { Job } from './jobs';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
@@ -13,7 +15,7 @@ import {
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
   packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoSetsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
-  showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, scheduleActs, actInSchedule, PARTY_THEMES, isPartyRow, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
+  showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, scheduleActs, actInSchedule, PARTY_THEMES, isPartyRow, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote, dayEndOf, parseHM, extendOptions
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
 
@@ -91,8 +93,36 @@ export default function App() {
   const [dbSel, setDbSel] = useState<string>(() => (initial?.camp?.courseCode) || COURSES[0].code);
   const allVenues = useMemo<VenueRec[]>(() => [...VENUES, ...customVenues], [customVenues]);
 
+  // ---- งานที่บันทึกไว้: ทุกงานบันทึกอัตโนมัติ เปิดทำต่อได้ภายหลัง ----
+  const [jobId, setJobId] = useState<string>(() => (saved && saved.jobId) || newJobId());
+  const [jobs, setJobs] = useState<Job[]>(() => loadJobs());
+  const baseline = useRef<string>(JSON.stringify({ ...(initial?.camp ?? {}), actImgs: 0, venueImgs: 0 }));
+  const jobMeta = (c: Camp) => ({ name: (c.school || '').trim() || 'ยังไม่ระบุโรงเรียน', course: c.courseCode ? courseLabel(c.courseCode) : SUBJECTS[c.subject]?.label || '',
+    school: c.school, dates: c.dates, duration: c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน` });
+  const storeJob = (c: Camp, fileMade = false) => {
+    const sn = snapshot(c, customVenues, brief, false);
+    setJobs(saveJob({ id: jobId, ...jobMeta(c), snap: sn, fileMade }));
+  };
   // autosave to localStorage (captions kept, image binaries dropped to stay within quota)
-  useEffect(() => { saveLS(snapshot(camp, customVenues, brief, false)); }, [camp, customVenues, brief]);
+  useEffect(() => { saveLS({ ...snapshot(camp, customVenues, brief, false), jobId }); }, [camp, customVenues, brief, jobId]);
+  // บันทึกงานลงรายการ "งานของฉัน" เมื่อมีการแก้จริง (ไม่บันทึกแม่แบบตั้งต้นที่ยังไม่ได้แตะ)
+  useEffect(() => {
+    const key = JSON.stringify({ ...camp, actImgs: 0, venueImgs: 0 });
+    if (key === baseline.current && !jobs.some(j => j.id === jobId)) return;
+    const t = setTimeout(() => storeJob(camp), 700); return () => clearTimeout(t);
+  }, [camp, brief, jobId]);
+  // เริ่มงานใหม่ (งานเดิมบันทึกไว้แล้ว) / เปิดงานที่บันทึกไว้
+  const startNewJob = (c: Camp) => { setJobId(newJobId()); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); };
+  const openJob = (j: Job) => {
+    try {
+      const { camp: c, venues, brief: b } = rehydrate(j.snap);
+      setJobId(j.id); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 });
+      setCamp(c); setCustomVenues(venues); if (b !== undefined) setBrief(b); setPhotoNonce(n => n + 1); setTab('header');
+      flash(`เปิดงาน "${j.name}" แล้ว — ทำต่อได้เลย (บันทึกอัตโนมัติ)`);
+    } catch (e) { flash('เปิดงานไม่สำเร็จ: ' + (e as Error).message, false); }
+  };
+  const copyJob = (j: Job) => { const id = newJobId(); setJobs(saveJob({ ...j, id, name: j.name + ' (สำเนา)', files: 0 } as any)); flash('ทำสำเนางานแล้ว'); };
+  const deleteJob = (j: Job) => { if (!confirm(`ลบงาน "${j.name}" ออกจากรายการ? (ไฟล์ที่ดาวน์โหลดไปแล้วไม่หาย)`)) return; setJobs(removeJob(j.id)); if (j.id === jobId) setJobId(newJobId()); };
   const fileInput = useRef<HTMLInputElement>(null);
   const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
@@ -116,6 +146,7 @@ export default function App() {
     whoRef.current = { by, byName }; return whoRef.current;
   };
   const logEvent = async (action: string, c: Camp, dk?: DocKind) => {
+    try { storeJob(c, true); } catch { /* เงียบ */ }
     // ทะเบียนโปรแกรม: เครื่องนี้ + ชีตทีม (ถ้าตั้งค่า) — ทำงานทุกที่ ไม่ต้องลงชื่อเข้าใช้
     try { await recordEvent(makeEvent(action, c, dk, IN_CLAUDE ? 'claude.ai' : /github\.io$/.test(location.hostname) ? 'เว็บ' : 'ไฟล์ในเครื่อง')); } catch { /* เงียบ */ }
     try {
@@ -194,6 +225,7 @@ export default function App() {
   const applyBrief = (mode: 'new' | 'update') => {
     const dur = parseDuration(cleanBrief(brief).ar);
     const r = readBrief(brief, mode === 'new' ? blankCamp() : camp);
+    if (mode === 'new') startNewJob(blankCamp());
     setCamp(r.camp);
     setBriefReport({ fields: r.fields, by: 'ระบบอ่านบรีฟ' });
     if (!dur.resolved) flash('แปลงบรีฟแล้ว แต่อ่าน "ระยะเวลา" จากบรีฟไม่ออก — โปรดเลือกระยะเวลาเองในแท็บ 2 (ยังไม่ได้เปลี่ยนจากค่าเดิม)', false);
@@ -266,12 +298,12 @@ export default function App() {
       if (!stale()) setBusy(false);
     }
   };
-  const loadPreset = (id: string) => { setCamp(fromPreset(id)); flash(`โหลดแม่แบบ "${PRESETS.find(p => p.id === id)!.label}" แล้ว`); };
+  const loadPreset = (id: string) => { startNewJob(fromPreset(id)); setCamp(fromPreset(id)); flash(`โหลดแม่แบบ "${PRESETS.find(p => p.id === id)!.label}" แล้ว`); };
 
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
     const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
     // ระยะเวลาเปลี่ยน → ค่าที่พัก/มื้ออาหารในงบเปลี่ยน: คืนรายการงบเป็นอัตโนมัติ กันตัวเลขค้างผิด
-    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined }));
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined }));
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — จัดกำหนดการใหม่แล้ว${hadBudget ? ' · รายการงบกลับเป็นอัตโนมัติ (แก้ได้อีกครั้งในขั้นราคา & งบ)' : ''}`);
   };
@@ -279,7 +311,7 @@ export default function App() {
   const changeCourse = (code: string) => {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined });
+    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined });
     const nT = templatesOf(code).length;
     flash(nT ? `เลือก "${co.name}" (${code}) — ใช้แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนี้` : `เลือก "${co.name}" (${code}) — ยังไม่มีแม่แบบจริง ระบบจัดจากคลังกิจกรรม (รอตรวจ)`);
   };
@@ -323,9 +355,9 @@ export default function App() {
   const exportDB = () => {
     const blob = new Blob([JSON.stringify(snapshot(camp, customVenues, brief, true), null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a');
-    a.href = url; a.download = `EQCamp_ฐานข้อมูล_${camp.docCode.replace(/[^\w-]+/g, '_')}.json`; document.body.appendChild(a); a.click(); a.remove();
+    a.href = url; a.download = `EQCamp_งาน_${camp.docCode.replace(/[^\w-]+/g, '_')}_${(camp.school || '').replace(/\s+/g, '')}.json`; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1500);
-    flash('ส่งออกฐานข้อมูล (.json) แล้ว — ใช้สำรอง/แชร์ให้ทีม แล้วกด "นำเข้า" เพื่อเปิดต่อได้');
+    flash('ส่งออกงาน (.json รวมภาพ) แล้ว — เปิดต่อเครื่องอื่นด้วยปุ่ม "นำเข้างาน"');
   };
   const importDB = (file?: File) => {
     if (!file) return;
@@ -335,13 +367,13 @@ export default function App() {
         const snap = JSON.parse(String(r.result));
         if (!snap.camp) throw new Error('ไฟล์ไม่ใช่ฐานข้อมูล EQ Camp');
         const { camp: c, venues, brief: b } = rehydrate(snap);
-        setCamp(c); setCustomVenues(venues); if (b) setBrief(b);
-        flash('นำเข้าฐานข้อมูลเรียบร้อย');
+        startNewJob(c); setCamp(c); setCustomVenues(venues); if (b) setBrief(b);
+        flash('นำเข้างานเรียบร้อย — บันทึกไว้ใน "งานของฉัน" แล้ว');
       } catch (e) { flash('นำเข้าไม่สำเร็จ: ' + (e as Error).message, false); }
     };
     r.readAsText(file);
   };
-  const resetDB = () => { if (!confirm('ล้างข้อมูลที่บันทึกไว้ทั้งหมด และเริ่มจากแม่แบบ PL 0109 ใหม่?')) return; try { localStorage.removeItem(LS_KEY); } catch {} setCamp(fromPreset('pl0109')); setCustomVenues([]); flash('ล้างและรีเซ็ตเป็นแม่แบบเริ่มต้นแล้ว'); };
+  const resetDB = () => { if (!confirm('เริ่มงานใหม่จากแม่แบบ PL 0109? (งานปัจจุบันถูกบันทึกไว้ใน "งานของฉัน" แล้ว)')) return; try { localStorage.removeItem(LS_KEY); } catch {} startNewJob(fromPreset('pl0109')); setCamp(fromPreset('pl0109')); setCustomVenues([]); flash('ล้างและรีเซ็ตเป็นแม่แบบเริ่มต้นแล้ว'); };
 
   const toBlob = async (doc: ReturnType<typeof buildDoc>): Promise<Blob> => {
     const MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -769,6 +801,8 @@ export default function App() {
             <h2 className="text-[16px] font-semibold">เลือกเอกสาร</h2>
             <div className="flex items-center gap-1.5">
               
+              <span className="hidden sm:inline text-[12.5px] text-sub mr-1" aria-live="polite">{jobs.some(j => j.id === jobId) ? `บันทึกอัตโนมัติ · ${ago(jobs.find(j => j.id === jobId)!.savedAt)}` : ''}</span>
+              <button onClick={() => setTab('brief')} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-brand-navy font-medium hover:bg-paper">งานของฉัน{jobs.length ? ` (${jobs.length})` : ''}</button>
               <button onClick={exportDB} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-brand-ink hover:bg-paper">ส่งออกงาน</button>
               <button onClick={() => fileInput.current?.click()} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-brand-ink hover:bg-paper">นำเข้างาน</button>
               <button onClick={resetDB} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-rose-700 hover:bg-paper">เริ่มใหม่</button>
@@ -822,6 +856,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-brand-mist shadow-card p-4 sm:p-5">
               {tab === 'brief' && (
                 <div className="space-y-4">
+                  <JobsPanel jobs={jobs} current={jobId} onOpen={openJob} onCopy={copyJob} onDelete={deleteJob} />
                   <SectionTitle title="บรีฟจากลูกค้า" sub="วางข้อความบรีฟ ระบบเติมรหัส PL โรงเรียน จำนวนคน วิชา ระยะเวลา วันที่ สถานที่ และราคาให้" />
                   <label className="block"><span className="sr-only">ข้อความบรีฟ</span><textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-brand-mist text-[15px] leading-relaxed focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15" /></label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1094,7 +1129,8 @@ export default function App() {
                   </div>}
                   {plan.days.map(d => (
                     <div key={d.day} className="border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="bg-brand text-white text-[13.5px] font-semibold px-3 py-1.5">วันที่ {d.day}</div>
+                      <div className="bg-brand text-white text-[13.5px] font-semibold px-3 py-1.5 flex items-center justify-between gap-2"><span>วันที่ {d.day}</span><span className="font-normal text-white/80">เลิก {dayEndOf(d) || '-'} น.</span></div>
+                      <DayTools camp={camp} plan={plan} day={d.day} set={set} />
                       <div className="divide-y divide-slate-100">
                         {d.items.map((r, i) => (
                           editRow && editRow.day === d.day && editRow.i === i
@@ -1102,6 +1138,8 @@ export default function App() {
                             : <div key={i} className="group flex gap-2 px-2.5 py-1.5 text-[13px]">
                             <span className="font-semibold text-sub w-28 shrink-0">{r.time}</span>
                             <span className="text-slate-800 flex-1 min-w-0">
+                              {r.ext && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">ช่วงที่ขยาย</span>}
+                              {r.added !== undefined && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">เพิ่มเอง</span>}
                               {r.orig && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-amber-50 text-amber-800 text-[11px] font-semibold">{r.party && camp.partyTheme && !(camp.rowEdits || []).some(e => e.day === d.day && e.from === r.orig) ? 'ธีมปาร์ตี้' : 'แก้แล้ว'}</span>}
                               {r.slot !== undefined && <span className="inline-block mb-0.5 px-1 rounded bg-brand-mist text-brand text-[11px] font-semibold">กิจกรรมหลัก #{r.slot + 1}</span>}
                               <span className="block">{r.title}{r.sub?.map((s, j) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
@@ -1850,26 +1888,123 @@ function PartyPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof b
   );
 }
 /* แก้ไขแถวกำหนดการ (เวลา/ชื่อ/ลบ/คืนค่าเดิม) → camp.rowEdits อ้างวัน + ชื่อแถวเดิม */
+/* งานของฉัน: ทุกงานบันทึกอัตโนมัติในเครื่องนี้ — เปิดทำต่อ / ทำสำเนา (ใช้เป็นแม่แบบงานใหม่) / ลบ */
+function JobsPanel({ jobs, current, onOpen, onCopy, onDelete }: { jobs: Job[]; current: string; onOpen: (j: Job) => void; onCopy: (j: Job) => void; onDelete: (j: Job) => void }) {
+  const [q, setQ] = useState(''); const [all, setAll] = useState(false);
+  if (!jobs.length) return (
+    <div className="rounded-xl border border-brand-mist bg-white px-3.5 py-3 text-[13.5px] text-sub">งานของฉัน: ยังไม่มีงานที่บันทึกไว้ — เริ่มจากวางบรีฟด้านล่าง ระบบบันทึกให้อัตโนมัติ เปิดทำต่อได้ทุกเมื่อ</div>);
+  const list = jobs.filter(j => !q || `${j.name} ${j.course} ${j.dates} ${j.snap?.camp?.docCode || ''}`.toLowerCase().includes(q.toLowerCase()));
+  const shown = all || q ? list : list.slice(0, 4);
+  return (
+    <div className="rounded-xl border border-brand-mist bg-white overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 border-b border-brand-mist">
+        <div><div className="text-[15px] font-semibold">งานของฉัน</div><div className="text-[12.5px] text-sub">บันทึกอัตโนมัติทุกครั้งที่แก้ · เปิดทำต่อได้ทุกเมื่อ (เก็บในเครื่องนี้ — ย้ายเครื่องใช้ "ส่งออกงาน")</div></div>
+        {jobs.length > 4 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน/หลักสูตร" aria-label="ค้นหางาน" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-[13.5px] w-48" />}
+      </div>
+      <ul className="divide-y divide-brand-mist">
+        {shown.map(j => (
+          <li key={j.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${j.id === current ? 'bg-paper' : ''}`}>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14.5px] font-semibold truncate">{j.name}{j.id === current && <span className="ml-2 text-[12px] font-medium text-brand-navy">กำลังทำอยู่</span>}</div>
+              <div className="text-[12.5px] text-sub truncate">{[j.course, j.duration, j.dates].filter(Boolean).join(' · ')} · แก้ล่าสุด {ago(j.savedAt)}{j.files ? ` · สร้างไฟล์แล้ว ${j.files} ครั้ง` : ''}</div>
+            </div>
+            <div className="flex gap-1.5 text-[13px]">
+              {j.id !== current && <button onClick={() => onOpen(j)} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">เปิดทำต่อ</button>}
+              <button onClick={() => onCopy(j)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist">ทำสำเนา</button>
+              <button onClick={() => onDelete(j)} aria-label={`ลบงาน ${j.name}`} className="tap px-2.5 py-1.5 rounded-lg text-rose-600">ลบ</button>
+            </div>
+          </li>))}
+      </ul>
+      {!q && list.length > 4 && <button onClick={() => setAll(!all)} className="tap w-full py-2 text-[13px] text-brand-navy border-t border-brand-mist">{all ? 'ย่อรายการ' : `ดูทั้งหมด ${list.length} งาน`}</button>}
+    </div>);
+}
+/* ตัวเลือกชื่อรายการ: กิจกรรมจริงของหลักสูตรวันนั้น + รายการทั่วไป (datalist ช่วยพิมพ์ — พิมพ์เองได้) */
+const COMMON_ROWS = ['รับประทานอาหารเช้า', 'รับประทานอาหารกลางวัน', 'รับประทานอาหารเย็น', 'รับประทานอาหารว่าง', 'ถอดบทเรียน AAR (After Action Review)', 'สรุปกิจกรรม และพิธีปิด', 'เดินทางกลับโดยสวัสดิภาพ', 'พักผ่อนตามอัธยาศัย'];
+function ActOptions({ camp, day }: { camp: Camp; day: number }) {
+  const code = dayCourseOf(camp, day - 1) || camp.courseCode || '';
+  const names = useMemo(() => Array.from(new Set((code ? addonActivities(code) : []).map(a => a.title.replace(/\s*[-–]?\s*(Part|EP)\.?\s*\d+\s*$/i, '').trim()))), [code]);
+  return <datalist id={`acts-d${day}`}>{[...names, ...COMMON_ROWS].map(n => <option key={n} value={n} />)}</datalist>;
+}
+const hmIn = (v: string) => v.replace(':', '.');            // <input type=time> "13:30" → "13.30"
+const hmOut = (v?: string) => { const m = parseHM(v); return m === null ? '' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+const END_OPTS = ['12.00', '13.00', '14.00', '15.00', '15.30', '16.00', '16.30', '17.00', '18.00', '20.00', '21.00', '21.30', '22.00'];
+/* เครื่องมือรายวัน: ขยายเวลาเลิก (ระบบเติมกิจกรรม/อาหารให้ แล้วเลื่อนพิธีปิด-เดินทางกลับไปท้าย) + เพิ่มช่วงเวลาเอง */
+function DayTools({ camp, plan, day, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; day: number; set: (p: Partial<Camp>) => void }) {
+  const ext = (camp.dayExtends || []).find(x => x.day === day);
+  const others = (camp.dayExtends || []).filter(x => x.day !== day);
+  // เวลาเลิกตามแม่แบบ (ก่อนขยาย)
+  const baseEnd = useMemo(() => { const p = buildSchedule({ ...camp, dayExtends: others.length ? others : undefined }); const d = p.days[day - 1]; return d ? dayEndOf(d) : ''; }, [camp, day]);
+  const baseMin = parseHM(baseEnd) ?? 0;
+  const [adding, setAdding] = useState(false);
+  const d = plan.days[day - 1]; const endNow = d ? dayEndOf(d) : '';
+  const [st, setSt] = useState(''); const [en, setEn] = useState(''); const [ti, setTi] = useState(''); const [sub, setSub] = useState('');
+  const open = () => { const e = parseHM(endNow) ?? 9 * 60; const a = Math.max(0, e - 60); setSt(hmOut(`${Math.floor(a / 60)}.${String(a % 60).padStart(2, '0')}`)); setEn(hmOut(endNow)); setTi(''); setSub(''); setAdding(true); };
+  const setEnd = (v: string) => set({ dayExtends: v ? [...others, { day, end: v }] : (others.length ? others : undefined) });
+  const opts = END_OPTS.filter(o => (parseHM(o) ?? 0) >= baseMin + 30);
+  const lastRet = d && d.items.length ? d.items[d.items.length - 1] : null;
+  const afterReturn = adding && lastRet && /เดินทางกลับ|เป็นต้นไป|Come back/i.test(lastRet.title) && (parseHM(hmIn(st)) ?? 0) >= (parseHM(lastRet.time) ?? 9999);
+  const saveAdd = () => {
+    const a = hmIn(st), b = hmIn(en); if (!ti.trim() || parseHM(a) === null) return;
+    const time = parseHM(b) !== null && (parseHM(b)! > parseHM(a)!) ? `${a} – ${b} น.` : `${a} น.`;
+    set({ rowAdds: [...(camp.rowAdds || []), { day, time, title: ti.trim(), sub: sub.split('\n').map(x => x.trim()).filter(Boolean) }] }); setAdding(false);
+  };
+  return (
+    <div className="px-3 py-2 bg-paper border-b border-brand-mist text-[13.5px] space-y-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="flex items-center gap-2"><span className="text-sub">ขยายเวลาเลิกถึง</span>
+          <select value={ext ? ext.end : ''} onChange={e => setEnd(e.target.value)} className="px-2 py-1.5 rounded-lg border border-brand-mist bg-white text-[13.5px]" aria-label={`ขยายเวลาเลิกวันที่ ${day}`}>
+            <option value="">ตามแม่แบบ ({baseEnd || '-'} น.)</option>
+            {opts.map(o => <option key={o} value={o}>{o} น.</option>)}
+            {ext && !opts.includes(ext.end) && <option value={ext.end}>{ext.end} น.</option>}
+          </select>
+        </label>
+        <button onClick={() => (adding ? setAdding(false) : open())} className="tap px-3 py-1.5 rounded-lg border border-brand-mist bg-white hover:bg-white/70 font-medium">{adding ? 'ปิด' : '+ เพิ่มช่วงเวลา'}</button>
+        {ext && <span className="text-sub">ระบบเติมกิจกรรมของหลักสูตรให้ แล้วเลื่อนพิธีปิด/เดินทางกลับไป {ext.end} น. · แตะ "แก้ไข" ที่แถวเพื่อเปลี่ยนกิจกรรม</span>}
+      </div>
+      {adding && (
+        <div className="bg-white border border-brand-mist rounded-lg p-2.5 space-y-2">
+          <div className="grid gap-2 grid-cols-2 sm:grid-cols-[8rem_8rem_1fr]">
+            <label className="text-[12.5px] text-sub">เริ่ม<input type="time" step={300} value={st} onChange={e => setSt(e.target.value)} className="mt-0.5 w-full border border-brand-mist rounded-lg px-2 py-1.5 text-[14px] text-brand-ink" /></label>
+            <label className="text-[12.5px] text-sub">ถึง<input type="time" step={300} value={en} onChange={e => setEn(e.target.value)} className="mt-0.5 w-full border border-brand-mist rounded-lg px-2 py-1.5 text-[14px] text-brand-ink" /></label>
+            <label className="text-[12.5px] text-sub col-span-2 sm:col-span-1">รายการ<input value={ti} onChange={e => setTi(e.target.value)} list={`acts-d${day}`} placeholder="เลือกกิจกรรมของหลักสูตร หรือพิมพ์เอง" className="mt-0.5 w-full border border-brand-mist rounded-lg px-2.5 py-1.5 text-[14px] text-brand-ink" /></label>
+          </div>
+          <textarea value={sub} onChange={e => setSub(e.target.value)} rows={1} placeholder="รายละเอียด (บรรทัดละ 1 ข้อ ไม่ใส่ก็ได้)" className="w-full border border-brand-mist rounded-lg px-2.5 py-1.5 text-[13.5px]" />
+          {afterReturn && <div className="text-[12.5px] text-amber-800">ช่วงนี้อยู่หลังเวลาเดินทางกลับ — ถ้าต้องการให้ค่ายจบช้าลง ใช้ "ขยายเวลาเลิกถึง" ด้านบน (ระบบเลื่อนเวลากลับให้)</div>}
+          <div className="flex gap-2"><button onClick={saveAdd} disabled={!ti.trim() || !st} className="tap px-3.5 py-1.5 rounded-lg bg-brand-navy text-white font-medium disabled:opacity-40">เพิ่มลงกำหนดการ</button><button onClick={() => setAdding(false)} className="tap px-3.5 py-1.5 rounded-lg border border-brand-mist bg-white">ยกเลิก</button></div>
+          <ActOptions camp={camp} day={day} />
+        </div>)}
+    </div>);
+}
 function RowEditForm({ day, row, camp, set, onDone }: { day: number; row: any; camp: Camp; set: (p: Partial<Camp>) => void; onDone: () => void }) {
   const from = row.orig ?? row.title;
   const [title, setTitle] = useState(row.title); const [time, setTime] = useState(row.time); const [sub, setSub] = useState((row.sub || []).join('\n'));
   const others = (camp.rowEdits || []).filter(e => !(e.day === day && e.from === from));
-  const save = (patch: { to?: string; time?: string; sub?: string[] } | null) => { set({ rowEdits: patch ? [...others, { day, from, ...patch }] : (others.length ? others : undefined) }); onDone(); };
+  const isAdd = row.added !== undefined;
+  const save = (patch: { to?: string; time?: string; sub?: string[] } | null) => {
+    if (isAdd) {   // ช่วงที่เพิ่มเอง: แก้/ลบที่รายการ rowAdds โดยตรง
+      const arr = [...(camp.rowAdds || [])];
+      if (patch && patch.to === '') arr.splice(row.added, 1);
+      else if (patch) arr[row.added] = { day, time: patch.time || row.time, title: patch.to || row.title, sub: patch.sub };
+      set({ rowAdds: arr.length ? arr : undefined }); onDone(); return;
+    }
+    set({ rowEdits: patch ? [...others, { day, from, ...patch }] : (others.length ? others : undefined) }); onDone();
+  };
   const edited = (camp.rowEdits || []).some(e => e.day === day && e.from === from);
   return (
     <div className="px-2.5 py-2.5 bg-paper space-y-2">
       <div className="grid gap-2 sm:grid-cols-[9rem_1fr]">
         <input value={time} onChange={e => setTime(e.target.value)} aria-label="เวลา" className="border border-brand-mist rounded-lg px-2.5 py-2 text-[14px] bg-white" />
-        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save({ to: title.trim() || row.title, time: time.trim() || row.time, sub: sub.split('\n').map(x => x.trim()).filter(Boolean) }); if (e.key === 'Escape') onDone(); }} aria-label="ชื่อรายการ" className="border border-brand-mist rounded-lg px-2.5 py-2 text-[14px] bg-white" />
+        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') save({ to: title.trim() || row.title, time: time.trim() || row.time, sub: sub.split('\n').map(x => x.trim()).filter(Boolean) }); if (e.key === 'Escape') onDone(); }} aria-label="ชื่อรายการ" list={`acts-d${day}`} className="border border-brand-mist rounded-lg px-2.5 py-2 text-[14px] bg-white" />
       </div>
       <textarea value={sub} onChange={e => setSub(e.target.value)} rows={Math.min(4, Math.max(1, sub.split('\n').length))} placeholder="รายละเอียดใต้รายการ (บรรทัดละ 1 ข้อ ไม่ใส่ก็ได้)" aria-label="รายละเอียด" className="w-full border border-brand-mist rounded-lg px-2.5 py-2 text-[13.5px] bg-white" />
       <div className="flex flex-wrap gap-2 text-[13.5px]">
         <button onClick={() => save({ to: title.trim() || row.title, time: time.trim() || row.time, sub: sub.split('\n').map(x => x.trim()).filter(Boolean) })} className="tap px-3.5 py-1.5 rounded-lg bg-brand-navy text-white font-medium">บันทึก</button>
         <button onClick={onDone} className="tap px-3.5 py-1.5 rounded-lg border border-brand-mist bg-white">ยกเลิก</button>
-        {edited && <button onClick={() => save(null)} className="tap px-3.5 py-1.5 rounded-lg border border-brand-mist bg-white">คืนค่าเดิม</button>}
+        {edited && !isAdd && <button onClick={() => save(null)} className="tap px-3.5 py-1.5 rounded-lg border border-brand-mist bg-white">คืนค่าเดิม</button>}
         <button onClick={() => save({ to: '' })} className="tap px-3.5 py-1.5 rounded-lg text-rose-600 ml-auto">ลบแถวนี้</button>
       </div>
-      <div className="text-[12px] text-sub">ต้นฉบับ: {from}</div>
+      {!isAdd && <div className="text-[12px] text-sub">ต้นฉบับ: {from}</div>}
+      <ActOptions camp={camp} day={day} />
     </div>
   );
 }
