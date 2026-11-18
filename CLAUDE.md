@@ -208,6 +208,15 @@ npm install && npm run build && npm run samples && npm run validate && npm run s
 - ชื่อยาวขึ้นจนเพิ่มบรรทัด (≈66 ตัวอักษรฐาน/บรรทัดที่ 18 pt) → กิจกรรมเชิงบูรณาการลดเท่าจำนวนบรรทัดที่เพิ่ม (`composeBase(c, plan, titleExtraLines)`) · STM ที่ชื่อไทย+อังกฤษอยู่บรรทัดเดียว → แยกอังกฤษเป็นบรรทัดล่าง "( … Camp 2026 )" — ตรวจ LibreOffice 45 แม่แบบ × Add-on 3 วิชา + mix: ปกหน้าเดียวทุกชุด (CHI 2 หน้าตามต้นฉบับ)
 - UI: แผง Add-on และธีมรายวันโชว์ "ชื่อค่ายในเอกสาร" (`JoinedTitle`) · stress ตรวจ: วิชาที่ร่วมต้องอยู่ในชื่อ + บรรทัดระยะเวลา/สถานที่ห้ามมี "กิจกรรมเสริม"/"วันที่ n"
 
+## ไฟล์คมชัด + หัวกระดาษใหม่ + ภาพกิจกรรมชุดใหม่ (ยกทั้งชุด) (18 พ.ย. 2569)
+- **ปัญหาที่ผู้ใช้เจอ: เซฟแล้วภาพแตก ข้อความไม่ชัด** — สาเหตุ: PDF วาดภาพถ่ายผ่าน html2canvas (ภาพถูกย่อ/บีบซ้ำ ~170 dpi) + หัวกระดาษ 2500 px จากโลโก้ crop เล็ก (237 px) + แถบท้าย 1000 px
+- **PDF**: หน้าภาพวาดไฟล์ภาพจริงลง PDF ตรง (`photoPage` ใน App.tsx: ครอป 4:3 จากไฟล์ → canvas 1200 px (มือถือ 1000) JPEG 0.88 → `pdf.addImage`) ไม่ผ่าน html2canvas ≈ 400 dpi · กริด 2 คอลัมน์ ขนาดเท่ากันทุกใบ รูปเศษจัดกึ่งกลาง · ข้อความเรนเดอร์ scale 3 (มือถือ 2.2)
+- **หัวกระดาษ** `scripts/gen-letterheads.cjs` → 3000×360 (2.4×): โลโก้ความละเอียดสูง + ไอคอนโทร/เว็บ/อีเมลแยกบรรทัด ครอปจากไฟล์ทีม BRD-002 (Drive 04_ภาพและแบรนด์) → `scripts/letterhead-assets/logo_full.png, ic_*.png` · ชื่อบริษัทกรมท่า 18 pt · เส้นคู่กรมท่า+ฟ้า · **ท้ายกระดาษ** `scripts/gen-footer.cjs` → `src/footer-data.ts` (3000 px แทนภาพ 1000 px เดิม)
+- **ภาพกิจกรรมชุดใหม่** `src/fresh-photos-data.ts` (`FRESH_PHOTOS`): คัดจาก Drive โฟลเดอร์ค่ายรายหลักสูตร (ใต้ 17d75FUovLeWHvKNfvijYad3496ok0Y6M) เฉพาะภาพปี 2568–2569 ไม่มีภาพยุคใส่หน้ากาก · TI 8 (Drone ก.พ.69) · STM 8 (3D Printer ก.พ.69) · COD/FOR/ENV/ENG/MAT 6 · LEA 5 · CHI 1 (ชุดใหม่ <6 → เติมจากไฟล์ค่าย) · ครอป 4:3 1600 px q85 → `web/photos/n*.jpg` + `t_n*.jpg` · ยังไม่มีชุดใหม่: SEA/AST/PRE/GEO/ITD (ใช้ภาพจากไฟล์ค่ายเดิม — ทีมส่งภาพใหม่ได้)
+- **ยกทั้งชุด**: `camp.photoSet?` (`fresh:<รหัส>` / `tpl:<id แม่แบบ>`, schema optional) · `photoSetsFor(code)` · ค่าเริ่ม = ชุดใหม่ล่าสุด · UI `PhotoSetPicker` ขั้น "ภาพ" (การ์ดตัวอย่าง 4 รูป แตะ = เปลี่ยนทั้งชุด)
+- แก้แถวแม่แบบ TI ที่แกะผิด "- 10030 น." → "10.00 – 10.30 น. เรียนรู้พื้นฐาน (...)" (ทั้ง raw + ts)
+- ทดสอบ: `scripts/qa/pdf-capture.cjs "<บรีฟ>" /tmp/x.pdf` (Playwright บนเว็บ localhost:8765 → PDF + Word) · e2e-full ปรับเกณฑ์ธีมรายวัน (ชื่อค่ายรวม STEM แทนข้อความท้ายบรรทัดระยะเวลาเดิม)
+
 ## ทำงานร่วมกับ ChatGPT/Codex
 branch → commit → PR เข้า main; ก่อนเริ่ม `git pull`. แก้ `src/eqcamp-core.ts` หรือ `schema.json` ต้องระบุชัดใน PR (ดู AI_HANDOFF.md)
 

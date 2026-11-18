@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoSetsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
   showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, scheduleActs, actInSchedule, PARTY_THEMES, isPartyRow, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
@@ -472,8 +472,8 @@ export default function App() {
       const ul = (arr: string[]) => arr.map(x => `<div class="li"><span class="n">-</span><span class="x">${esc(x)}</span></div>`).join('');
       const has = (s?: string) => !!(s && s.trim() && !s.includes('...'));
       const lh = letterheadFor(camp);
-      // ความคมชัด: ตัวอักษรเรนเดอร์ 2.5 เท่า (มือถือ 2 เท่า กันหน่วยความจำเต็ม) + เก็บเป็น PNG (ขอบตัวอักษรไม่เบลอแบบ JPEG)
-      const SCALE = IS_MOBILE ? 2 : 2.5;
+      // ความคมชัด: ตัวอักษรเรนเดอร์ 3 เท่า ≈ 330 dpi (มือถือ 2.2 เท่า กันหน่วยความจำเต็ม) + เก็บเป็น PNG (ขอบตัวอักษรไม่เบลอแบบ JPEG)
+      const SCALE = IS_MOBILE ? 2.2 : 3;
       const MAX_PX = 15_000_000; // iOS Safari จำกัดพื้นที่ canvas ~16.7 ล้านพิกเซล
       const renderCanvas = async (inner: string) => {
         const w = document.createElement('div'); w.className = 'eqpdf';
@@ -560,25 +560,43 @@ export default function App() {
         kk.budget.map(x => `<div class="dl"><span class="d">-</span><span class="x">${esc(x)}</span></div>`).join(''),
         { newpage: true });
 
-      // ---- ภาพประกอบ 6–8 รูป: กริด 2 คอลัมน์ มีกรอบ + หมายเลข + คำบรรยายใต้รูป · แต่ละชุดขึ้นหน้าใหม่ ----
-      // แปลงภาพเป็น base64 ทีละก้อน (เร็วกว่าทีละไบต์มาก บนมือถือ)
-      const u8b64 = (u: Uint8Array) => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, Array.from(u.subarray(i, i + 0x8000))); return btoa(s); };
-      const realCap = realCaption;
-      // ภาพจากไฟล์ค่าย: ไม่มีเลข/ข้อความใต้ภาพ — แสดงคำบรรยายเฉพาะที่ทีมพิมพ์เอง
-      const cell = (src: string, _n: number, cap: string) => `<div class="pcell"><div class="pf">${src}</div>${cap ? `<div class="cap">${esc(cap)}</div>` : ''}</div>`;
-      // >4 รูป → สัดส่วน 16/9 ให้ครบ 8 รูปพอดีหน้าเดียว; ≤4 รูป → 4/3
-      const gridOf = (cells: string[]) => { const a = cells.length > 4 ? '16/9' : '4/3'; return `<div class="pgrid" style="--a:${a}">${cells.slice(0, 8).join('')}</div>`; };
+      // ภาพ: วาดไฟล์ภาพจริงลง PDF โดยตรง (ไม่ผ่าน html2canvas) → คมเท่าต้นฉบับ · ครอป 4:3 เท่ากันทุกใบ · กริด 2 คอลัมน์ จัดกึ่งกลาง
+      const toBitmap = (u8: Uint8Array): Promise<HTMLImageElement> => new Promise((ok, bad) => {
+        const url = URL.createObjectURL(new Blob([u8], { type: u8[0] === 0x89 ? 'image/png' : 'image/jpeg' }));
+        const im = new Image(); im.onload = () => { URL.revokeObjectURL(url); ok(im); }; im.onerror = () => { URL.revokeObjectURL(url); bad(new Error('image')); }; im.src = url;
+      });
+      const crop43 = async (u8: Uint8Array): Promise<string | null> => {
+        try {
+          const im = await toBitmap(u8); const w = im.naturalWidth, h = im.naturalHeight; if (!w || !h) return null;
+          let cw = w, ch = Math.round(w * 3 / 4); if (ch > h) { ch = h; cw = Math.round(h * 4 / 3); }
+          const sx = Math.round((w - cw) / 2), sy = Math.round((h - ch) * 0.35);
+          const outW = Math.min(cw, IS_MOBILE ? 1000 : 1200), outH = Math.round(outW * 3 / 4);
+          const cv = document.createElement('canvas'); cv.width = outW; cv.height = outH;
+          const ctx = cv.getContext('2d')!; ctx.imageSmoothingQuality = 'high'; ctx.drawImage(im, sx, sy, cw, ch, 0, 0, outW, outH);
+          const d = cv.toDataURL('image/jpeg', 0.88); cv.width = 0; cv.height = 0; return d;
+        } catch { return null; }
+      };
+      const photoPage = async (title: string, imgs: Img[]) => {
+        const list = imgs.filter(a => a.data).slice(0, 8); if (!list.length) return 0;
+        await place(`<div class="phead">${esc(title)}</div>`, { newpage: true, gap: 2 });
+        const gap = 4, avail = pageH - bottomM - y, rows = Math.ceil(list.length / 2);
+        const capH = list.some(a => realCaption(a.caption)) ? 6 : 0;
+        const ch = Math.min((contentW - gap) / 2 * 3 / 4, (avail - (rows - 1) * gap) / rows - capH), cw = ch * 4 / 3;
+        const x0 = M + (contentW - (2 * cw + gap)) / 2;
+        for (const [i, a] of list.entries()) {
+          const d = await crop43(a.data!); if (!d) continue;
+          const col = list.length === 1 ? 0.5 : i % 2, row = Math.floor(i / 2);
+          const lone = i === list.length - 1 && list.length % 2 === 1;   // รูปสุดท้ายเศษ → จัดกึ่งกลาง
+          const x = lone ? M + (contentW - cw) / 2 : x0 + col * (cw + gap), yy = y + row * (ch + capH + gap);
+          pdf.addImage(d, 'JPEG', x, yy, cw, ch, undefined, 'MEDIUM');
+          if (capH && realCaption(a.caption)) { pdf.setFont(docFont, 'normal'); pdf.setFontSize(13); pdf.setTextColor(70); pdf.text(a.caption.trim(), x + cw / 2, yy + ch + 4.2, { align: 'center' }); }
+        }
+        y += rows * (ch + capH + gap);
+        return list.length;
+      };
       let photoCount = 0;
-      const withData = camp.actImgs.filter(a => a.data);
-      let actCells: string[] = [];
-      if (withData.length) actCells = withData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : ''));
-      if (actCells.length) { await step('ภาพกิจกรรม', 75); photoCount += actCells.length; await place(`<div class="phead">ตัวอย่างภาพกิจกรรม</div>${gridOf(actCells)}`, { newpage: true, photo: true }); }
-      const venueData = camp.venueImgs.filter(a => a.data);
-      if (venueData.length) {
-        const vCells = venueData.slice(0, 8).map((a, i) => cell(`<img src="data:${a.data![0] === 0x89 ? 'image/png' : 'image/jpeg'};base64,${u8b64(a.data!)}">`, i + 1, realCap(a.caption) ? a.caption! : ''));
-        photoCount += vCells.length; await step('ภาพที่พัก', 85);
-        await place(`<div class="phead">ตัวอย่างภาพบรรยากาศที่พัก ${esc(camp.venue || '')}</div>${gridOf(vCells)}`, { newpage: true, photo: true });
-      }
+      if (camp.actImgs.some(a => a.data)) { await step('ภาพกิจกรรม', 75); photoCount += await photoPage('ตัวอย่างภาพกิจกรรม', camp.actImgs); }
+      if (camp.venueImgs.some(a => a.data)) { await step('ภาพที่พัก', 85); photoCount += await photoPage(`ตัวอย่างภาพบรรยากาศที่พัก ${camp.venue || ''}`.trim(), camp.venueImgs); }
       if (isSteamProgram(camp) && !plan.tpl) await place(`<div class="phead">ตัวอย่างภาพกิจกรรมค่าย STEAM</div><div style="text-align:center"><img style="width:92%;border:1px solid #cbd0d6;border-radius:4px" src="data:image/jpeg;base64,${STEAM_GALLERY.b64}"></div>`, { newpage: true, photo: true });
 
       await step('รวมไฟล์ PDF', 95);
@@ -1148,6 +1166,7 @@ export default function App() {
                         : plan.tpl ? `ภาพจากไฟล์ ${plan.tpl.source.replace('__', ' · ')}` : ''}
                     </span>
                   </div>
+                  <PhotoSetPicker camp={camp} onPick={id => { setCamp(c => ({ ...c, photoSet: id, actImgs: [] })); setPhotoNonce(n => n + 1); flash('เปลี่ยนชุดภาพกิจกรรมทั้งชุดแล้ว'); }} />
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
                       <div className="flex items-center justify-between mb-1.5">
@@ -1626,6 +1645,35 @@ function SaveSheet({ sheet, onClose, download }: { sheet: { files: { blob: Blob;
 
 /* กิจกรรมเสริม (Add-on): ค่ายหลัก + อังกฤษ/จีน/คณิต — ระบบแทรกลงกำหนดการให้เอง (core: applyAddons)
  * เลือกวิชา → (ไม่บังคับ) เลือกกิจกรรม/ความยาว/ราคาเพิ่มต่อท่าน — ทุกค่าแก้ได้ เอกสารทั้ง 4 ชิ้นอัปเดตทันที */
+/* ยกทั้งชุด: เลือกชุดภาพกิจกรรม 1 คลิก → แทนภาพทั้งหมดในเอกสาร (ภาพที่ทีมอัปโหลดเองจะถูกแทนด้วย) */
+function PhotoSetPicker({ camp, onPick }: { camp: Camp; onPick: (id: string) => void }) {
+  const sets = photoSetsFor(camp.courseCode);
+  if (!sets.length) return null;
+  const cur = photoIdsFor(camp).join(',');
+  return (
+    <div className="bg-white border border-brand-mist rounded-xl p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[15.5px] font-semibold">ชุดภาพกิจกรรม (ยกทั้งชุด)</div>
+        <div className="text-[13px] text-sub">แตะชุดเพื่อใช้ทั้งชุดในเอกสาร · ภาพครอป 4:3 เท่ากันทุกใบ</div>
+      </div>
+      <div className="grid gap-3 mt-3 sm:grid-cols-2" role="radiogroup" aria-label="ชุดภาพกิจกรรม">
+        {sets.map(st => { const on = st.ids.slice(0, 8).join(',') === cur; return (
+          <button key={st.id} role="radio" aria-checked={on} onClick={() => !on && onPick(st.id)}
+            className={`tap text-left rounded-xl border p-2.5 ${on ? 'border-brand-navy ring-2 ring-brand-navy/20' : 'border-brand-mist hover:bg-paper'}`}>
+            <div className="grid grid-cols-4 gap-1">
+              {st.ids.slice(0, 4).map(id => <img key={id} src={`${PHOTO_BASE}t_${id}.jpg`} alt="" className="w-full aspect-[4/3] object-cover rounded" loading="lazy" />)}
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[14px] font-semibold truncate">{st.label}{st.fresh ? ' · ใหม่' : ''}</div>
+                <div className="text-[12.5px] text-sub truncate">{st.source.replace('__', ' · ')} · {Math.min(8, st.ids.length)} รูป</div>
+              </div>
+              <span className={`text-[12.5px] font-semibold shrink-0 ${on ? 'text-brand-navy' : 'text-sub'}`}>{on ? '✓ ใช้อยู่' : 'ใช้ชุดนี้'}</span>
+            </div>
+          </button>); })}
+      </div>
+    </div>);
+}
 /* ชื่อค่ายรวมวิชา — โชว์ผลจริงที่จะลงเอกสาร (ชื่อไทย "…และภาษาอังกฤษ" + อังกฤษ "… & English Camp") */
 function JoinedTitle({ camp, plan }: { camp: Camp; plan: ReturnType<typeof buildSchedule> }) {
   const k = compose(camp, plan) as ReturnType<typeof compose> & { joined?: string[] };

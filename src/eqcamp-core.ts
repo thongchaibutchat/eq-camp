@@ -16,9 +16,11 @@ import type { CourseTemplate, TplSec } from './course-templates-data';
 export { TEMPLATES, PHOTO_META, VENUE_PHOTOS } from './course-templates-data';
 export type { CourseTemplate } from './course-templates-data';
 import { STEAM_GALLERY } from './steam-gallery-data';
+import { FRESH_PHOTOS } from './fresh-photos-data';
 export { STEAM_GALLERY } from './steam-gallery-data';
 import { BRAND } from './brand-data';
 import { FULL_HEADERS } from './letterhead-full-data';
+import { FOOTER_BAR } from './footer-data';
 import { FONT_NAME, FONT_REG_B64, FONT_BOLD_B64 } from './font-data';
 import { NOTION_ACTIVITIES, NOTION_DB_URL, NOTION_SYNCED } from './notion-activities-data';
 import type { NotionActivity } from './notion-activities-data';
@@ -48,6 +50,8 @@ export interface Camp {
   contactName: string; supplierNote: string; validDays: number; payTerms: string;
   /** แม่แบบเอกสารจริงที่เลือกเอง (id) · ว่าง = อัตโนมัติ (หลักสูตร+ระยะเวลา+พื้นที่) · 'engine' = ไม่ใช้แม่แบบ */
   templateId?: string;
+  /** ชุดภาพกิจกรรมที่เลือกทั้งชุด (photoSetsFor().id) · ว่าง = ชุดใหม่ล่าสุดของหลักสูตร (ถ้ามี) ไม่งั้นภาพจากไฟล์ค่าย */
+  photoSet?: string;
   activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
   /** กิจกรรมเสริม (Add-on) จากหลักสูตรอื่น (อังกฤษ/จีน/คณิต) แทรกลงกำหนดการค่ายหลัก */
@@ -158,7 +162,7 @@ export const showTeachers = (c: Pick<Camp, 'includeTeachers' | 'durationMode'>):
 export const docCodeFor = (code?: string): string => code ? `${code}/2569` : '';
 // ภาพกิจกรรมของหลักสูตร = ภาพที่อยู่ในไฟล์ PDF/Word โปรแกรมจริงของค่ายนั้น (ทุกระยะเวลา ไม่ซ้ำ) — ไม่ใช้ภาพจากแหล่งอื่น
 export const coursePhotoIds = (code?: string): string[] => {
-  const out: string[] = [];
+  const out: string[] = code && FRESH_PHOTOS[code] ? [...FRESH_PHOTOS[code].ids] : [];   // ภาพชุดใหม่ล่าสุดขึ้นก่อน
   for (const t of TEMPLATES) if (t.code === code) for (const h of t.photos) if (!out.includes(h)) out.push(h);
   return out;
 };
@@ -751,11 +755,35 @@ function budgetFromTemplate(lines: string[], c: Camp, plan: Plan, staff: string)
 }
 // ภาพที่ระบบดึงให้ค่ายนี้: ภาพกิจกรรมจากไฟล์ของแม่แบบที่ใช้ (6–8 รูป) · ภาพที่พักเฉพาะเมื่อที่พักในบรีฟตรงกับโรงแรมในไฟล์ทีม
 // (core ไม่โหลดไฟล์เอง — เว็บ fetch จาก photos/<id>.jpg, สคริปต์ node อ่านจาก web/photos)
+// ===== ชุดภาพ (ยกทั้งชุด) =====
+// ชุดใหม่ล่าสุดของหลักสูตร (FRESH_PHOTOS — ภาพปี 2568–2569 ครอป 4:3 ความละเอียดสูง) + ชุดภาพจากไฟล์โปรแกรมจริงแต่ละระยะเวลา
+export interface PhotoSet { id: string; label: string; source: string; ids: string[]; fresh?: boolean }
+export const photoSetsFor = (code?: string): PhotoSet[] => {
+  if (!code) return [];
+  const out: PhotoSet[] = [];
+  const f = FRESH_PHOTOS[code];
+  if (f && f.ids.length) out.push({ id: 'fresh:' + code, label: 'ภาพกิจกรรมล่าสุด', source: f.source, ids: f.ids, fresh: true });
+  const seen = new Set<string>();
+  for (const t of templatesOf(code)) {
+    const key = t.photos.join(','); if (!t.photos.length || seen.has(key)) continue; seen.add(key);
+    out.push({ id: 'tpl:' + t.id, label: `ภาพจากโปรแกรม ${durKeyLabel(t.dur)}${t.variant ? ' · ' + t.variant : ''}`, source: t.source || t.id, ids: t.photos });
+  }
+  return out;
+};
+// ชุดเริ่มต้นของหลักสูตร: ชุดใหม่ล่าสุด (ถ้ามี ≥6 รูป) ไม่งั้นภาพจากไฟล์ค่ายตามระยะเวลา (ชุดใหม่ที่มีไม่ถึง 6 → ขึ้นก่อน แล้วเติมจากไฟล์ค่าย)
+const defaultPhotoIds = (c: Camp): string[] => {
+  const f = c.courseCode ? FRESH_PHOTOS[c.courseCode] : undefined;
+  const p = templateFor(c); const tpl = p ? p.tpl.photos : [];
+  if (f && f.ids.length >= 6) return f.ids.slice(0, 8);
+  const ids = [...(f ? f.ids : [])]; for (const x of tpl) if (ids.length < 8 && !ids.includes(x)) ids.push(x);
+  return ids;
+};
 export const photoIdsFor = (c: Camp): string[] => {
-  if (!isMixed(c)) { const p = templateFor(c); return p ? p.tpl.photos.slice(0, 8) : []; }
+  if (c.photoSet) { const s = photoSetsFor(c.courseCode).find(x => x.id === c.photoSet); if (s) return s.ids.slice(0, 8); }
+  if (!isMixed(c)) return defaultPhotoIds(c);
   // ค่าย mix: ภาพจากไฟล์ของทุกหลักสูตรที่ใช้จริงในกำหนดการ สลับกันจนครบ 8
   const codes = Array.from(new Set(Array.from({ length: nDaysOf(c) }, (_, i) => dayCourseOf(c, i))));
-  const lists = codes.map(code => { const p = templateFor(code === c.courseCode ? c : campFor(c, code)); return p ? p.tpl.photos : []; });
+  const lists = codes.map(code => defaultPhotoIds(code === c.courseCode ? c : campFor(c, code)));
   const out: string[] = [];
   for (let k = 0; out.length < 8 && lists.some(l => k < l.length); k++) for (const l of lists) if (k < l.length && !out.includes(l[k]) && out.length < 8) out.push(l[k]);
   return out;
@@ -1659,8 +1687,8 @@ const brandHeader = (r: Region): Header => {
   return new Header({ children: [new Paragraph({ alignment: CTR, spacing: { after: 0, ...IMG_SP },
     children: [new ImageRun({ type: 'png', data: b64bytes(h.b64), transformation: { width: CONTENT_W_PX, height: Math.round(CONTENT_W_PX * h.h / h.w) } })] })] });
 };
-const letterheadFooter = (r: Region): Footer => {
-  const lh = LETTERHEADS[r];
+const letterheadFooter = (_r: Region): Footer => {
+  const lh = { footerPng: FOOTER_BAR.b64, footerW: FOOTER_BAR.w, footerH: FOOTER_BAR.h };   // แถบท้ายความละเอียดสูง (scripts/gen-footer.cjs)
   const pn = (child: any) => new TextRun({ children: [child], font: FONT, size: 24, sizeComplexScript: 24, color: '8E8E93' });
   const pnTxt = (t: string) => new TextRun({ text: t, font: FONT, size: 24, sizeComplexScript: 24, color: '8E8E93' });
   return new Footer({ children: [
