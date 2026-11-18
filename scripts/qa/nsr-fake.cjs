@@ -39,30 +39,46 @@ function makeStore(fixture) {
   }
   tabs.forEach(evalTab);
   const log = [];
+  let rev = 1, edit = 0; const touched = new Map(); const events = []; const jobs = new Map();
+  const touch = id => { touched.set(id, Date.now()); };
+  const bump = () => { rev = Date.now(); };
   const same = (a, b) => { const n = s => { const t = String(s ?? '').replace(/[฿,\s]/g, ''); return /^-?\d+(\.\d+)?%?$/.test(t) ? parseFloat(t) / (t.endsWith('%') ? 100 : 1) : null; }; const x = n(a), y = n(b); if (x !== null && y !== null) return Math.abs(x - y) < 0.5; return String(a || '').trim() === String(b || '').trim(); };
-  const handle = req => {
-    log.push(req);
-    if (req.key !== 'nsr-testkey') return { ok: false, error: 'key' };
-    if (req.op === 'list') return { ok: true, url: 'https://docs.google.com/spreadsheets/d/TESTSHEET0000000000000000/edit', tabs: tabs.map((t, i) => ({ title: t.title, sheetId: t.sheetId, index: i })) };
-    if (req.op === 'read') return { ok: true, tabs: (req.tabs || []).map(n => { const i = tabs.findIndex(t => t.title === n); if (i < 0) return { title: n, missing: true }; const t = tabs[i]; return { title: t.title, sheetId: t.sheetId, index: i, values: t.values, formulas: t.formulas }; }) };
-    if (req.op === 'create') {
-      if (tabs.some(t => t.title === req.title)) return { ok: false, error: 'exists' };
-      const rows = req.rows; const w = Math.max(13, ...rows.map(r => r.length));
-      const t = { title: req.title, sheetId: id++, values: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? '' : String(v ?? ''); })), formulas: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? v : ''; })) };
-      evalTab(t); tabs.splice(Math.min(req.index || 1, tabs.length), 0, t);
-      return { ok: true, sheetId: t.sheetId, title: t.title };
-    }
-    if (req.op === 'edit') {
-      const t = tabs.find(x => x.title === req.title); if (!t) return { ok: false, error: 'missing' };
-      const conflicts = (req.edits || []).filter(x => !same(t.values[x.r - 1][x.c - 1], x.was)).map(x => ({ r: x.r, c: x.c, now: t.values[x.r - 1][x.c - 1] }));
-      if (conflicts.length && !req.force) return { ok: false, error: 'conflict', conflicts };
-      for (const x of req.edits) { t.values[x.r - 1][x.c - 1] = String(x.v); t.formulas[x.r - 1][x.c - 1] = ''; }
-      evalTab(t); return { ok: true };
+  const route = req => {
+    switch (req.op) {
+      case 'rev': return { ok: true };
+      case 'nsr.list': return { ok: true, url: 'https://docs.google.com/spreadsheets/d/TESTSHEET0000000000000000/edit', tabs: tabs.map((t, i) => ({ title: t.title, sheetId: t.sheetId, index: i })) };
+      case 'nsr.read': return { ok: true, tabs: (req.tabs || []).map(n => { const i = tabs.findIndex(t => t.title === n); if (i < 0) return { title: n, missing: true }; const t = tabs[i]; return { title: t.title, sheetId: t.sheetId, index: i, values: t.values, formulas: t.formulas }; }) };
+      case 'nsr.changes': return { ok: true, ids: [...touched.entries()].filter(([, ts]) => ts > (Number(req.since) || 0)).map(([id]) => id) };
+      case 'nsr.create': {
+        if (tabs.some(t => t.title === req.title)) return { ok: false, error: 'exists' };
+        const rows = req.rows; const w = Math.max(13, ...rows.map(r => r.length));
+        const t = { title: req.title, sheetId: 50000 + tabs.length, values: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? '' : String(v ?? ''); })), formulas: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? v : ''; })) };
+        evalTab(t); tabs.splice(Math.min(req.index || 1, tabs.length), 0, t); touch(t.sheetId); bump();
+        return { ok: true, sheetId: t.sheetId, title: t.title };
+      }
+      case 'nsr.edit': {
+        const t = tabs.find(x => x.title === req.title); if (!t) return { ok: false, error: 'missing' };
+        const conflicts = (req.edits || []).filter(x => !same(t.values[x.r - 1][x.c - 1], x.was)).map(x => ({ r: x.r, c: x.c, now: t.values[x.r - 1][x.c - 1] }));
+        if (conflicts.length && !req.force) return { ok: false, error: 'conflict', conflicts };
+        for (const x of req.edits) { t.values[x.r - 1][x.c - 1] = String(x.v); t.formulas[x.r - 1][x.c - 1] = ''; }
+        evalTab(t); touch(t.sheetId); bump(); return { ok: true };
+      }
+      case 'log': { if (!req.ev || !req.ev.eid) return { ok: false, error: 'bad' }; if (!events.some(e => e.eid === req.ev.eid)) { events.push(req.ev); bump(); } return { ok: true }; }
+      case 'events': return { ok: true, events };
+      case 'jobs': return { ok: true, jobs: [...jobs.values()].map(({ snap, ...m }) => m) };
+      case 'job.get': { const j = jobs.get(req.id); return j ? { ok: true, job: j } : { ok: false, error: 'missing' }; }
+      case 'job.put': { const j = req.job || {}; if (!j.id || !j.snap) return { ok: false, error: 'bad' }; const now = new Date(Date.now() + 1).toISOString(); jobs.set(j.id, { ...j, savedAt: now, by: req.by || '', dev: req.dev || '', deleted: false }); bump(); return { ok: true, savedAt: now }; }
+      case 'job.del': { const j = jobs.get(req.id); if (j) { j.deleted = true; j.savedAt = new Date().toISOString(); bump(); } return { ok: true }; }
     }
     return { ok: false, error: 'op' };
   };
-  // แก้ค่าในชีตแทน "คนอื่น" (ทดสอบอัปเดตต่อเนื่อง)
-  const poke = (title, r, c, v) => { const t = tabs.find(x => x.title === title); t.values[r - 1][c - 1] = String(v); t.formulas[r - 1][c - 1] = ''; evalTab(t); };
-  return { handle, poke, tabs, log };
+  const handle = req => {
+    log.push(req);
+    if (req.key !== 'nsr-testkey') return { ok: false, error: 'key' };
+    const r = route(req); if (r.ok !== false) r.rev = rev + '.' + edit; return r;
+  };
+  // แก้ค่าในชีตแทน "คนอื่น" (จำลอง onEdit)
+  const poke = (title, r, c, v) => { const t = tabs.find(x => x.title === title); t.values[r - 1][c - 1] = String(v); t.formulas[r - 1][c - 1] = ''; evalTab(t); edit = Date.now(); touch(t.sheetId); };
+  return { handle, poke, tabs, log, events, jobs };
 }
 module.exports = { makeStore, evalTab };

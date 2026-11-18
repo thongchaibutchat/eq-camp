@@ -23,13 +23,13 @@ type Sec = typeof SECTIONS[number]['id'];
 export const splitName = (n: string) => { const m = n.replace(/^หลักสูตร/, '').match(/^(.*?)\s*\(([^)]*)\)\s*$/); return m ? { th: m[1], en: m[2] } : { th: n, en: '' }; };
 const card = 'bg-white rounded-xl border border-brand-mist';
 
-export default function DataHub({ venues, currentCourse, currentVenue, onUseCourse, onUseVenue, onUsePreset, initialSec }: {
-  venues: VenueRec[]; currentCourse?: string; currentVenue?: string; initialSec?: 'overview' | 'courses' | 'activities' | 'standard' | 'venues' | 'prices' | 'company';
+export default function DataHub({ venues, currentCourse, currentVenue, onUseCourse, onUseVenue, onUsePreset, initialSec, initialQ }: {
+  initialQ?: string; venues: VenueRec[]; currentCourse?: string; currentVenue?: string; initialSec?: 'overview' | 'courses' | 'activities' | 'standard' | 'venues' | 'prices' | 'company';
   onUseCourse: (code: string) => void; onUseVenue: (v: VenueRec) => void; onUsePreset: (id: string) => void;
 }) {
   const [sec, setSec] = useState<Sec>(initialSec || 'overview');
   const [open, setOpen] = useState<string | null>(currentCourse || null);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(initialQ || '');
   const [fCourse, setFCourse] = useState('');
   const [fKind, setFKind] = useState<'' | Kind>('');
   const [stdOpen, setStdOpen] = useState<string | null>(null);

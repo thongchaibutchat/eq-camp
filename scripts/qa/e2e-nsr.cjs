@@ -19,11 +19,11 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
       const res = r.method() === 'POST' ? store.handle(JSON.parse(r.postData())) : { ok: true };
       return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(res) });
     });
-    await ctx.addInitScript(([u]) => { try { if (!sessionStorage.getItem('init')) { localStorage.clear(); localStorage.setItem('eqcamp.nsr.url', u); localStorage.setItem('eqcamp.nsr.key', 'nsr-testkey'); sessionStorage.setItem('init', '1'); } } catch {} }, [URL_]);
+    await ctx.addInitScript(([u]) => { try { if (!sessionStorage.getItem('init')) { localStorage.clear(); localStorage.setItem('eqcamp.hub.url', u); localStorage.setItem('eqcamp.hub.key', 'nsr-testkey'); sessionStorage.setItem('init', '1'); } } catch {} }, [URL_]);
     await pg.goto(BASE + '/#/nsr'); await pg.waitForTimeout(1500);
     const body = async () => pg.locator('body').innerText();
     let t = await body();
-    ok('connected via Apps Script', /เชื่อมชีตแล้ว/.test(t), t.slice(0, 300));
+    ok('connected via team hub', /เชื่อมชีตแล้ว/.test(t), t.slice(0, 300));
     ok('nav has คำนวณ NSR', (await pg.getByRole('button', { name: 'คำนวณ NSR' }).count()) > 0);
     const list = pg.locator('section[aria-label="งานย้อนหลัง"] li button');
     ok('list shows 5 jobs (copy hidden, master excluded)', (await list.count()) === 5, String(await list.count()));
@@ -49,7 +49,7 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
     const saveBtn = pg.getByRole('button', { name: /บันทึกลงแท็บเดิม \(1 ช่อง\)/ });
     ok('in-place save offers 1 cell', (await saveBtn.count()) === 1);
     await saveBtn.click(); await pg.waitForTimeout(800);
-    const edit = store.log.filter(x => x.op === 'edit').pop();
+    const edit = store.log.filter(x => x.op === 'nsr.edit').pop();
     ok('edit sent: price cell only', edit && edit.edits.length === 1 && edit.edits[0].r === priceRow && edit.edits[0].c === 5 && edit.edits[0].v === 5000, JSON.stringify(edit && edit.edits));
     ok('sheet updated', st.values[priceRow - 1][4] === '5000');
     t = await body(); ok('status back to synced', /ตรงกับชีต/.test(t));
@@ -62,11 +62,11 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
     ok('force save writes 5200', st.values[priceRow - 1][4] === '5200');
     // อัปเดตต่อเนื่อง: คนอื่นแก้ในชีต → หน้าเว็บเปลี่ยนเองใน ≤16 วิ (ไม่มีการแก้ค้าง)
     store.poke(tab, priceRow, 5, 4800);
-    await pg.waitForTimeout(16500);
-    ok('live update from sheet', (await pg.getByLabel('ราคาขายต่อท่าน').inputValue()) === '4800');
+    await pg.waitForTimeout(7500);
+    ok('live update from sheet (≤7.5s)', (await pg.getByLabel('ราคาขายต่อท่าน').inputValue()) === '4800');
     // งานใหม่ → สร้างแท็บใหม่ → อ่านกลับได้ค่าเดียวกัน
     if (tag === 'mobile') { await pg.getByRole('tab', { name: /งานย้อนหลัง/ }).click(); }
-    await pg.getByRole('button', { name: 'งานใหม่', exact: true }).first().click(); await pg.waitForTimeout(300);
+    await pg.getByRole('button', { name: 'งานว่าง', exact: true }).first().click(); await pg.waitForTimeout(300);
     await pg.getByLabel('ชื่องานที่จัด').fill('STEM 2วัน1คืน');
     await pg.getByLabel('จำนวนผู้เข้าร่วม').first().fill('100');
     await pg.getByLabel('จำนวนคุณครู').first().fill('8');
@@ -87,6 +87,21 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
     const resAfter = await pg.locator('[aria-live="polite"]').filter({ hasText: 'NSR (กำไรจริง' }).innerText();
     ok('read-back equals web result', resBefore === resAfter, resBefore.slice(0, 120) + ' | ' + resAfter.slice(0, 120));
     t = await body(); ok('now a sheet tab', /แท็บในชีต/.test(t) && t.includes('STEM@โรงเรียนใหม่ทดสอบ'));
+    // บรีฟ → ตารางคำนวณทั้งก้อน (ใช้งานในชีตเป็นงานอ้างอิง)
+    if (tag === 'mobile') await pg.getByRole('tab', { name: /งานย้อนหลัง/ }).click();
+    await pg.getByRole('button', { name: 'คำนวณจากบรีฟ' }).click(); await pg.waitForTimeout(200);
+    await pg.getByLabel('บรีฟสำหรับคำนวณ NSR').fill('โรงเรียนบรีฟทดสอบ ค่าย STEM 3 วัน 2 คืน นักเรียน 80 คน ครู 6 คน พักที่ภูผารีสอร์ท ห้องละ 1,600 บาท พัก 4 คน รถบัส 2 คัน ราคา 3,590 บาท/ท่าน');
+    await pg.getByRole('button', { name: 'อ่านบรีฟและคำนวณ' }).click(); await pg.waitForTimeout(600);
+    t = await body();
+    ok('brief: result line in summary header', /NSR -?\d+\.\d+%/.test(t) && /ขายขั้นต่ำ NSR 20%/.test(t));
+    const tog = pg.locator('button[aria-expanded="false"]').filter({ hasText: 'ผลอ่านบรีฟ' }); if (await tog.count()) { await tog.click(); await pg.waitForTimeout(200); t = await body(); }
+    ok('brief: summary with sources', /ผลอ่านบรีฟ/.test(t) && /“ห้องละ 1,600 บาท พัก 4 คน”/.test(t) && /งานอ้างอิง/.test(t), (t.match(/ผลอ่านบรีฟ[^\n]*/) || [''])[0]);
+    ok('brief: room 400/คน, 2 คืน', (await pg.getByLabel('ราคา ค่าที่พัก (ภูผารีสอร์ท)', { exact: true }).inputValue()) === '400' && (await pg.getByLabel('จำนวน ค่าที่พัก (ภูผารีสอร์ท)', { exact: true }).inputValue()) === '2');
+    ok('brief: team from reference job', /องค์ประกอบจาก “stem @โรงเรียนทดสอบหนึ่ง”/.test(t));
+    ok('brief: NSR computed + tier', /NSR (มากกว่า|ต่ำกว่า|10%|15)/.test(await pg.locator('[aria-live="polite"]').filter({ hasText: 'NSR (กำไรจริง' }).innerText()));
+    await pg.getByRole('button', { name: 'บันทึกเป็นแท็บใหม่ในชีต' }).click();
+    ok('brief: tab name suggested', (await pg.getByLabel(/ชื่อแท็บ/).inputValue()) === 'สะเต็มศึกษา@บรีฟทดสอบ' || /@บรีฟทดสอบ$/.test(await pg.getByLabel(/ชื่อแท็บ/).inputValue()), await pg.getByLabel(/ชื่อแท็บ/).inputValue());
+    await pg.getByRole('button', { name: 'ยกเลิก' }).click();
     // กรอง "สูตรชีตผิด"
     if (tag === 'mobile') await pg.getByRole('tab', { name: /งานย้อนหลัง/ }).click();
     await pg.getByLabel('ค้นหางาน').fill('');

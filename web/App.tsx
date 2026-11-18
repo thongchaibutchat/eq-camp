@@ -4,15 +4,18 @@ import Home from './Home';
 import Nsr from './Nsr';
 import type { NsrPrefill } from './Nsr';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
-import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv, teamLogUrl, teamKey, setTeamLog, appsScriptCode, newTeamKey, TEAM_LOG_URL, TEAM_LOG_SHEET } from './registry';
+import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv } from './registry';
+import TeamConnect, { HubPill } from './TeamConnect';
+import SearchPalette from './Search';
+import { hubReady, onRev, acceptInvite, setUserName, userName, deviceId } from './hub';
 import type { LogEv } from './registry';
-import { loadJobs, saveJob, removeJob, newJobId, ago } from './jobs';
-import type { Job } from './jobs';
+import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete } from './jobs';
+import type { Job, TeamJob } from './jobs';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
   CheckCircle2, AlertTriangle, Lock, BookOpen, Layers, ChevronRight, Wand2, Eye,
-  BarChart3, History, RefreshCw, Users, X, Check, Info, ExternalLink, Copy
+  BarChart3, History, RefreshCw, Users, X, Check, Info, ExternalLink, Copy, Search
 } from 'lucide-react';
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
@@ -68,16 +71,34 @@ export default function App() {
   const [kind, setKind] = useState<DocKind>('program');
   // หน้า: home (หน้าแรก/แคตตาล็อก) · build (สร้างเอกสาร) · hub (คลังข้อมูล) — ผูกกับ #ลิงก์ ให้ปุ่มย้อนกลับ/บุ๊กมาร์กทำงานทุกเบราว์เซอร์
   type View = 'home' | 'build' | 'hub' | 'nsr';
-  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : 'home'; };
+  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') || h.startsWith('#/job/') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : 'home'; };
+  const hashArg = (pre: string) => { try { const h = location.hash; return h.startsWith(pre) ? decodeURIComponent(h.slice(pre.length)) : ''; } catch { return ''; } };
   const [view, setViewState] = useState<View>(fromHash);
-  const [hubInit, setHubInit] = useState<{ key: number; sec?: 'overview' | 'courses'; course?: string }>({ key: 0 });
-  const setView = (v: View) => {
-    setViewState(v);
-    const h = v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : '#/';
+  const [hubInit, setHubInit] = useState<{ key: number; sec?: any; course?: string; q?: string }>({ key: 0 });
+  const setView = (v: View, sub = '') => {
+    setViewState(v); if (v === 'nsr') setNsrTab(sub);
+    const h = (v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : '#/') + (sub ? '/' + encodeURIComponent(sub) : '');
     try { if (location.hash !== h) history.pushState(null, '', h); } catch { /* sandbox */ }
     try { window.scrollTo(0, 0); } catch { /* ignore */ }
   };
-  useEffect(() => { const on = () => setViewState(fromHash()); window.addEventListener('popstate', on); window.addEventListener('hashchange', on); return () => { window.removeEventListener('popstate', on); window.removeEventListener('hashchange', on); }; }, []);
+  const [nsrTab, setNsrTab] = useState(() => hashArg('#/nsr/'));
+  useEffect(() => { const on = () => { setViewState(fromHash()); setNsrTab(hashArg('#/nsr/')); }; window.addEventListener('popstate', on); window.addEventListener('hashchange', on); return () => { window.removeEventListener('popstate', on); window.removeEventListener('hashchange', on); }; }, []);
+  // ลิงก์เชิญเข้าทีม (#/join/…) — เปิดจากแอปไหนก็เชื่อมต่อให้ทันที แล้วถามชื่อ
+  const [connectOpen, setConnectOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const check = () => { if (location.hash.startsWith('#/join/')) { const ok = acceptInvite(location.hash); try { history.replaceState(null, '', '#/'); } catch { /* */ } setViewState('home'); if (ok) { setConnectOpen(true); flash('เข้าร่วมทีมแล้ว — ใส่ชื่อของคุณ แล้วข้อมูลทีมจะซิงก์อัตโนมัติ'); } else flash('ลิงก์เชิญไม่ถูกต้อง', false); } };
+    check(); window.addEventListener('hashchange', check); return () => window.removeEventListener('hashchange', check);
+  }, []);
+  // ค้นหาทั้งระบบ: ⌘K / Ctrl+K / "/"
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement; const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setSearchOpen(true); }
+      else if (e.key === '/' && !typing) { e.preventDefault(); setSearchOpen(true); }
+    };
+    window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
+  }, []);
   // ติดตั้งลงหน้าจอหลัก (Android/คอม Chrome/Edge)
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   useEffect(() => { const on = (e: any) => { e.preventDefault(); setInstallPrompt(e); }; window.addEventListener('beforeinstallprompt', on); return () => window.removeEventListener('beforeinstallprompt', on); }, []);
@@ -101,9 +122,31 @@ export default function App() {
   const baseline = useRef<string>(JSON.stringify({ ...(initial?.camp ?? {}), actImgs: 0, venueImgs: 0 }));
   const jobMeta = (c: Camp) => ({ name: (c.school || '').trim() || 'ยังไม่ระบุโรงเรียน', course: c.courseCode ? courseLabel(c.courseCode) : SUBJECTS[c.subject]?.label || '',
     school: c.school, dates: c.dates, duration: c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน` });
+  // งานของทีม: ทุกการบันทึกส่งขึ้นศูนย์กลางทีม (หน่วง 2.5 วิ รวมการพิมพ์ต่อเนื่อง) · เครื่องอื่นเห็นภายใน ~5 วิ
+  const [teamJobs, setTeamJobs] = useState<TeamJob[]>(() => loadTeamJobs());
+  const [remoteJob, setRemoteJob] = useState<TeamJob | null>(null);
+  const pushT = useRef<any>(null);
   const storeJob = (c: Camp, fileMade = false) => {
     const sn = snapshot(c, customVenues, brief, false);
-    setJobs(saveJob({ id: jobId, ...jobMeta(c), snap: sn, fileMade }));
+    const list = saveJob({ id: jobId, ...jobMeta(c), snap: sn, fileMade }); setJobs(list);
+    const rec = list.find(j => j.id === jobId);
+    if (rec && hubReady()) { clearTimeout(pushT.current); pushT.current = setTimeout(() => pushJob({ ...rec, by: userName() } as any), fileMade ? 0 : 2500); }
+  };
+  const jobIdRef = useRef(jobId); jobIdRef.current = jobId;
+  const jobsRef = useRef(jobs); jobsRef.current = jobs;
+  useEffect(() => onRev(async () => {
+    const l = await refreshTeamJobs(); if (!l) return;
+    setTeamJobs(l);
+    const cur = l.find(t => t.id === jobIdRef.current), loc = jobsRef.current.find(j => j.id === jobIdRef.current);
+    if (cur && !cur.deleted && cur.dev && cur.dev !== deviceId() && loc && cur.savedAt > loc.savedAt) setRemoteJob(cur);
+  }), []);
+  const openTeamJob = async (t: TeamJob) => {
+    try {
+      const full = await fetchTeamJob(t.id); if (!full) { flash('ไม่พบงานนี้ในทีมแล้ว', false); return; }
+      const list = saveJob({ id: full.id, name: full.name, course: full.course, school: full.school, dates: full.dates, duration: full.duration, snap: full.snap, files: 0 } as any); setJobs(list);
+      const j = list.find(x => x.id === full.id); if (j) openJob(j);
+      setRemoteJob(null);
+    } catch (e: any) { flash('เปิดงานของทีมไม่สำเร็จ: ' + (e?.message || ''), false); }
   };
   // autosave to localStorage (captions kept, image binaries dropped to stay within quota)
   useEffect(() => { saveLS({ ...snapshot(camp, customVenues, brief, false), jobId }); }, [camp, customVenues, brief, jobId]);
@@ -123,8 +166,9 @@ export default function App() {
       flash(`เปิดงาน "${j.name}" แล้ว — ทำต่อได้เลย (บันทึกอัตโนมัติ)`);
     } catch (e) { flash('เปิดงานไม่สำเร็จ: ' + (e as Error).message, false); }
   };
-  const copyJob = (j: Job) => { const id = newJobId(); setJobs(saveJob({ ...j, id, name: j.name + ' (สำเนา)', files: 0 } as any)); flash('ทำสำเนางานแล้ว'); };
-  const deleteJob = (j: Job) => { if (!confirm(`ลบงาน "${j.name}" ออกจากรายการ? (ไฟล์ที่ดาวน์โหลดไปแล้วไม่หาย)`)) return; setJobs(removeJob(j.id)); if (j.id === jobId) setJobId(newJobId()); };
+  const copyJob = (j: Job) => { const id = newJobId(); const list = saveJob({ ...j, id, name: j.name + ' (สำเนา)', files: 0 } as any); setJobs(list); const r = list.find(x => x.id === id); if (r) pushJob({ ...r, by: userName() } as any); flash('ทำสำเนางานแล้ว'); };
+  const deleteJob = (j: Job) => { if (!confirm(`ลบงาน "${j.name}" ออกจากรายการ${hubReady() ? 'ของทีม' : ''}? (ไฟล์ที่ดาวน์โหลดไปแล้วไม่หาย)`)) return; setJobs(removeJob(j.id)); pushDelete(j.id); setTeamJobs(t => t.map(x => x.id === j.id ? { ...x, deleted: true } : x)); if (j.id === jobId) setJobId(newJobId()); };
+  useEffect(() => { const id = hashArg('#/job/'); if (!id) return; const loc = loadJobs().find(j => j.id === id); if (loc) openJob(loc); else if (hubReady()) openTeamJob({ id } as TeamJob); try { history.replaceState(null, '', '#/build'); } catch { /* */ } }, []);
   const fileInput = useRef<HTMLInputElement>(null);
   const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
@@ -150,7 +194,7 @@ export default function App() {
   const logEvent = async (action: string, c: Camp, dk?: DocKind) => {
     try { storeJob(c, true); } catch { /* เงียบ */ }
     // ทะเบียนโปรแกรม: เครื่องนี้ + ชีตทีม (ถ้าตั้งค่า) — ทำงานทุกที่ ไม่ต้องลงชื่อเข้าใช้
-    try { await recordEvent(makeEvent(action, c, dk, IN_CLAUDE ? 'claude.ai' : /github\.io$/.test(location.hostname) ? 'เว็บ' : 'ไฟล์ในเครื่อง')); } catch { /* เงียบ */ }
+    try { await recordEvent(makeEvent(action, c, dk, IN_CLAUDE ? 'claude.ai' : /github\.io$/.test(location.hostname) ? 'เว็บ' : 'ไฟล์ในเครื่อง', { by: deviceId(), byName: userName() }, jobId)); } catch { /* เงียบ */ }
     try {
       const db = await useCap('db'); if (!db) return;          // เงียบ ๆ ถ้าเปิดนอก claude.ai / ไม่ได้ลงชื่อเข้าใช้
       const who = await whoami();
@@ -222,14 +266,8 @@ export default function App() {
 
   const set = (patch: Partial<Camp>) => setCamp(c => ({ ...c, ...patch }));
   // หน้า NSR: เริ่มงานใหม่จากเอกสารที่กำลังทำ (ชื่องาน/จังหวัด/จำนวนคน/ราคาพิเศษ/จำนวนวัน) — ไม่ส่งต้นทุนใด ๆ
-  const nsrPrefill = (): NsrPrefill | null => {
-    const c = withAddonPrice(camp);
-    if (!c.school && !c.students) return null;
-    const course = c.courseCode ? courseLabel(c.courseCode) : (c.subject || 'ค่าย');
-    const dur = c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days}วัน${c.nights}คืน`;
-    const school = (c.school || '').replace(/^โรงเรียน/, '');
-    return { name: `${course} ${dur}`.trim(), tab: school ? `${course}@${school}` : course, province: c.province || '', participants: c.students || null, teachers: c.teachers || null, price: c.specialPrice || c.normalPrice || null, days: c.durationMode === 'half' ? 1 : (c.days || null) };
-  };
+  // หน้า NSR: เริ่มจากเอกสารที่กำลังทำ (ข้อมูลค่าย + บรีฟ + กำหนดการจริง) — ไม่ส่งต้นทุนใด ๆ
+  const nsrPrefill = (): NsrPrefill | null => (camp.students || (camp.school && !/\.{3}/.test(camp.school)) ? { camp: withAddonPrice(camp), brief } : null);
   const flash = (t: string, ok = true) => { setBanner({ t, ok }); window.clearTimeout((flash as any)._t); (flash as any)._t = window.setTimeout(() => setBanner(null), 4200); };
 
   // mode: 'new' = เริ่มจากค่าว่าง (กันข้อมูลงานเก่าปน), 'update' = แก้งานปัจจุบัน
@@ -708,6 +746,10 @@ export default function App() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => setSearchOpen(true)} aria-label="ค้นหาทั้งระบบ (กด / หรือ Ctrl+K)" className="tap flex items-center gap-2 px-2.5 lg:px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[13.5px] text-sub">
+              <Search className="w-4 h-4" /><span className="hidden xl:inline">ค้นหา</span><kbd className="hidden xl:inline text-[11px] border border-brand-mist rounded px-1.5">/</kbd>
+            </button>
+            <HubPill onClick={() => setConnectOpen(true)} />
             {view === 'build' ? (<>
               <button onClick={() => download(kind)} disabled={busy}
                 className="tap px-3.5 sm:px-4 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14px] font-semibold flex items-center gap-1.5">
@@ -759,6 +801,24 @@ export default function App() {
       )}
 
       {saveSheet && <SaveSheet sheet={saveSheet} onClose={() => setSaveSheet(null)} download={anchorDownload} />}
+      {connectOpen && <TeamConnect onClose={() => setConnectOpen(false)} flash={(t, w) => flash(t, !w)} />}
+      {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} jobs={jobs} teamJobs={teamJobs}
+        go={(a) => {
+          setSearchOpen(false);
+          if (a.t === 'course') { setHubInit(h => ({ key: h.key + 1, sec: 'courses', course: a.id })); setView('hub'); }
+          else if (a.t === 'hub') { setHubInit(h => ({ key: h.key + 1, sec: a.sec as any, q: a.q })); setView('hub'); }
+          else if (a.t === 'job') { const j = jobs.find(x => x.id === a.id); if (j) openJob(j); else { const tj = teamJobs.find(x => x.id === a.id); if (tj) openTeamJob(tj); } setTab('header'); setView('build'); }
+          else if (a.t === 'nsr') setView('nsr', a.id);
+          else if (a.t === 'stats') { setTab('stats'); setView('build'); }
+          else if (a.t === 'useCourse') { changeCourse(a.id); setKind('program'); setTab('header'); setView('build'); }
+        }} />}
+      {remoteJob && (
+        <div role="status" className="fixed z-40 top-20 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-24px))] rounded-xl border border-amber-300 bg-white shadow-lift px-4 py-3 text-[14px] flex flex-wrap items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600" /><span className="flex-1 min-w-[12rem]">งานนี้ถูกแก้จากเครื่องอื่น{remoteJob.by ? ` (${remoteJob.by})` : ''} {ago(remoteJob.savedAt)}</span>
+          <button onClick={() => openTeamJob(remoteJob)} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium">โหลดฉบับล่าสุด</button>
+          <button onClick={() => setRemoteJob(null)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist text-[13.5px]">ทำต่อฉบับนี้</button>
+        </div>
+      )}
 
       {/* เปิดลิงก์จากแอป (LINE/Facebook ฯลฯ): เบราว์เซอร์ในแอปมักดาวน์โหลดไฟล์ไม่ได้ → พาไปเบราว์เซอร์จริง */}
       {IN_APP && !inAppHide && (() => {
@@ -801,9 +861,9 @@ export default function App() {
         )}
 
         {view === 'nsr' ? (
-          <Nsr flash={(t, w) => flash(t, !w)} prefill={nsrPrefill} />
+          <Nsr flash={(t, w) => flash(t, !w)} prefill={nsrPrefill} onConnect={() => setConnectOpen(true)} openTab={nsrTab} />
         ) : view === 'hub' ? (
-          <DataHub key={hubInit.key} initialSec={hubInit.sec} venues={allVenues} currentCourse={hubInit.course || camp.courseCode} currentVenue={camp.venue}
+          <DataHub key={hubInit.key} initialSec={hubInit.sec} initialQ={hubInit.q} venues={allVenues} currentCourse={hubInit.course || camp.courseCode} currentVenue={camp.venue}
             onUseCourse={code => { changeCourse(code); setKind('program'); setTab('header'); setView('build'); }}
             onUseVenue={v => { set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note }); setView('build'); setTab('header'); flash(`ใช้ที่พัก "${v.name}" ในเอกสารแล้ว`); }}
             onUsePreset={id => { loadPreset(id); setTab('brief'); setView('build'); }} />
@@ -869,7 +929,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-brand-mist shadow-card p-4 sm:p-5">
               {tab === 'brief' && (
                 <div className="space-y-4">
-                  <JobsPanel jobs={jobs} current={jobId} onOpen={openJob} onCopy={copyJob} onDelete={deleteJob} />
+                  <JobsPanel jobs={jobs} team={teamJobs} current={jobId} onOpen={openJob} onOpenTeam={openTeamJob} onCopy={copyJob} onDelete={deleteJob} />
                   <SectionTitle title="บรีฟจากลูกค้า" sub="วางข้อความบรีฟ ระบบเติมรหัส PL โรงเรียน จำนวนคน วิชา ระยะเวลา วันที่ สถานที่ และราคาให้" />
                   <label className="block"><span className="sr-only">ข้อความบรีฟ</span><textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-brand-mist text-[15px] leading-relaxed focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15" /></label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1245,7 +1305,7 @@ export default function App() {
                 </div>
               )}
 
-              {tab === 'stats' && <StatsPanel useCap={useCap} saveText={saveText} />}
+              {tab === 'stats' && <StatsPanel useCap={useCap} saveText={saveText} onConnect={() => setConnectOpen(true)} onOpenJob={id => { const j = jobs.find(x => x.id === id); if (j) openJob(j); else { const t = teamJobs.find(x => x.id === id); if (t) openTeamJob(t); } }} />}
 
               {stepIdx >= 0 && (
                 <div className="flex items-center justify-between gap-3 mt-6 pt-4 border-t border-brand-mist">
@@ -1397,16 +1457,17 @@ type Ev = Record<string, any> & { id: string };
 const DK_LABEL: Record<string, string> = { program: 'โปรแกรมค่าย', quotation: 'ใบเสนอราคา', booking: 'ขอราคาโรงแรม', runsheet: 'Run-down' };
 /* ทะเบียนโปรแกรมที่สร้างจากระบบนี้ — รวม 3 แหล่ง (เครื่องนี้ · ชีตทีม · บัญชีทีม claude.ai) ตัดซ้ำ แล้วนับ "โปรแกรม" (งานเดียวกันโหลดหลายไฟล์ = 1)
  * ส่งออก CSV (เปิดใน Excel/Sheets) · สำรอง/นำเข้า JSON (รวมข้อมูลหลายเครื่อง) · ตั้งค่าชีตทีม (Apps Script) */
-function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>; saveText: (f: string, t: string, m: string) => void }) {
+function StatsPanel({ useCap, saveText, onConnect, onOpenJob }: { useCap: (n: string) => Promise<any>; saveText: (f: string, t: string, m: string) => void; onConnect: () => void; onOpenJob: (id: string) => void }) {
   const [local, setLocal] = useState<LogEv[]>(() => loadLocal());
-  const [team, setTeam] = useState<{ state: 'off' | 'loading' | 'ok' | 'err'; events: LogEv[]; msg?: string }>({ state: teamLogUrl() ? 'loading' : 'off', events: [] });
+  const [team, setTeam] = useState<{ state: 'off' | 'loading' | 'ok' | 'err'; events: LogEv[]; msg?: string }>({ state: hubReady() ? 'loading' : 'off', events: [] });
   const [cloud, setCloud] = useState<LogEv[]>([]);
   const [tick, setTick] = useState(0);
   const [q, setQ] = useState('');
-  const [setup, setSetup] = useState(false);
+  // เรียลไทม์: มีคนสร้างไฟล์ที่เครื่องอื่น → รายการขึ้นเองภายใน ~5 วิ
+  useEffect(() => onRev((_r, changed) => { if (changed) setTick(t => t + 1); }), []);
   useEffect(() => {
     let alive = true; setLocal(loadLocal());
-    if (teamLogUrl()) { setTeam(t => ({ ...t, state: 'loading' })); readTeam().then(r => { if (alive) setTeam(r.ok ? { state: 'ok', events: r.events } : { state: 'err', events: [], msg: r.msg }); }); }
+    if (hubReady()) { readTeam().then(r => { if (alive) setTeam(prev => r.ok ? { state: 'ok', events: r.events } : prev.state === 'ok' ? prev : { state: 'err', events: [], msg: r.msg }); }); }
     (async () => {      // บัญชีทีม claude.ai (ของเดิม) — เฉพาะเมื่อเปิดบน claude.ai และมีสิทธิ์
       try { const db = await useCap('db'); if (!db || !alive) return;
         const snap = await db.collection('events').orderBy('ts', 'desc').limit(2000).get();
@@ -1446,10 +1507,9 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
 
       {team.state !== 'ok' && (
         <div className="rounded-xl border border-brand-mist bg-white p-3.5 text-[13.5px] leading-relaxed">
-          <div className="font-semibold">{team.state === 'off' ? 'ตอนนี้นับเฉพาะงานที่สร้างบนเครื่องนี้' : `ชีตทีม: ${team.msg || 'กำลังโหลด…'}`}</div>
-          <div className="text-sub mt-0.5">ให้ทุกเครื่องในทีมนับรวมกันอัตโนมัติ: ตั้งค่า "ชีตบันทึกของทีม" ครั้งเดียว (Google Sheet ของทีม) — หรือใช้ปุ่มสำรอง/นำเข้าไฟล์ด้านล่างรวมข้อมูลจากเครื่องอื่น</div>
-          <button onClick={() => setSetup(v => !v)} className="tap mt-2 px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper font-medium">{setup ? 'ซ่อนการตั้งค่า' : 'ตั้งค่าชีตบันทึกของทีม'}</button>
-          {setup && <TeamLogSetup onSaved={() => { setSetup(false); setTick(t => t + 1); }} saveText={saveText} />}
+          <div className="font-semibold">{team.state === 'off' ? 'ตอนนี้นับเฉพาะงานที่สร้างบนเครื่องนี้' : `ข้อมูลทีม: ${team.msg || 'กำลังโหลด…'}`}</div>
+          <div className="text-sub mt-0.5">เชื่อมต่อทีมครั้งเดียว ทุกเครื่องนับรวมกันและเห็นรายการใหม่แบบเรียลไทม์ — หรือใช้ปุ่มสำรอง/นำเข้าไฟล์ด้านล่าง</div>
+          <button onClick={onConnect} className="tap mt-2 px-3 py-1.5 rounded-lg border border-brand-mist hover:bg-paper font-medium">เชื่อมต่อทีม</button>
         </div>
       )}
 
@@ -1489,6 +1549,7 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
         <div className="max-h-[28rem] overflow-y-auto divide-y divide-brand-mist">
           {shown.slice(0, 300).map(p => (
             <div key={p.programId} className="px-3.5 py-2.5 text-[13.5px]">
+              {p.jobId && <button onClick={() => onOpenJob(p.jobId!)} className="tap float-right ml-2 px-2.5 py-1 rounded-lg border border-brand-mist text-[12.5px] hover:bg-paper">เปิดงาน</button>}
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="font-semibold min-w-0">{p.school || 'ไม่ระบุโรงเรียน'}</span>
                 <span className="text-[12.5px] text-sub tabular-nums">{p.last.slice(0, 10)}</span>
@@ -1512,39 +1573,6 @@ function StatsPanel({ useCap, saveText }: { useCap: (n: string) => Promise<any>;
 }
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const thMonth = (ym: string) => { const [y, m] = ym.split('-').map(Number); return m ? `${TH_M[m - 1]}${String((y + 543) % 100).padStart(2, '0')}` : ym; };
-/* ตั้งค่าชีตบันทึกของทีม: 1) สร้างโค้ด (มีรหัสทีมสุ่ม) 2) วางใน Apps Script ของชีต + Deploy 3) วางที่อยู่ Web app */
-function TeamLogSetup({ onSaved, saveText }: { onSaved: () => void; saveText: (f: string, t: string, m: string) => void }) {
-  const [url, setUrl] = useState(teamLogUrl()); const [key, setKey] = useState(teamKey() || newTeamKey());
-  const [copied, setCopied] = useState(false);
-  const code = appsScriptCode(key);
-  const valid = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url.trim());
-  return (
-    <div className="mt-3 space-y-3 border-t border-brand-mist pt-3">
-      <ol className="space-y-2 list-decimal ml-5">
-        <li>เปิด <a href={TEAM_LOG_SHEET} target="_blank" rel="noopener noreferrer" className="underline font-medium">ชีต "90 ทะเบียนโปรแกรมที่สร้าง"</a> (ในโฟลเดอร์ Sales Kit ของทีม) → เมนู <b>ส่วนขยาย → Apps Script</b></li>
-        <li>ลบโค้ดเดิม แล้ววางโค้ดนี้ทั้งหมด → บันทึก
-          <div className="flex flex-wrap gap-2 mt-1.5">
-            <button onClick={async () => { setCopied(await copyText(code)); }} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">{copied ? 'คัดลอกแล้ว' : 'คัดลอกโค้ด'}</button>
-            <button onClick={() => saveText('EQ_Camp_ทะเบียน_AppsScript.gs', code, 'text/plain')} className="tap px-3 py-1.5 rounded-lg border border-brand-mist bg-white">ดาวน์โหลดโค้ด</button>
-          </div>
-          <div className="text-sub text-[12.5px] mt-1">รหัสทีม (ใช้อ่านข้อมูล — แชร์ให้เฉพาะคนในทีม): <b className="font-mono select-all">{key}</b> <button onClick={() => { setKey(newTeamKey()); setCopied(false); }} className="underline ml-1">สุ่มใหม่</button></div>
-        </li>
-        <li>กด <b>Deploy → New deployment → Web app</b> · Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy → อนุญาตสิทธิ์ → คัดลอก <b>Web app URL</b></li>
-        <li>วางที่อยู่ด้านล่าง แล้วกดบันทึก (เครื่องอื่นในทีม: วางที่อยู่ + รหัสทีมเดียวกัน)</li>
-      </ol>
-      <div className="grid gap-2 sm:grid-cols-[1fr_12rem]">
-        <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/…/exec" aria-label="ที่อยู่ Web app" className="border border-brand-mist rounded-lg px-3 py-2 text-[13.5px] font-mono" />
-        <input value={key} onChange={e => setKey(e.target.value)} aria-label="รหัสทีม" className="border border-brand-mist rounded-lg px-3 py-2 text-[13.5px] font-mono" />
-      </div>
-      {url && !valid && <div className="text-[12.5px] text-amber-800">ที่อยู่ควรขึ้นต้น https://script.google.com/macros/s/ และลงท้าย /exec</div>}
-      <div className="flex flex-wrap gap-2">
-        <button disabled={!valid || !key.trim()} onClick={() => { setTeamLog(url, key); onSaved(); }} className="tap px-4 py-2 rounded-lg bg-accent hover:bg-accent-deep text-white font-semibold disabled:opacity-40">บันทึกและเชื่อมต่อ</button>
-        {TEAM_LOG_URL && <span className="text-[12.5px] text-sub self-center">เว็บนี้ตั้งค่าชีตทีมไว้แล้ว — ใส่เฉพาะรหัสทีมก็พอ</span>}
-      </div>
-    </div>
-  );
-}
-
 function Preview({ kind, camp, plan, k, total, cost, profit, margin }: any) {
   const c: Camp = camp;
   if (kind === 'program') return (
@@ -1902,33 +1930,41 @@ function PartyPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof b
 }
 /* แก้ไขแถวกำหนดการ (เวลา/ชื่อ/ลบ/คืนค่าเดิม) → camp.rowEdits อ้างวัน + ชื่อแถวเดิม */
 /* งานของฉัน: ทุกงานบันทึกอัตโนมัติในเครื่องนี้ — เปิดทำต่อ / ทำสำเนา (ใช้เป็นแม่แบบงานใหม่) / ลบ */
-function JobsPanel({ jobs, current, onOpen, onCopy, onDelete }: { jobs: Job[]; current: string; onOpen: (j: Job) => void; onCopy: (j: Job) => void; onDelete: (j: Job) => void }) {
+function JobsPanel({ jobs, team, current, onOpen, onOpenTeam, onCopy, onDelete }: { jobs: Job[]; team: TeamJob[]; current: string; onOpen: (j: Job) => void; onOpenTeam: (t: TeamJob) => void; onCopy: (j: Job) => void; onDelete: (j: Job) => void }) {
   const [q, setQ] = useState(''); const [all, setAll] = useState(false);
-  if (!jobs.length) return (
-    <div className="rounded-xl border border-brand-mist bg-white px-3.5 py-3 text-[13.5px] text-sub">งานของฉัน: ยังไม่มีงานที่บันทึกไว้ — เริ่มจากวางบรีฟด้านล่าง ระบบบันทึกให้อัตโนมัติ เปิดทำต่อได้ทุกเมื่อ</div>);
-  const list = jobs.filter(j => !q || `${j.name} ${j.course} ${j.dates} ${j.snap?.camp?.docCode || ''}`.toLowerCase().includes(q.toLowerCase()));
-  const shown = all || q ? list : list.slice(0, 4);
+  const connected = hubReady();
+  // รวมงานในเครื่อง + งานของทีม (งานเดียวกันแสดงครั้งเดียว — ฉบับที่ใหม่กว่า)
+  type Row = { id: string; name: string; sub: string; savedAt: string; files: number; local?: Job; team?: TeamJob };
+  const map = new Map<string, Row>();
+  for (const j of jobs) map.set(j.id, { id: j.id, name: j.name, sub: [j.course, j.duration, j.dates].filter(Boolean).join(' · '), savedAt: j.savedAt, files: j.files, local: j });
+  for (const t of team) { if (t.deleted) { if (!map.get(t.id)?.local) map.delete(t.id); continue; } const r = map.get(t.id); if (r) { r.team = t; if (t.savedAt > r.savedAt) r.savedAt = t.savedAt; } else map.set(t.id, { id: t.id, name: t.name, sub: [t.course, t.duration, t.dates].filter(Boolean).join(' · '), savedAt: t.savedAt, files: t.files || 0, team: t }); }
+  const rows = [...map.values()].sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+  if (!rows.length) return (
+    <div className="rounded-xl border border-brand-mist bg-white px-3.5 py-3 text-[13.5px] text-sub">{connected ? 'งานของทีม' : 'งานของฉัน'}: ยังไม่มีงานที่บันทึกไว้ — เริ่มจากวางบรีฟด้านล่าง ระบบบันทึกให้อัตโนมัติ เปิดทำต่อได้ทุกเมื่อ</div>);
+  const nq = q.trim().toLowerCase().replace(/\s+/g, '');
+  const list = rows.filter(r => !nq || `${r.name}${r.sub}${r.local?.snap?.camp?.docCode || r.team?.docCode || ''}${r.team?.by || ''}`.toLowerCase().replace(/\s+/g, '').includes(nq));
+  const shown = all || q ? list : list.slice(0, 5);
   return (
     <div className="rounded-xl border border-brand-mist bg-white overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 border-b border-brand-mist">
-        <div><div className="text-[15px] font-semibold">งานของฉัน</div><div className="text-[12.5px] text-sub">บันทึกอัตโนมัติทุกครั้งที่แก้ · เปิดทำต่อได้ทุกเมื่อ (เก็บในเครื่องนี้ — ย้ายเครื่องใช้ "ส่งออกงาน")</div></div>
-        {jobs.length > 4 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน/หลักสูตร" aria-label="ค้นหางาน" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-[13.5px] w-48" />}
+        <div><div className="text-[15px] font-semibold">{connected ? 'งานของทีม' : 'งานของฉัน'}</div><div className="text-[12.5px] text-sub">{connected ? 'บันทึกอัตโนมัติ · ทุกเครื่องในทีมเห็นและเปิดทำต่อได้ทันที' : 'บันทึกอัตโนมัติในเครื่องนี้ · เชื่อมต่อทีมเพื่อเปิดจากเครื่องอื่นได้'}</div></div>
+        {rows.length > 5 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน/หลักสูตร/ผู้ทำ" aria-label="ค้นหางาน" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-[13.5px] w-52" />}
       </div>
       <ul className="divide-y divide-brand-mist">
-        {shown.map(j => (
-          <li key={j.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${j.id === current ? 'bg-paper' : ''}`}>
+        {shown.map(r => (
+          <li key={r.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${r.id === current ? 'bg-paper' : ''}`}>
             <div className="min-w-0 flex-1">
-              <div className="text-[14.5px] font-semibold truncate">{j.name}{j.id === current && <span className="ml-2 text-[12px] font-medium text-brand-navy">กำลังทำอยู่</span>}</div>
-              <div className="text-[12.5px] text-sub truncate">{[j.course, j.duration, j.dates].filter(Boolean).join(' · ')} · แก้ล่าสุด {ago(j.savedAt)}{j.files ? ` · สร้างไฟล์แล้ว ${j.files} ครั้ง` : ''}</div>
+              <div className="text-[14.5px] font-semibold truncate">{r.name}{r.id === current && <span className="ml-2 text-[12px] font-medium text-brand-navy">กำลังทำอยู่</span>}{!r.local && <span className="ml-2 text-[12px] font-medium text-emerald-700">จากทีม</span>}</div>
+              <div className="text-[12.5px] text-sub truncate">{r.sub} · แก้ล่าสุด {ago(r.savedAt)}{r.team?.by ? ` โดย ${r.team.by}` : ''}{r.files ? ` · สร้างไฟล์แล้ว ${r.files} ครั้ง` : ''}</div>
             </div>
             <div className="flex gap-1.5 text-[13px]">
-              {j.id !== current && <button onClick={() => onOpen(j)} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">เปิดทำต่อ</button>}
-              <button onClick={() => onCopy(j)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist">ทำสำเนา</button>
-              <button onClick={() => onDelete(j)} aria-label={`ลบงาน ${j.name}`} className="tap px-2.5 py-1.5 rounded-lg text-rose-600">ลบ</button>
+              {r.id !== current && <button onClick={() => (r.local && (!r.team || r.team.savedAt <= r.local.savedAt) ? onOpen(r.local) : onOpenTeam(r.team!))} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">เปิดทำต่อ</button>}
+              {r.local && <button onClick={() => onCopy(r.local!)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist">ทำสำเนา</button>}
+              {r.local && <button onClick={() => onDelete(r.local!)} aria-label={`ลบงาน ${r.name}`} className="tap px-2.5 py-1.5 rounded-lg text-rose-600">ลบ</button>}
             </div>
           </li>))}
       </ul>
-      {!q && list.length > 4 && <button onClick={() => setAll(!all)} className="tap w-full py-2 text-[13px] text-brand-navy border-t border-brand-mist">{all ? 'ย่อรายการ' : `ดูทั้งหมด ${list.length} งาน`}</button>}
+      {!q && list.length > 5 && <button onClick={() => setAll(!all)} className="tap w-full py-2 text-[13px] text-brand-navy border-t border-brand-mist">{all ? 'ย่อรายการ' : `ดูทั้งหมด ${list.length} งาน`}</button>}
     </div>);
 }
 /* ตัวเลือกชื่อรายการ: กิจกรรมจริงของหลักสูตรวันนั้น + รายการทั่วไป (datalist ช่วยพิมพ์ — พิมพ์เองได้) */

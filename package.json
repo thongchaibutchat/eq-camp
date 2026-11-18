@@ -8,7 +8,7 @@
     "samples": "node scripts/run-samples.mjs",
     "validate": "node scripts/validate.mjs",
     "stress": "node scripts/run-stress.mjs",
-    "nsr": "node scripts/qa/run-ts.mjs scripts/qa/nsr-audit.ts scripts/qa/nsr-fixture.json"
+    "nsr": "node scripts/qa/run-ts.mjs scripts/qa/nsr-audit.ts scripts/qa/nsr-fixture.json && node scripts/qa/run-ts.mjs scripts/qa/nsr-brief-test.ts"
   },
   "dependencies": {
     "buffer": "^6.0.3",
