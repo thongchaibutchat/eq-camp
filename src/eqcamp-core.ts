@@ -36,7 +36,7 @@ export type DurationMode = 'half' | 'day' | 'overnight';
 // src = id ภาพจากไฟล์ต้นฉบับของค่าย (web/photos/<id>.jpg) ที่ระบบดึงให้ · ไม่มี src = ภาพที่ทีมอัปโหลดเอง
 export interface Img { data?: Uint8Array; caption: string; src?: string }
 // slot = ดัชนีช่อง "กิจกรรมหลัก" (core) ทั่วทั้งกำหนดการ (0..N-1) ใช้ผูกกับ coreSlotIds เพื่อเลือกกิจกรรมรายช่วง
-export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string; orig?: string; party?: boolean }
+export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string; orig?: string; party?: boolean; added?: number; ext?: boolean }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
@@ -52,6 +52,10 @@ export interface Camp {
   templateId?: string;
   /** ชุดภาพกิจกรรมที่เลือกทั้งชุด (photoSetsFor().id) · ว่าง = ชุดใหม่ล่าสุดของหลักสูตร (ถ้ามี) ไม่งั้นภาพจากไฟล์ค่าย */
   photoSet?: string;
+  /** ขยายเวลาเลิกรายวัน (เพิ่มช่วงกิจกรรม/อาหารกลางวัน/อาหารว่าง แล้วเลื่อนพิธีปิด-เดินทางกลับไปท้าย) */
+  dayExtends?: DayExtend[];
+  /** ช่วงเวลาที่เพิ่มเอง */
+  rowAdds?: RowAdd[];
   activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
   /** กิจกรรมเสริม (Add-on) จากหลักสูตรอื่น (อังกฤษ/จีน/คณิต) แทรกลงกำหนดการค่ายหลัก */
@@ -67,6 +71,10 @@ export interface Camp {
 }
 /** code = รหัสหลักสูตรที่เป็น Add-on · ids = กิจกรรมที่เลือก (ว่าง = อัตโนมัติ 1 ช่วง/วัน) · minutes = ความยาว/ช่วง · price = บาท/ท่านที่บวกเพิ่ม (0 = รวมในราคาเดิม) */
 export interface RowEdit { day: number; from: string; to?: string; time?: string; sub?: string[] }
+/** ช่วงเวลาที่ทีมเพิ่มเอง (แทรกตามเวลาเริ่ม) */
+export interface RowAdd { day: number; time: string; title: string; sub?: string[] }
+/** ขยายเวลาเลิกของวัน เช่น วันสุดท้าย 2 วัน 1 คืน เดิมกลับ 11.00 → จบ 16.00 (ids = กิจกรรมที่เลือกเอง ตามลำดับ) */
+export interface DayExtend { day: number; end: string; ids?: string[] }
 export interface AddonSel { code: string; ids?: string[]; minutes?: number; price?: number }
 
 /* ===================== SYSTEM DATA ===================== */
@@ -579,7 +587,7 @@ export const staffText = (n: number): string => {
   return '10 – 16';
 };
 
-export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo; addons?: AddonPlan[]; addonWarn?: string[]; mix?: DayMix[]; editMissed?: number }
+export interface Plan { days: Day[]; meals: { b: number; l: number; d: number; s: number }; coreSlots: number; hasTrip: boolean; usedActivityIds: string[]; tpl?: TplInfo; addons?: AddonPlan[]; addonWarn?: string[]; mix?: DayMix[]; editMissed?: number; extWarn?: string[] }
 export interface DayMix { day: number; code: string; label: string; source: string }
 export interface AddonPlan { code: string; label: string; titles: string[]; price: number }
 // สรุปแม่แบบที่ใช้กับค่ายนี้ (แสดงใน UI/ตรวจความถูกต้อง)
@@ -739,7 +747,8 @@ function budgetFromTemplate(lines: string[], c: Camp, plan: Plan, staff: string)
       if (m.s > 0) { const desc = (raw.match(/\([^()]*\)/) || [''])[0]; out.push(`ค่าอาหารว่าง ${m.s} มื้อ${desc && !/มื้อ/.test(desc) ? ' ' + desc.replace(/\(\s*/, '(').replace(/\s*\)/, ')') : ''}`); }
       continue;
     }
-    if (/^\(.*มื้อ.*\)$/.test(raw.trim())) continue;               // เศษบรรทัดต่อของมื้ออาหาร (เช่น "( มาม่าคัพ 2 มื้อ )")
+    if (/^\(.*มื้อ.*\)$/.test(raw.trim())) continue;
+    if (/^ตัวอย่าง(ภาพ)?กิจกรรม/.test(raw.trim())) continue;        // หัวข้อหน้าภาพที่ติดมาตอนแกะต้นฉบับ (SEA/STM) ไม่ใช่รายการงบ               // เศษบรรทัดต่อของมื้ออาหาร (เช่น "( มาม่าคัพ 2 มื้อ )")
     let x = fillTpl(raw, c);
     if (/วิทยากร/.test(x) && /(\d+\s*[-–]\s*\d+|\d+)\s*ท่าน/.test(x)) {
       const before = (x.match(/(\d+\s*[-–]\s*\d+|\d+)\s*ท่าน/) || ['', ''])[1].replace(/\s/g, '').replace('–', '-');
@@ -803,7 +812,91 @@ export const venuePhotoSetFor = (venue?: string) => {
 export const photoCaption = (_c: Camp, _i: number): string => '';
 export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
-  return applyEdits(c, applyAddons(c, applyDayMix(c, basePlan(c))));
+  return applyEdits(c, applyExtends(c, applyAddons(c, applyDayMix(c, basePlan(c)))));
+}
+/* ===================== ขยายเวลาเลิกรายวัน =====================
+ * แถวท้ายวันที่ติดกัน (พิธีปิด/สรุป/AAR/ถอดบทเรียน/เดินทางกลับ/พักผ่อน) = "ท้ายวัน" → แทรกช่วงใหม่ก่อนท้ายวัน แล้วเลื่อนท้ายวันออกไปเท่าที่ขยาย
+ * ช่วงใหม่: กิจกรรมจริงของหลักสูตรวันนั้นที่ยังไม่อยู่ในกำหนดการ (ห้ามแต่งชื่อใหม่ · หมดคลัง → "(ต่อยอด)") ช่วงละ ≤ 90 นาที
+ *           + อาหารกลางวัน (ถ้าวันนั้นยังไม่มีและช่วงคร่อมเที่ยง) + อาหารว่างบ่าย (ถ้ายังไม่มี) → นับมื้อ/งบใหม่ */
+const DAY_TAIL = /เดินทางกลับ|ปิดค่าย|พิธีปิด|มอบเกียรติบัตร|มอบของรางวัล|ถอดบทเรียน|สรุป|AAR|After Action|Conclusion|Closing|Wrap.?up|Farewell|Come back|Back to school|Go home|Departure|เป็นต้นไป|พักผ่อน|Sweet dream|ฝันดี|Next Step/i;
+const DAY_RETURN = /เดินทางกลับ|Come back|Back to school|Go home|Departure|เป็นต้นไป|พักผ่อน|Sweet dream|ฝันดี/i;
+const shiftHM2 = (t: string, d: number) => t.replace(/(\d{1,2})[.:](\d{2})/g, (_m, h, mi) => fmt(+h * 60 + +mi + d));
+const rowStart = (r: Row): number => { const t = tmins(r.time); return t.length ? t[0] : -1; };
+const rowEnd = (r: Row): number => { const t = tmins(r.time); return t.length ? t[t.length - 1] : -1; };
+const rowDur = (r: Row): number => { const t = tmins(r.time); return t.length > 1 ? Math.max(0, t[t.length - 1] - t[0]) : 0; };
+// เวลาเลิกของวัน = เวลาออกเดินทางกลับ/เข้าพัก (แถวสุดท้ายเป็นการกลับ/พักผ่อน) ไม่งั้นเวลาจบของแถวสุดท้าย
+export const dayEndMin = (d: Day): number => { let i = d.items.length - 1; while (i > 0 && rowStart(d.items[i]) < 0) i--; const r = d.items[i]; if (!r) return -1; return DAY_RETURN.test(r.title) ? rowStart(r) : rowEnd(r); };
+export const dayEndOf = (d: Day): string => { const e = dayEndMin(d); return e >= 0 ? fmt(e) : ''; };
+export const parseHM = (s?: string): number | null => { const m = String(s || '').match(/(\d{1,2})[.:](\d{2})/); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
+// กิจกรรมที่ใช้เติมช่วงที่ขยาย: กิจกรรมหลักของหลักสูตรวันนั้น (ไม่รวมภาคค่ำ/ปาร์ตี้) ที่ชื่อยังไม่อยู่ในกำหนดการ
+const extPoolAll = (code: string): Activity[] => code ? addonActivities(code).filter(a => a.kind === 'core' && !/ปาร์ตี้|party|ธีม|การแสดง|night|ภาคค่ำ/i.test(a.title)) : [];
+export function extendOptions(c: Camp, plan: Plan, dayIdx: number): Activity[] {
+  const used = new Set(plan.days.flatMap(d => d.items.map(r => actKey(r.title))));
+  return extPoolAll(dayCourseOf(c, dayIdx) || c.courseCode || '').filter(a => !used.has(actKey(addonName(a.title))));
+}
+function applyExtends(c: Camp, plan: Plan): Plan {
+  const exts = (c.dayExtends || []).filter(x => x && x.day >= 1 && x.day <= plan.days.length && parseHM(x.end) !== null);
+  if (!exts.length) return plan;
+  const days: Day[] = plan.days.map(d => ({ ...d, items: d.items.map(r => ({ ...r })) }));
+  const warn: string[] = [...(plan.extWarn || [])];
+  for (const x of exts) {
+    const d = days[x.day - 1]; const items = d.items; if (!items.length) continue;
+    const target = parseHM(x.end)!; const L = items[items.length - 1]; const isRet = DAY_RETURN.test(L.title);
+    const cur = dayEndMin(d);
+    if (cur < 0) { warn.push(`วันที่ ${x.day}: อ่านเวลาเลิกเดิมไม่ได้ — ขยายเวลาไม่ได้ (แก้เวลาแถวสุดท้ายก่อน)`); continue; }
+    if (target - cur < 15) { warn.push(`วันที่ ${x.day}: เวลาเลิกที่ตั้ง ${fmt(target)} น. ไม่เกินเวลาเดิม ${fmt(cur)} น. — ไม่ได้เพิ่มช่วง`); continue; }
+    // ท้ายวัน = แถวท้ายที่ติดกัน (ปิด/สรุป/กลับ/พัก + มื้ออาหารที่คั่นอยู่)
+    let ti = items.length;
+    while (ti > 0 && (DAY_TAIL.test(items[ti - 1].title) || mealKind(items[ti - 1].title, items[ti - 1].time))) ti--;
+    while (ti < items.length - 1 && mealKind(items[ti].title, items[ti].time)) ti++;            // ไม่เริ่มท้ายวันด้วยมื้ออาหาร
+    if (ti >= items.length) ti = items.length - 1;
+    const tail = items.slice(ti);
+    const S = Math.max(0, rowStart(tail[0]) >= 0 ? rowStart(tail[0]) : cur);
+    const meals = tail.filter(r => mealKind(r.title, r.time) && r !== L);
+    const movable = tail.filter(r => !meals.includes(r) && !(isRet && r === L));
+    // วางแถวปิด/สรุปย้อนจากเวลาเลิก (คงความยาวเดิม) → แถวกลับ/พัก = เวลาเลิก
+    let endC = target; const placed: Row[] = [];
+    const suf0 = items.some(r => /น\./.test(r.time)) ? ' น.' : '';
+    for (const r of [...movable].reverse()) { const du = rowDur(r); placed.unshift({ ...r, time: du ? `${fmt(endC - du)} – ${fmt(endC)}${suf0}` : `${fmt(endC)}${suf0}` }); endC -= du; }
+    const W = endC;
+    const fixed = meals.map(r => ({ r, st: rowStart(r), du: rowDur(r) || 60 })).sort((a, b) => a.st - b.st);
+    let hasL = items.some(r => mealKind(r.title, r.time) === 'l'), hasS = items.some(r => mealKind(r.title, r.time) === 's' && rowStart(r) >= 13 * 60);
+    const code = dayCourseOf(c, x.day - 1) || c.courseCode || '';
+    const pool = x.ids && x.ids.length ? x.ids.map(id => LIB.find(a => a.id === id)).filter(Boolean) as Activity[] : extendOptions(c, { ...plan, days }, x.day - 1);
+    const fb = extPoolAll(code); let pi = 0;
+    const nm = (a: Activity) => { const n = tidyTitle(a.title).replace(/\s*[-–]?\s*(Part|EP)\.?\s*\d+\s*$/i, '').replace(/\.\s*$/, '').trim(); const b = n.replace(/^กิจกรรม\s*/, ''); if (/[“”"]/.test(b)) return `กิจกรรม ${b.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')}`; const pm = b.match(/^(.*?)\s*(\([^()]*\))\s*$/); return pm && pm[1] ? `กิจกรรม “${pm[1]}” ${pm[2]}` : `กิจกรรม “${b}”`; };
+    const nextAct = (): string => {
+      if (pi < pool.length) return nm(pool[pi++]);
+      const f = fb.length ? fb[(pi++ - pool.length) % fb.length] : null;
+      return f ? `${nm(f)} (ต่อยอด)` : 'กิจกรรมฐานการเรียนรู้ (ต่อยอด)';
+    };
+    // ใช้รูปแบบเดียวกับวันนั้น: เวลามี/ไม่มี "น." · แม่แบบภาษาอังกฤษ → ชื่อมื้อภาษาอังกฤษ
+    const suf = items.some(r => /น\.?\s*$|น\.\s/.test(r.time)) ? ' น.' : '';
+    const en = items.filter(r => /[ก-๙]/.test(r.title)).length * 2 < items.length;
+    const LUNCH = en ? 'Have lunch' : 'รับประทานอาหารกลางวัน', SNACK = en ? 'Take a Break' : 'รับประทานอาหารว่าง';
+    const add: Row[] = []; let t = S, guard = 0;
+    const push = (a: number, b: number, title: string, base?: Row) => add.push(base ? { ...base, time: `${fmt(a)} – ${fmt(b)}${suf}` } : { time: `${fmt(a)} – ${fmt(b)}${suf}`, title, ext: true });
+    while (guard++ < 60) {
+      const f = fixed[0];
+      if (f && f.st <= t + 5) { const a = Math.max(t, f.st); push(a, a + f.du, '', f.r); t = a + f.du; fixed.shift(); continue; }
+      if (W - t < 15) break;
+      if (!hasL && t >= 705 && t <= 780 && W - t >= 60) { push(t, t + 60, LUNCH); t += 60; hasL = true; continue; }
+      if (hasL && !hasS && t >= 840 && t <= 930 && W - t >= 45) { push(t, t + 15, SNACK); t += 15; hasS = true; continue; }
+      let lim = W; if (f && f.st < lim) lim = f.st;
+      let len = Math.min(90, lim - t);
+      if (!hasL && t < 720 && t + len > 720 && 720 - t >= 30 && W - 720 >= 60) len = 720 - t;
+      if (hasL && !hasS && t < 870 && t + len > 870 && 870 - t >= 45 && W - 870 >= 45) len = 870 - t;
+      if (lim - (t + len) > 0 && lim - (t + len) < 30) len = lim - t;
+      if (len < 15) { t = lim; continue; }
+      push(t, t + len, nextAct()); t += len;
+    }
+    for (const f of fixed) add.push(f.r);                          // มื้อที่เหลือ (อยู่หลังช่วงที่ขยาย) คงไว้
+    if (t > W + 5) warn.push(`วันที่ ${x.day}: มื้ออาหารเดิมทำให้ช่วงเกินเวลาเลิก — ตรวจเวลาแถวท้ายวัน`);
+    const ret = isRet ? [{ ...L, time: shiftHM2(L.time, target - cur) }] : [];
+    d.items = [...items.slice(0, ti), ...add, ...placed, ...ret];
+  }
+  const meals = renumberMeals(days);
+  return { ...plan, days, meals, extWarn: warn };
 }
 /* ===================== ธีมปาร์ตี้ + แก้ไขแถวกำหนดการเอง =====================
  * แถวปาร์ตี้/การแสดงภาคค่ำ (เริ่ม ≥ 17.00 น.) ติดธง party · camp.partyTheme → เปลี่ยนชื่อธีมทุกแถวปาร์ตี้ (คงวงเล็บทักษะท้ายเดิม)
@@ -829,7 +922,23 @@ function applyEdits(c: Camp, plan: Plan): Plan {
     d.items[i] = { ...r, orig: r.orig ?? r.title, title: e.to ? e.to.trim() : r.title, time: e.time ? e.time.trim() : r.time, sub: sub && sub.length ? sub : undefined, _e: true } as Row;
   }
   for (const d of days) d.items = d.items.map(r => { if ((r as any)._e) { const { _e, ...x } = r as any; return x; } return r; });
-  return { ...plan, days, editMissed: missed };
+  // ช่วงเวลาที่เพิ่มเอง → แทรกตามเวลาเริ่ม (เวลาอ่านไม่ได้ = ต่อท้ายวัน)
+  (c.rowAdds || []).forEach((a, idx) => {
+    if (!a || !String(a.title || '').trim()) return;
+    const d = days.find(x => x.day === a.day); if (!d) { missed++; return; }
+    const st = tmins(a.time || '')[0];
+    const sub = Array.isArray(a.sub) ? a.sub.map(x => String(x ?? '').trim()).filter(Boolean) : [];
+    const row: Row = { time: String(a.time || '').trim(), title: String(a.title).trim(), ...(sub.length ? { sub } : {}), added: idx };
+    let at = d.items.length;
+    // แทรกก่อนแถวที่เริ่มหลังกว่า · แถวพักผ่อน/เดินทางกลับที่เริ่มเวลาเดียวกันหรือก่อนจบช่วงใหม่ → อยู่หลังช่วงใหม่ และเลื่อนเวลาเริ่มไปเท่าเวลาจบ
+    if (st !== undefined) { const j = d.items.findIndex(r => { const t0 = tmins(r.time)[0]; return t0 !== undefined && (t0 > st || (t0 === st && DAY_RETURN.test(r.title))); }); if (j >= 0) at = j; }
+    d.items.splice(at, 0, row);
+    const en = tmins(row.time); const nx = d.items[at + 1];
+    if (en.length > 1 && nx && DAY_RETURN.test(nx.title)) { const n0 = tmins(nx.time)[0]; if (n0 !== undefined && n0 < en[en.length - 1]) d.items[at + 1] = { ...nx, time: shiftHM2(nx.time, en[en.length - 1] - n0) }; }
+  });
+  const touched = edits.length || (c.rowAdds || []).length;
+  const meals = touched ? renumberMeals(days.map(d => (d.items = d.items.map(r => ({ ...r })), d))) : plan.meals;
+  return { ...plan, days, meals, editMissed: missed };
 }
 function basePlan(c: Camp): Plan {
   const p = templateFor(c);
@@ -1484,6 +1593,7 @@ export function check(c: Camp, plan: Plan): { ok: boolean; msg: string; soft?: b
     ] : []),
     ...((plan.addons || []).map(a => ({ ok: a.titles.length > 0, soft: true, msg: a.titles.length ? `กิจกรรมเสริม${a.label} ${a.titles.length} ช่วงในกำหนดการ${a.price ? ` · +${money(a.price)} บาท/ท่าน` : ' · รวมในราคาเดิม'}` : `กิจกรรมเสริม${a.label} ยังไม่ได้เลือกกิจกรรม` }))),
     ...((plan.addonWarn || []).map(m => ({ ok: false, soft: true, msg: m }))),
+    ...((plan.extWarn || []).map(m => ({ ok: false, soft: true, msg: m }))),
     ...(plan.editMissed ? [{ ok: false, soft: true, msg: `แก้ไขกำหนดการ ${plan.editMissed} แถว หาแถวเดิมไม่พบแล้ว (กำหนดการเปลี่ยน) — ตรวจในขั้น "กำหนดการ"` }] : []),
     ...((c.actsOverride || []).map(x => String(x ?? '').trim()).filter(Boolean).map((x, i) => actInSchedule(x, plan) ? null : { ok: false, soft: true, msg: `กิจกรรมเชิงบูรณาการข้อ ${i + 1} "${x.slice(0, 40)}" ไม่พบในกำหนดการ` }).filter(Boolean) as { ok: boolean; msg: string; soft?: boolean }[]),
     ...(plan.mix ? [{ ok: true, soft: true, msg: `ธีมรายวัน: ${plan.mix.map(m => `วันที่ ${m.day} ${m.label}`).join(' · ')}` },

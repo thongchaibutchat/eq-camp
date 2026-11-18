@@ -97,6 +97,12 @@ async function write(name: string, kind: DocKind, camp: Camp) {
   const t7 = parseBrief('โรงเรียนสตรีวิทยา ม.2 จำนวน 80 คน ครู 6 คน ค่าย 2 วัน 1 คืน วันแรกภาษาอังกฤษ วันที่ 2 วิทยาศาสตร์ทะเล วันที่ 20-21 ม.ค. 2570 ณ โรงแรมกาสะรองรีสอร์ทพัทยา ราคาปกติ 4590 ลดเหลือ 3790 บาท เสริมภาษาจีน', blankCamp());
   await write('17_program_MIX_ENG_SEA.docx', 'program', withPhotos(t7));
   await write('17b_runsheet_MIX_ENG_SEA.docx', 'runsheet', t7);
+  // 18: ค่ายคณิต 2 วัน 1 คืน — ขยายวันที่ 2 ให้จบ 16.00 น. (เติมกิจกรรม + อาหารกลางวัน, เลื่อนพิธีปิด/เดินทางกลับ) + ช่วงที่เพิ่มเองวันที่ 1
+  const t8 = parseBrief('โรงเรียนสตรีวิทยา ม.2 จำนวน 80 คน ครู 6 คน ค่ายคณิตศาสตร์ 2 วัน 1 คืน วันที่ 20-21 ม.ค. 2570 ณ โรงแรมกาสะรองรีสอร์ท ราคาปกติ 4590 ลดเหลือ 3790 บาท', blankCamp());
+  t8.dayExtends = [{ day: 2, end: '16.00' }];
+  t8.rowAdds = [{ day: 1, time: '21.30 – 22.00 น.', title: 'กิจกรรมสรุปประจำวัน และนัดหมายวันถัดไป' }];
+  await write('18_program_EXTEND_MAT_2d1n_to16.docx', 'program', withPhotos(t8));
+  await write('18b_quotation_EXTEND_MAT_2d1n_to16.docx', 'quotation', t8);
   console.log('  (แม่แบบทั้งหมด', TEMPLATES.length, 'ชุด)');
 
   // sample.export.json (ตาม schema.json)
