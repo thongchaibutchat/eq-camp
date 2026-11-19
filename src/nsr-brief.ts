@@ -62,6 +62,7 @@ export function draftFromCamp(c: Camp, history: NsrJob[], briefText = ''): NsrDr
   const overnight = c.durationMode === 'overnight';
   const days = c.durationMode === 'half' ? 1 : Math.max(1, c.days || 1);
   const nights = overnight ? (c.nights || 0) : 0;
+  const otNights = nights;   // ค่าล่วงเวลา 25% ต่อคืนที่ค้าง (ไป-กลับ = 0)
   const course = c.courseCode ? courseLabel(c.courseCode) : '';
   const durTxt = c.durationMode === 'half' ? 'ครึ่งวัน' : overnight ? `${days}วัน${nights}คืน` : `${days}วัน`;
   job.name = [course || 'ค่าย', durTxt].join(' ');
@@ -111,9 +112,10 @@ export function draftFromCamp(c: Camp, history: NsrJob[], briefText = ''): NsrDr
   const nearest = nj ? { job: nj, ref: { tab: nj.tab || '' } } : undefined;
   job.staff = DEFAULT_STAFF.map(s => {
     const ref = nearest?.job.staff.find(x => x.role.replace(/\s+/g, '') === s.role.replace(/\s+/g, ''));
-    return { ...s, days, people: ref ? ref.people : s.role === 'Di Camp' ? 1 : null, rate: ref?.rate ?? s.rate, advance: ref?.advance ?? s.advance };
+    return { ...s, days, people: ref ? ref.people : s.role === 'Di Camp' ? 1 : null, rate: ref?.rate ?? s.rate, advance: ref?.advance ?? s.advance, ot: otNights };   // ค่าล่วงเวลา = ต่อคืนที่ค้าง
   });
   const team = staffSum(job.staff).people;
+  if (otNights) F('ot', 'ค่าล่วงเวลา', `${otNights} คืน × 25% ของค่าตอบแทนต่อวัน ต่อคน`, 'กำหนดการ', 'คืนที่ค้างของค่าย');
   const rule = job.participants ? staffText(z(job.participants)) : '';
   if (nearest && nearest.job.staff.length) F('staff', 'ทีมวิทยากร', `${team} คน × ${days} วัน`, 'งานอ้างอิง', `องค์ประกอบจาก “${nearest.ref.tab}”${rule ? ` · สูตรทีม ${rule} คน` : ''}`);
   else { F('staff', 'ทีมวิทยากร', `วัน = ${days}`, 'ไม่พบ', `ใส่จำนวนคนต่อบทบาท${rule ? ` (สูตรทีม ${rule} คน)` : ''}`); warnings.push(`ยังไม่มีงานอ้างอิงที่ตรงกัน — ใส่จำนวนทีมวิทยากรเอง${rule ? ` (สูตรทีม ${rule} คน)` : ''}`); }

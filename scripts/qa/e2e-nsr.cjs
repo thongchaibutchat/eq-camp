@@ -40,7 +40,7 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
     ok('opened tab, formula steps visible', t.includes(tab) && /ขั้น 3/.test(t) && /รวมต้นทุนก่อนภาษี/.test(t) && /กำไรจริง \/ ท่าน/.test(t));
     ok('audit note shown (SUM range bug)', /ข้อสังเกตจากชีต/.test(t) && /ไม่รวมแถว/.test(t));
     ok('tab link from sheet url (not embedded)', ((await pg.getByRole('link', { name: 'เปิดแท็บนี้' }).getAttribute('href')) || '').includes('TESTSHEET0000000000000000/edit#gid=' + store.tabs.find(x => x.title === 'stem @โรงเรียนทดสอบหนึ่ง').sheetId));
-    ok('approval card + fast track', /อนุมัติราคา/.test(t) && /Fast Track 30 นาที/.test(t) && /ยังไม่เปิด Auto Approval/.test(t));
+    ok('approval card + fast track', /อนุมัติราคา/.test(t) && /Fast Track 30 นาที/.test(t) && /เส้นราคาที่ต้องขออนุมัติ/.test(t) && /ยืนยันได้เอง/.test(t));
     // แก้ราคา → NSR เปลี่ยนทันที → บันทึกลงแท็บเดิม (1 ช่อง)
     const nsrBefore = await pg.locator('[aria-live="polite"]').filter({ hasText: 'NSR (กำไรจริง' }).innerText();
     await pg.getByLabel('ราคาขายต่อท่าน').fill('5,000'); await pg.waitForTimeout(250);

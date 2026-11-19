@@ -99,6 +99,27 @@ const sl = call('status.list'); ok('status.list = latest per tab', sl.status.len
 ok('status history kept', files.HUB1.getSheetByName('StatusLog').getLastRow() === 3);
 ok('status.set bad refused', call('status.set', { st: { title: 'x' } }).error === 'bad');
 ok('nsr.all carries status', call('nsr.all', { since: Date.now() + 1e9 }).status.length === 1);
+// ── เติมช่องค่าล่วงเวลาให้แท็บเดิม ──
+const ot = NSR.insertSheet('ot@ทดสอบ');
+ot.getRange(1, 8, 7, 6).setValues([
+  ['การคำนวน', '', '', '', '', ''],
+  ['ประเภท', 'ค่าตอบแทนต่อวัน', 'จำนวนคน', 'จำนวนวัน', 'ค่าเดินทางล่วงหน้า', 'ค่าตอบแทนที่จะต้องจ่าย'],
+  ['Di Camp', 2000, 1, 3, 500, '=sum(J3*I3*K3)+L3'],
+  ['ค่าวิทยากรหลัก', 1250, 2, 3, 500, '=sum(J4*I4*K4)+(L4*J4)'],
+  ['ค่าสต๊าฟทั่วไป', 500, 1, 3, 250, 1750],
+  ['', '', '', '', '', ''],
+  ['รวม', '', '=SUM(J3:J7)', '', '', '=SUM(M3:M7)']]);
+const busy = NSR.insertSheet('busy@ทดสอบ'); busy.getRange(1, 8, 4, 8).setValues([['', '', '', '', '', '', '', ''], ['ประเภท', '', '', '', '', '', 'โน้ตของทีม', ''], ['Di Camp', 2000, 1, 1, 0, 2000, '', ''], ['รวม', '', '', '', '', 2000, '', '']]);
+const m1 = call('nsr.migrateOT');
+const G = ot._g;
+ok('migrateOT: headers N/O', m1.ok && G[1][13] === 'คืนล่วงเวลา' && G[1][14] === 'ค่าล่วงเวลา (25%/คืน)', JSON.stringify(m1));
+ok('migrateOT: N=0, O formula, M += O (formula kept)', G[2][13] === 0 && G[2][14] === '=I3*25%*J3*N3' && G[2][12] === '=(sum(J3*I3*K3)+L3)+O3' && G[3][12] === '=(sum(J4*I4*K4)+(L4*J4))+O4', JSON.stringify(G.slice(2, 5).map(r => r.slice(12, 15))));
+ok('migrateOT: plain number M → formula keeps value', G[4][12] === '=1750+O5');
+ok('migrateOT: blank row untouched, total O', G[5][13] === '' && G[5][14] === '' && G[6][14] === '=SUM(O3:O6)', JSON.stringify(G.slice(5, 7).map(r => r.slice(12, 15))));
+ok('migrateOT: busy N:O tab refused', m1.bad.some(b => /busy@ทดสอบ/.test(b)) && busy._g[1][14] === '');
+ok('migrateOT: touches tab (cache rebuild) + rev bump', Number(props['t:' + ot.getSheetId()]) > 0);
+const m2 = call('nsr.migrateOT'); ok('migrateOT: second run skips (idempotent)', m2.skip >= 1 && G[2][12] === '=(sum(J3*I3*K3)+L3)+O3', JSON.stringify(m2));
+const rd15 = call('nsr.read', { tabs: ['ot@ทดสอบ'] }); ok('nsr.read returns 15 columns (A..O)', rd15.tabs[0].values[0].length === 15);
 ok('doGet', JSON.parse(fn.doGet().s).ok);
 ok('unknown op', call('zzz').error === 'op');
 process.exitCode = fail ? 1 : 0;

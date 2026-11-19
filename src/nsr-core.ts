@@ -22,7 +22,9 @@ export const VAT_RATE = 0.07;
 export const TARGET = 0.30;
 
 export type Num = number | null;
-export interface StaffLine { role: string; rate: Num; people: Num; days: Num; advance: Num; row?: number }
+export interface StaffLine { role: string; rate: Num; people: Num; days: Num; advance: Num; ot?: Num; row?: number }   // ot = จำนวนคืนที่ทำล่วงเวลา
+// ค่าล่วงเวลา (ช่วงกลางคืน) = 25% ของค่าตอบแทนต่อวัน ต่อคน ต่อคืนที่ค้าง — เช่น วันละ 1,000 → คืนละ 250
+export const OT_RATE = 0.25;
 export type LineKey = 'room' | 'mealHotel' | 'mealOut' | 'snack' | 'drink' | 'meeting' | 'equip' | 'trainer' | 'allowance' | 'trainerTravel' | 'trainerRoom'
   | 'teacher' | 'foreign' | 'vehicle' | 'visit' | 'shipping' | 'decor' | 'band' | 'shirt' | 'insurance' | 'overbill' | 'cashback' | 'other';
 export interface CostLine {
@@ -36,6 +38,7 @@ export type VatMode = 'rate' | 'fixed' | 'none';
 export interface Layout {
   infoRow: number; lineRows: number[]; subRow: number; vatRow: number; totRow: number; priceRow: number; profitRow: number; nsrRow: number; quoteRow: number;
   staffRows: number[]; staffTotRow: number; subFormula?: string; vatFormula?: string; profitFormula?: string;
+  otCol?: number;   // คอลัมน์ "คืนล่วงเวลา" ในแท็บ (1-based) — 0/ไม่มี = แท็บยังไม่มีช่องค่าล่วงเวลา
 }
 export interface SheetVals { subtotal: Num; vat: Num; total: Num; profit: Num; nsrTotal: Num; quote: Num; staffTotal: Num }
 export interface NsrJob {
@@ -114,18 +117,20 @@ export interface NsrCalc {
   tier: Tier | null; flags: string[]; missing: string[]; audit: string[];
 }
 
-// Approval Matrix ของทีม — แก้ที่นี่ที่เดียว (ผู้อนุมัติช่วงที่ยังไม่ยืนยัน = '' → แสดง "รอยืนยัน")
-// ห้ามเปิด Auto Approval จนกว่าจะยืนยัน: ① ช่วง 15–20% ② กรณีเท่ากับ 10/15/20% ③ กรณีสูงกว่า 30% ④ นิยาม NSR สำหรับงานเหมารวมและ VAT
+// Approval Matrix ของทีม (ยืนยันแล้ว 19 พ.ย. 2569) — แก้ที่นี่ที่เดียว · ขอบล่างของแต่ละช่วงนับรวม (20% พอดี = ยืนยันเอง, 15%/10% พอดี = แพนด้า)
 export const APPROVAL_MATRIX: { id: string; min: number; max: number; label: string; approver: string; pending: boolean; tone: Tier['tone'] }[] = [
-  { id: 'gt20', min: 0.20, max: Infinity, label: 'NSR มากกว่า 20%', approver: '', pending: true, tone: 'ok' },
-  { id: '15-20', min: 0.15, max: 0.20, label: 'NSR 15–20%', approver: '', pending: true, tone: 'mid' },
+  { id: 'gt20', min: 0.20, max: Infinity, label: 'NSR 20% ขึ้นไป', approver: 'ยืนยันได้เอง', pending: false, tone: 'ok' },
+  { id: '15-20', min: 0.15, max: 0.20, label: 'NSR 15% ถึงต่ำกว่า 20%', approver: 'แพนด้า', pending: false, tone: 'mid' },
   { id: '10-15', min: 0.10, max: 0.15, label: 'NSR 10% ถึงต่ำกว่า 15%', approver: 'แพนด้า', pending: false, tone: 'warn' },
   { id: 'lt10', min: -Infinity, max: 0.10, label: 'NSR ต่ำกว่า 10%', approver: 'พี่นก', pending: false, tone: 'bad' },
 ];
+// ช่วงยืนยันเองได้ต้องมียอด NSR รวมทั้งงาน (กำไรต่อท่าน × ผู้เข้าร่วม) ไม่น้อยกว่านี้ — น้อยกว่า = แจ้งแพนด้าทันที
+export const SELF_MIN_TOTAL = 35000;
+export const SELF_APPROVER = 'ยืนยันได้เอง', LOW_TOTAL_APPROVER = 'แพนด้า';
 export const APPROVAL_RULES = [
-  '① ช่วง 15–20% ยังไม่ยืนยันผู้อนุมัติ',
-  '② กรณี NSR เท่ากับ 10% / 15% / 20% พอดี ยังไม่ยืนยันว่าอยู่ช่วงไหน',
-  '③ กรณี NSR สูงกว่า 30% ต้องตรวจทานต้นทุนซ้ำ',
+  `ยืนยันเองได้เฉพาะ NSR 20% ขึ้นไป และยอด NSR รวมทั้งงานไม่น้อยกว่า ${SELF_MIN_TOTAL.toLocaleString('en-US')} บาท — ต่ำกว่านั้นแจ้งแพนด้าทันที`,
+  'ขอบช่วงนับรวมขอบล่าง: 20% พอดี = ยืนยันเอง · 15% และ 10% พอดี = แพนด้า',
+  'NSR สูงกว่า 30% ยืนยันเองได้ แต่ควรตรวจทานต้นทุนซ้ำว่าไม่ตกหล่น',
   '④ นิยาม NSR สำหรับงานเหมารวมและ VAT ยังไม่ยืนยัน',
 ];
 export const FAST_TRACK = [
@@ -137,8 +142,6 @@ export function tierOf(pct: number): { tier: Tier; flags: string[] } {
   const r = Math.round(pct * 10000) / 10000; // ปัดทศนิยม 2 ตำแหน่งของ % ก่อนเทียบ
   const t = APPROVAL_MATRIX.find(m => r > m.min && r < m.max) || APPROVAL_MATRIX.find(m => r >= m.min && r < m.max) || APPROVAL_MATRIX[APPROVAL_MATRIX.length - 1];
   const flags: string[] = [];
-  if ([0.10, 0.15, 0.20].some(b => Math.abs(r - b) < 0.00005)) flags.push(APPROVAL_RULES[1]);
-  if (t.id === '15-20' || Math.abs(r - 0.15) < 0.00005 || Math.abs(r - 0.20) < 0.00005) flags.push(APPROVAL_RULES[0]);
   if (r > 0.30) flags.push(APPROVAL_RULES[2]);
   return { tier: { id: t.id, label: t.label, approver: t.approver, pending: t.pending || !t.approver, tone: t.tone }, flags: [...new Set(flags)] };
 }
@@ -171,9 +174,10 @@ export function applyAuto(job: NsrJob): NsrJob {
   }
   return { ...job, lines };
 }
-export const staffPay = (s: StaffLine) => z(s.rate) * z(s.people) * z(s.days) + z(s.advance) * z(s.people);
+export const staffOT = (s: StaffLine) => z(s.rate) * OT_RATE * z(s.people) * z(s.ot ?? null);
+export const staffPay = (s: StaffLine) => z(s.rate) * z(s.people) * z(s.days) + z(s.advance) * z(s.people) + staffOT(s);
 export function staffSum(staff: StaffLine[]) {
-  return { total: staff.reduce((a, s) => a + staffPay(s), 0), people: staff.reduce((a, s) => a + z(s.people), 0), days: Math.max(0, ...staff.map(s => z(s.days))) };
+  return { total: staff.reduce((a, s) => a + staffPay(s), 0), people: staff.reduce((a, s) => a + z(s.people), 0), days: Math.max(0, ...staff.map(s => z(s.days))), ot: staff.reduce((a, s) => a + staffOT(s), 0) };
 }
 
 // ราคาต่อท่านต่ำสุด (บาทเต็ม) ที่ NSR ≥ m เมื่อปัดเป็น 2 ตำแหน่งของ % แบบ tierOf/ชีต — base = รวมก่อนภาษี (+ ภาษีคงที่), vr = อัตราภาษีของราคา
@@ -207,6 +211,12 @@ export function computeNsr(job0: NsrJob): NsrCalc {
   const t = pct != null ? tierOf(pct) : null;
   const flags = t ? [...t.flags] : [];
   if (pct != null && job.vatMode !== 'rate') flags.push(APPROVAL_RULES[3]);
+  let tier = t ? t.tier : null;
+  const nsrTot = profit != null && n != null ? profit * n : null;
+  if (tier && tier.id === 'gt20' && nsrTot != null && nsrTot < SELF_MIN_TOTAL) {   // NSR ถึงเกณฑ์แต่ยอดรวมน้อย → ไม่ยืนยันเอง
+    tier = { ...tier, approver: LOW_TOTAL_APPROVER, tone: 'warn', label: `${tier.label} แต่ยอด NSR รวม ${fmt(nsrTot)} บาท ต่ำกว่า ${fmt(SELF_MIN_TOTAL)}` };
+    flags.push(`ยอด NSR รวมทั้งงาน ${fmt(nsrTot)} บาท ต่ำกว่า ${fmt(SELF_MIN_TOTAL)} — แจ้งแพนด้าทันที`);
+  }
   // ตรวจเทียบกับค่าที่ชีตแสดง (แท็บเดิม) — หาสูตรรวมที่ไม่ครบแถว
   const audit: string[] = [];
   if (job.sheet && job.layout) {
@@ -227,7 +237,7 @@ export function computeNsr(job0: NsrJob): NsrCalc {
     lines, subtotal, vat, total, price, profit, pct,
     nsrTotal: profit != null && n != null ? profit * n : null, quote: price != null && n != null ? price * n : null,
     target: price != null ? price * TARGET : null, gapToTarget: price != null && profit != null ? profit - price * TARGET : null,
-    minPrice, priceBase: subtotal + fixedVat, vatRate: vr, tier: t ? t.tier : null, flags, missing, audit
+    minPrice, priceBase: subtotal + fixedVat, vatRate: vr, tier, flags, missing, audit
   };
 }
 
@@ -264,11 +274,12 @@ export function parseNsrTab(title: string, grid: Grid, sheetId?: number, index?:
   // ตารางค่าตอบแทนทีม (คอลัมน์ H:M)
   const staff: StaffLine[] = []; const staffRows: number[] = [];
   const sh = find(7, /^ประเภท$/);
-  let staffTotR = -1;
+  let staffTotR = -1, otC = -1;
+  if (sh >= 0) for (let c = 13; c < 18; c++) if (/คืน.*ล่วงเวลา|ล่วงเวลา.*คืน/.test(txt(sh, c)) && !/^ค่า/.test(txt(sh, c))) { otC = c; break; }
   if (sh >= 0) for (let r = sh + 1; r < Math.min(grid.length, sh + 12); r++) {
     const role = txt(r, 7); if (!role) continue;
     if (/^รวม/.test(role)) { staffTotR = r; break; }
-    staff.push({ role, rate: num(r, 8, `ค่าตอบแทน ${role}`), people: num(r, 9, `จำนวนคน ${role}`), days: num(r, 10, `จำนวนวัน ${role}`), advance: num(r, 11, `ค่าเดินทางล่วงหน้า ${role}`), row: r + 1 });
+    staff.push({ role, rate: num(r, 8, `ค่าตอบแทน ${role}`), people: num(r, 9, `จำนวนคน ${role}`), days: num(r, 10, `จำนวนวัน ${role}`), advance: num(r, 11, `ค่าเดินทางล่วงหน้า ${role}`), ot: otC >= 0 ? num(r, otC, `คืนล่วงเวลา ${role}`) : null, row: r + 1 });
     staffRows.push(r + 1);
   }
   const vatF = vatR >= 0 ? cell(vatR, 4).f || '' : '';
@@ -283,7 +294,7 @@ export function parseNsrTab(title: string, grid: Grid, sheetId?: number, index?:
     id: 'tab:' + (sheetId ?? title), tab: title, sheetId, index,
     name: txt(info, 1), province: txt(info, 2), participants, teachers: num(info, 4, 'จำนวนคุณครู'), note: txt(info, 5),
     staff, lines, price, vatMode, vatFixed: vatMode === 'fixed' ? vatVal : null,
-    layout: { infoRow: info + 1, lineRows, subRow: subR + 1, vatRow: vatR + 1, totRow: totR + 1, priceRow: priceR + 1, profitRow: profitR + 1, nsrRow: nsrR + 1, quoteRow: quoteR + 1, staffRows, staffTotRow: staffTotR + 1, subFormula: cell(subR, 4).f || '', vatFormula: vatF, profitFormula: profitR >= 0 ? cell(profitR, 4).f || '' : '' },
+    layout: { infoRow: info + 1, lineRows, subRow: subR + 1, vatRow: vatR + 1, totRow: totR + 1, priceRow: priceR + 1, profitRow: profitR + 1, nsrRow: nsrR + 1, quoteRow: quoteR + 1, staffRows, staffTotRow: staffTotR + 1, otCol: otC >= 0 ? otC + 1 : 0, subFormula: cell(subR, 4).f || '', vatFormula: vatF, profitFormula: profitR >= 0 ? cell(profitR, 4).f || '' : '' },
     sheet: { subtotal: num(subR, 4, 'รวมก่อนภาษี'), vat: vatVal, total: num(totR, 4, 'ต้นทุนรวม'), profit: profitR >= 0 && /กำไรจริง/.test(txt(profitR, 3)) ? num(profitR, 4, 'กำไรจริง') : null, nsrTotal: num(nsrR, 4, 'ยอด NSR'), quote: num(quoteR, 4, 'ราคาในใบเสนอราคา'), staffTotal: staffTotR >= 0 ? num(staffTotR, 12, 'รวมค่าตอบแทนทีม') : null },
     warnings
   };
@@ -309,6 +320,9 @@ export function newJob(): NsrJob {
 // ── เขียนลงชีต ──
 // แท็บใหม่: โครงเดียวกับแท็บงานจริงของทีม + สูตรเดิมทุกช่อง (ช่วงรวมครอบคลุมทุกบรรทัด)
 export type CellOut = string | number | { f: string };
+// หัวคอลัมน์/สูตรค่าล่วงเวลาในแท็บ (คอลัมน์ N, O) — ใช้ร่วมกับสคริปต์ที่เติมช่องให้แท็บเดิม
+export const OT_HEAD_N = 'คืนล่วงเวลา', OT_HEAD_O = 'ค่าล่วงเวลา (25%/คืน)';
+export const OT_FORMULA = (r: number) => `=I${r}*25%*J${r}*N${r}`;
 export function jobToGrid(job0: NsrJob, stamp: string): CellOut[][] {
   const job = applyAuto(job0);
   const L = job.lines; const S = job.staff;
@@ -320,11 +334,11 @@ export function jobToGrid(job0: NsrJob, stamp: string): CellOut[][] {
   const n = (v: Num): CellOut => (v == null ? '' : v);
   put(1, 1, 'ตัวอย่างตารางคำนวนต้นทุนยอดขาย NSR'); put(1, 8, 'การคำนวนการคิดค่าตอบแทนวิทยากร');
   ['ข้อมูล', 'ชื่องานที่จัด', 'จังหวัดที่จัด', 'จำนวนผู้เข้าร่วม', 'จำนวนคุณครู', 'หมายเหตุ'].forEach((t, i) => put(2, i + 1, t));
-  ['ประเภท', 'ค่าตอบแทนต่อวัน', 'จำนวนคน', 'จำนวนวัน', 'ค่าเดินทางล่วงหน้า', 'ค่าตอบแทนที่จะต้องจ่าย'].forEach((t, i) => put(2, i + 8, t));
+  ['ประเภท', 'ค่าตอบแทนต่อวัน', 'จำนวนคน', 'จำนวนวัน', 'ค่าเดินทางล่วงหน้า', 'ค่าตอบแทนที่จะต้องจ่าย', OT_HEAD_N, OT_HEAD_O].forEach((t, i) => put(2, i + 8, t));
   put(3, 1, 'รายละเอียดงาน'); put(3, 2, job.name || ''); put(3, 3, job.province || ''); put(3, 4, n(job.participants)); put(3, 5, n(job.teachers)); put(3, 6, job.note || '');
   ['รายการคำนวณต้นทุน', 'ลำดับ', 'ราคา (คืน/มื้อ/คน/อื่นๆ)', 'จำนวน (คืน/มื้อ/คน/อื่นๆ)', 'รวมเงิน (บาท)'].forEach((t, i) => put(4, i + 1, t));
-  S.forEach((s, i) => { const r = 3 + i; put(r, 8, s.role); put(r, 9, n(s.rate)); put(r, 10, n(s.people)); put(r, 11, n(s.days)); put(r, 12, n(s.advance)); put(r, 13, { f: `=sum(J${r}*I${r}*K${r})+(L${r}*J${r})` }); });
-  put(staffTot, 8, 'รวม'); put(staffTot, 10, { f: `=SUM(J3:J${staffTot - 1})` }); put(staffTot, 13, { f: `=SUM(M3:M${staffTot - 1})` });
+  S.forEach((s, i) => { const r = 3 + i; put(r, 8, s.role); put(r, 9, n(s.rate)); put(r, 10, n(s.people)); put(r, 11, n(s.days)); put(r, 12, n(s.advance)); put(r, 14, z(s.ot ?? null)); put(r, 15, { f: OT_FORMULA(r) }); put(r, 13, { f: `=sum(J${r}*I${r}*K${r})+(L${r}*J${r})+O${r}` }); });
+  put(staffTot, 8, 'รวม'); put(staffTot, 10, { f: `=SUM(J3:J${staffTot - 1})` }); put(staffTot, 13, { f: `=SUM(M3:M${staffTot - 1})` }); put(staffTot, 15, { f: `=SUM(O3:O${staffTot - 1})` });
   const rowOf = (k: LineKey) => { const i = L.findIndex(l => (l.key || keyOf(l.label)) === k); return i < 0 ? 0 : first + i; };
   const sumRows = (ks: LineKey[]) => L.map((l, i) => (ks.includes(l.key || keyOf(l.label)) ? `E${first + i}` : '')).filter(Boolean);
   L.forEach((l, i) => {
@@ -375,7 +389,8 @@ export function diffForTab(orig: NsrJob, cur0: NsrJob): { ok: true; edits: CellE
   const ir = L.infoRow;
   add(ir, 2, cur.name, orig.name); add(ir, 3, cur.province, orig.province); add(ir, 4, cur.participants, orig.participants); add(ir, 5, cur.teachers, orig.teachers);
   cur.lines.forEach((l, i) => { const o = orig.lines[i]; add(o.row!, 2, l.label, o.label); add(o.row!, 3, l.price, o.price); add(o.row!, 4, l.qty, o.qty); });
-  cur.staff.forEach((s, i) => { const o = orig.staff[i]; const r = o.row!; add(r, 8, s.role, o.role); add(r, 9, s.rate, o.rate); add(r, 10, s.people, o.people); add(r, 11, s.days, o.days); add(r, 12, s.advance, o.advance); });
+  cur.staff.forEach((s, i) => { const o = orig.staff[i]; const r = o.row!; add(r, 8, s.role, o.role); add(r, 9, s.rate, o.rate); add(r, 10, s.people, o.people); add(r, 11, s.days, o.days); add(r, 12, s.advance, o.advance); if (L.otCol) add(r, L.otCol, s.ot ?? null, o.ot ?? null); });
+  if (!L.otCol && cur.staff.some((s, i) => z(s.ot ?? null) !== z(orig.staff[i].ot ?? null))) return { ok: false, reason: 'แท็บนี้ยังไม่มีช่องค่าล่วงเวลา — บันทึกเป็นแท็บใหม่แทน' };
   if (L.priceRow > 0) add(L.priceRow, 5, cur.price, orig.price);
   if (cur.vatMode === 'fixed' && L.vatRow > 0) add(L.vatRow, 5, cur.vatFixed ?? null, orig.vatFixed ?? null);
   return { ok: true, edits };
@@ -402,13 +417,29 @@ export function approvalLines(calc: NsrCalc, participants: Num): ApprovalLine[] 
     return { m: t.max, below, belowTotal: below != null && n ? below * n : null, tierId: t.id, label: t.label, approver: t.approver, pending: t.pending || !t.approver };
   });
 }
-// ตำแหน่งราคาปัจจุบันเทียบเส้นขออนุมัติที่มีผู้อนุมัติชัดเจน (ช่วงที่ยังรอยืนยันไม่นับเป็น "ต้องขอ")
-export function approvalNeed(calc: NsrCalc, participants: Num): { need: boolean; approver: string; line: ApprovalLine | null; room: number | null } {
-  const lines = approvalLines(calc, participants).filter(l => !l.pending && l.below != null).sort((a, b) => (b.below as number) - (a.below as number));
-  const top = lines[0] || null; const p = calc.price;
-  if (!top || p == null) return { need: false, approver: '', line: top, room: null };
-  const hit = [...lines].reverse().find(l => p < (l.below as number)) || null;   // ช่วงต่ำสุดที่ราคาตกลงไป
-  return hit ? { need: true, approver: hit.approver, line: hit, room: p - (top.below as number) } : { need: false, approver: '', line: top, room: p - (top.below as number) };
+// ราคาต่อท่านต่ำสุด (บาทเต็ม) ที่ยอด NSR รวม (กำไรต่อท่าน × ผู้เข้าร่วม) ≥ total
+export function priceForTotal(base: number, vr: number, n: number, total: number): number | null {
+  if (!(n > 0) || !(1 - vr > 0)) return null;
+  const nsr = (p: number) => (p * (1 - vr) - base) * n;
+  let p = Math.max(0, Math.ceil((base + total / n) / (1 - vr))); while (p > 0 && nsr(p - 1) >= total) p--; while (nsr(p) < total) p++;
+  return p;
+}
+// เส้นที่ต้องแจ้ง/ขออนุมัติ (สำหรับแสดง): ผู้อนุมัติเดียวกันติดกันรวมเป็นเส้นเดียว + เส้นยอด NSR รวม 35,000
+export interface ApprovalStep { key: string; below: number; belowTotal: number | null; approver: string; why: string }
+export function approvalSteps(calc: NsrCalc, participants: Num): ApprovalStep[] {
+  const n = z(participants) > 0 ? z(participants) : null;
+  const ls = approvalLines(calc, participants).filter(l => !l.pending && l.below != null);   // เรียงจากเส้นสูงไปต่ำ
+  const out: ApprovalStep[] = [];
+  ls.forEach((l, i) => { if (i > 0 && ls[i - 1].approver === l.approver) return; out.push({ key: l.tierId, below: l.below as number, belowTotal: l.belowTotal, approver: l.approver, why: `NSR ต่ำกว่า ${Math.round(l.m * 100)}%` }); });
+  if (n) { const p = priceForTotal(calc.priceBase, calc.vatRate, n, SELF_MIN_TOTAL); if (p != null && (!out.length || p > out[0].below)) out.unshift({ key: 'total', below: p, belowTotal: p * n, approver: LOW_TOTAL_APPROVER, why: `ยอด NSR รวมต่ำกว่า ${fmt(SELF_MIN_TOTAL)} บาท (แจ้งทันที)` }); }
+  return out.sort((a, b) => b.below - a.below);
+}
+// ตำแหน่งราคาปัจจุบันเทียบเส้น — need = ราคาต่ำกว่าเส้นใดเส้นหนึ่ง · approver = เส้นต่ำสุดที่ราคาตกลงไป · room = ราคา − เส้นบนสุด
+export function approvalNeed(calc: NsrCalc, participants: Num): { need: boolean; approver: string; step: ApprovalStep | null; room: number | null } {
+  const steps = approvalSteps(calc, participants); const top = steps[0] || null; const p = calc.price;
+  if (!top || p == null) return { need: false, approver: '', step: top, room: null };
+  const hit = [...steps].reverse().find(s => p < s.below) || null;
+  return { need: !!hit, approver: hit ? hit.approver : '', step: hit || top, room: p - top.below };
 }
 
 // ── สถานะการขายต่อแท็บ (เก็บในศูนย์กลางทีม ไม่แตะชีต NSR) ──

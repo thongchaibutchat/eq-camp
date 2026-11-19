@@ -3,7 +3,7 @@ import { Wand2, Search, RefreshCw, ExternalLink, Plus, Trash2, Copy, Check, Aler
 import {
   NsrJob, NsrIndexRow, CostLine, StaffLine, Num, computeNsr, parseNsrTab, indexRow, newJob, jobToGrid, gridMeta, diffForTab, tabNameFor, applyAuto, keyOf, hintOf,
   STD_LINES, APPROVAL_MATRIX, APPROVAL_RULES, FAST_TRACK, NSR_MASTER_TAB, fmt, pctText, readNum, staffPay,
-  approvalLines, approvalNeed, SALE_STATUS, LOST_REASONS, SaleStatus, SaleStatusId, normStatus, salesSummary, needsFollow, saleValue
+  approvalSteps, approvalNeed, SELF_MIN_TOTAL, staffOT, OT_RATE, SALE_STATUS, LOST_REASONS, SaleStatus, SaleStatusId, normStatus, salesSummary, needsFollow, saleValue
 } from '../src/nsr-core';
 import { Conn, TabInfo, TabData, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
 import { hubReady, onRev, onHubState, HubState, enqueue, userName, IN_CLAUDE, LIVE_WEB } from './hub';
@@ -385,7 +385,7 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
                       </div>
                       <div className="text-right shrink-0">
                         <div className={`text-[13px] font-semibold px-2 py-0.5 rounded-md border ${e.row.tier ? TONE[toneOf(e.row.tier)] : 'text-sub border-brand-mist'}`}>{pctText(e.row.pct)}</div>
-                        {(e.row.tier === '10-15' || e.row.tier === 'lt10') && <div className="text-[11.5px] text-red-700 mt-0.5">ต้องขออนุมัติ</div>}
+                        {e.row.tier && (e.row.tier !== 'gt20' || (e.row.nsrTotal != null && e.row.nsrTotal < SELF_MIN_TOTAL)) && <div className="text-[11.5px] text-red-700 mt-0.5">{e.row.tier === 'gt20' ? 'แจ้งแพนด้า' : 'ต้องขออนุมัติ'}</div>}
                         {e.row.audit > 0 && <div className="text-[11.5px] text-amber-700 mt-0.5">สูตรชีตผิด</div>}
                       </div>
                     </div>
@@ -533,23 +533,25 @@ function JobInfo({ job, set }: { job: NsrJob; set: (p: Partial<NsrJob>) => void 
 function StaffTable({ job, calc, set }: { job: NsrJob; calc: ReturnType<typeof computeNsr>; set: (s: StaffLine[]) => void }) {
   const up = (i: number, p: Partial<StaffLine>) => set(job.staff.map((s, k) => (k === i ? { ...s, ...p } : s)));
   return (
-    <Step n={2} title="ค่าตอบแทนทีมวิทยากร" sub="ตาราง H:M ในชีต">
+    <Step n={2} title="ค่าตอบแทนทีมวิทยากร" sub="ตาราง H:O ในชีต">
       <div className="sm:hidden space-y-3">
         {job.staff.map((s, i) => (
           <div key={i} className="rounded-lg border border-brand-mist p-2.5">
             <div className="flex items-center gap-2"><input aria-label={`ประเภททีม แถว ${i + 1} (มือถือ)`} value={s.role} onChange={e => up(i, { role: e.target.value })} className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-brand-mist text-[14.5px] font-medium" /><span className="tabular-nums font-semibold text-[15px]">{fmt(staffPay(s))}</span></div>
-            <div className="grid grid-cols-4 gap-1.5 mt-2 text-[12px] text-sub">
+            <div className="grid grid-cols-5 gap-1.5 mt-2 text-[12px] text-sub">
               <label>บาท/วัน<NumIn label={`ค่าตอบแทนต่อวัน ${s.role} (มือถือ)`} value={s.rate} onChange={n => up(i, { rate: n })} /></label>
               <label>คน<NumIn label={`จำนวนคน ${s.role} (มือถือ)`} value={s.people} onChange={n => up(i, { people: n })} /></label>
               <label>วัน<NumIn label={`จำนวนวัน ${s.role} (มือถือ)`} value={s.days} onChange={n => up(i, { days: n })} /></label>
               <label>ล่วงหน้า/คน<NumIn label={`ค่าเดินทางล่วงหน้า ${s.role} (มือถือ)`} value={s.advance} onChange={n => up(i, { advance: n })} /></label>
+              <label>คืน OT<NumIn label={`คืนล่วงเวลา ${s.role} (มือถือ)`} value={s.ot ?? null} onChange={n => up(i, { ot: n })} /></label>
             </div>
+            {staffOT(s) > 0 && <div className="text-[12px] text-sub mt-1">ค่าล่วงเวลา {fmt(staffOT(s))} บาท</div>}
           </div>
         ))}
       </div>
       <div className="hidden sm:block overflow-x-auto -mx-1">
-        <table className="w-full text-[14px] min-w-[560px]">
-          <thead><tr className="text-[12.5px] text-sub text-left"><th className="font-medium px-1 pb-1">ประเภท</th><th className="font-medium px-1 pb-1 text-right">บาท/วัน</th><th className="font-medium px-1 pb-1 text-right">คน</th><th className="font-medium px-1 pb-1 text-right">วัน</th><th className="font-medium px-1 pb-1 text-right">ล่วงหน้า/คน</th><th className="font-medium px-1 pb-1 text-right">ต้องจ่าย</th></tr></thead>
+        <table className="w-full text-[14px] min-w-[700px]">
+          <thead><tr className="text-[12.5px] text-sub text-left"><th className="font-medium px-1 pb-1">ประเภท</th><th className="font-medium px-1 pb-1 text-right">บาท/วัน</th><th className="font-medium px-1 pb-1 text-right">คน</th><th className="font-medium px-1 pb-1 text-right">วัน</th><th className="font-medium px-1 pb-1 text-right">ล่วงหน้า/คน</th><th className="font-medium px-1 pb-1 text-right" title="ค่าล่วงเวลาช่วงกลางคืน 25% ของค่าตอบแทนต่อวัน ต่อคน ต่อคืน">คืน OT</th><th className="font-medium px-1 pb-1 text-right">ค่าล่วงเวลา</th><th className="font-medium px-1 pb-1 text-right">ต้องจ่าย</th></tr></thead>
           <tbody>
             {job.staff.map((s, i) => (
               <tr key={i} className="align-top">
@@ -558,13 +560,16 @@ function StaffTable({ job, calc, set }: { job: NsrJob; calc: ReturnType<typeof c
                 <td className="px-1 py-1 w-16"><NumIn label={`จำนวนคน ${s.role}`} value={s.people} onChange={n => up(i, { people: n })} /></td>
                 <td className="px-1 py-1 w-16"><NumIn label={`จำนวนวัน ${s.role}`} value={s.days} onChange={n => up(i, { days: n })} /></td>
                 <td className="px-1 py-1 w-24"><NumIn label={`ค่าเดินทางล่วงหน้า ${s.role}`} value={s.advance} onChange={n => up(i, { advance: n })} /></td>
+                <td className="px-1 py-1 w-16"><NumIn label={`คืนล่วงเวลา ${s.role}`} value={s.ot ?? null} onChange={n => up(i, { ot: n })} /></td>
+                <td className="px-1 py-1 text-right tabular-nums whitespace-nowrap pt-2.5 text-sub">{fmt(staffOT(s))}</td>
                 <td className="px-1 py-1 text-right tabular-nums whitespace-nowrap pt-2.5">{fmt(staffPay(s))}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <Formula>ต้องจ่าย = บาท/วัน × คน × วัน + เดินทางล่วงหน้า × คน</Formula>
+      <Formula>{`ต้องจ่าย = บาท/วัน × คน × วัน + เดินทางล่วงหน้า × คน + ค่าล่วงเวลา · ค่าล่วงเวลา = บาท/วัน × ${Math.round(OT_RATE * 100)}% × คน × คืนที่ค้าง (เช่น วันละ 1,000 → คืนละ 250)`}</Formula>
+      {job.tab && job.layout && !job.layout.otCol && <div className="mt-1 text-[12.5px] text-amber-800">แท็บนี้ในชีตยังไม่มีช่องค่าล่วงเวลา — แก้คืน OT แล้วให้บันทึกเป็นแท็บใหม่</div>}
       <div className="flex items-center justify-between mt-2 pt-2 border-t border-brand-mist text-[14.5px]">
         <span>รวมทีม <b className="font-semibold tabular-nums">{calc.staffPeople}</b> คน</span>
         <span>รวมค่าตอบแทน <b className="font-semibold tabular-nums">{fmt(calc.staffTotal)}</b> บาท</span>
@@ -686,17 +691,16 @@ function Result({ calc, participants }: { calc: ReturnType<typeof computeNsr>; p
   );
 }
 
-// บอกทันทีใต้ช่องราคา: ราคาต่ำกว่าเท่าไรต้องขออนุมัติ และตอนนี้ห่างเส้นเท่าไร
+// บอกทันทีใต้ช่องราคา: ราคาต่ำกว่าเท่าไรต้องแจ้ง/ขออนุมัติ และตอนนี้ห่างเส้นเท่าไร
 function ApprovalLine({ calc, participants }: { calc: ReturnType<typeof computeNsr>; participants: Num }) {
-  const need = approvalNeed(calc, participants); const lines = approvalLines(calc, participants).filter(l => !l.pending && l.below != null);
-  if (!lines.length) return null;
-  const top = need.line;
+  const need = approvalNeed(calc, participants); const steps = approvalSteps(calc, participants);
+  if (!steps.length) return null;
   return (
     <div className={`mt-3 rounded-lg border px-3 py-2 text-[14px] ${need.need ? TONE.bad : TONE.mute}`} role="status">
-      {need.need ? <div className="font-semibold">ต้องขออนุมัติจาก {need.approver} ก่อนเสนอราคา — ราคาต่ำกว่าเส้น {fmt(Math.abs(need.room || 0))} บาท/ท่าน</div>
-        : calc.price != null && top ? <div>ลดราคาได้อีกไม่เกิน <b className="font-semibold tabular-nums">{fmt(Math.max(0, (need.room || 0)))}</b> บาท/ท่าน ก่อนต้องขออนุมัติ</div> : null}
+      {need.need ? <div className="font-semibold">ต้อง{need.step?.key === 'total' ? 'แจ้ง' : 'ขออนุมัติจาก'} {need.approver} ก่อนเสนอราคา — {need.step?.why} (ราคาต่ำกว่าเส้นบนสุด {fmt(Math.abs(need.room || 0))} บาท/ท่าน)</div>
+        : calc.price != null ? <div>ยืนยันเองได้ · ลดราคาได้อีกไม่เกิน <b className="font-semibold tabular-nums">{fmt(Math.max(0, (need.room || 0)))}</b> บาท/ท่าน ก่อนต้องแจ้งแพนด้า</div> : null}
       <ul className="mt-1 space-y-0.5 text-[13.5px]">
-        {lines.map(l => <li key={l.tierId}>ราคาต่ำกว่า <b className="font-semibold tabular-nums">{fmt(l.below as number)}</b> บาท/ท่าน{l.belowTotal != null ? <span className="text-sub"> (ทั้งงานต่ำกว่า {fmt(l.belowTotal)} บาท)</span> : null} → NSR ต่ำกว่า {Math.round(l.m * 100)}% ต้องให้ <b className="font-semibold">{l.approver}</b> อนุมัติ</li>)}
+        {steps.map(l => <li key={l.key}>ราคาต่ำกว่า <b className="font-semibold tabular-nums">{fmt(l.below)}</b> บาท/ท่าน{l.belowTotal != null ? <span className="text-sub"> (ทั้งงานต่ำกว่า {fmt(l.belowTotal)} บาท)</span> : null} → {l.why} ต้อง{l.key === 'total' ? 'แจ้ง' : 'ให้'} <b className="font-semibold">{l.approver}</b>{l.key === 'total' ? '' : ' อนุมัติ'}</li>)}
       </ul>
     </div>
   );
@@ -705,16 +709,17 @@ function ApprovalLine({ calc, participants }: { calc: ReturnType<typeof computeN
 function Approval({ calc, participants }: { calc: ReturnType<typeof computeNsr>; participants: Num }) {
   const t = calc.tier;
   const ICON = [Scissors, CalendarCheck, Phone];
-  const lines = approvalLines(calc, participants);
+  const lines = approvalSteps(calc, participants);
   return (
     <div className={`${card} p-4`}>
       <div className="text-[15px] font-semibold">อนุมัติราคา</div>
       <div className="mt-2">
         <div className="text-[13.5px] font-semibold">เส้นราคาที่ต้องขออนุมัติ (ต่อท่าน)</div>
         <table className="w-full mt-1 text-[13.5px]"><tbody>
-          {lines.map(l => <tr key={l.tierId} className="border-b border-brand-mist/60"><td className="py-1">ต่ำกว่า <b className="font-semibold tabular-nums">{l.below != null ? fmt(l.below) : '–'}</b><div className="text-[12px] text-sub">NSR ต่ำกว่า {Math.round(l.m * 100)}%{l.belowTotal != null ? ` · ทั้งงาน ${fmt(l.belowTotal)}` : ''}</div></td><td className="py-1 text-right">{l.pending ? <span className="text-sub">ผู้อนุมัติรอยืนยัน</span> : <>ขออนุมัติ <b className="font-semibold">{l.approver}</b></>}</td></tr>)}
+          {lines.map(l => <tr key={l.key} className="border-b border-brand-mist/60"><td className="py-1">ต่ำกว่า <b className="font-semibold tabular-nums">{fmt(l.below)}</b><div className="text-[12px] text-sub">{l.why}{l.belowTotal != null ? ` · ทั้งงาน ${fmt(l.belowTotal)}` : ''}</div></td><td className="py-1 text-right">{l.key === 'total' ? 'แจ้ง' : 'ขออนุมัติ'} <b className="font-semibold">{l.approver}</b></td></tr>)}
+          <tr><td className="py-1 text-sub" colSpan={2}>ราคาตั้งแต่เส้นบนสุดขึ้นไป = ยืนยันได้เอง</td></tr>
         </tbody></table>
-        <Formula>เส้น = รวมก่อนภาษี ÷ (1 − 7% − NSR ของช่วง) · ราคาต่ำกว่าเส้น = NSR ตกไปช่วงล่าง</Formula>
+        <Formula>{`เส้น NSR = รวมก่อนภาษี ÷ (1 − 7% − NSR ของช่วง) · เส้นยอดรวม = (รวมก่อนภาษี + ${fmt(SELF_MIN_TOTAL)} ÷ ผู้เข้าร่วม) ÷ (1 − 7%)`}</Formula>
       </div>
       {!t ? <div className="text-[14px] text-sub mt-1">ใส่ราคาขายเพื่อดูระดับอนุมัติ</div> : (
         <>
@@ -722,7 +727,6 @@ function Approval({ calc, participants }: { calc: ReturnType<typeof computeNsr>;
             <div className="font-semibold">{t.label}</div>
             <div>{t.approver ? <>ผู้อนุมัติ: <b className="font-semibold">{t.approver}</b></> : 'ผู้อนุมัติ: รอยืนยันตาม Approval Matrix'}</div>
           </div>
-          <div className="text-[13px] text-sub mt-2">ยังไม่เปิด Auto Approval — ทุกงานต้องให้ผู้อนุมัติยืนยันเอง</div>
           {calc.flags.length > 0 && <ul className="mt-2 text-[13px] text-amber-800 list-disc pl-5 space-y-0.5">{calc.flags.map((f, i) => <li key={i}>{f}</li>)}</ul>}
         </>
       )}
@@ -733,7 +737,7 @@ function Approval({ calc, participants }: { calc: ReturnType<typeof computeNsr>;
         </ol>
       </div>
       <details className="mt-3 pt-3 border-t border-brand-mist text-[13px]">
-        <summary className="cursor-pointer font-medium">Approval Matrix และเงื่อนไขที่ยังรอยืนยัน</summary>
+        <summary className="cursor-pointer font-medium">Approval Matrix และเงื่อนไข</summary>
         <table className="w-full mt-2"><tbody>{APPROVAL_MATRIX.map(m => <tr key={m.id} className="border-b border-brand-mist/60"><td className="py-1">{m.label}</td><td className="py-1 text-right">{m.approver || 'รอยืนยัน'}</td></tr>)}</tbody></table>
         <ul className="mt-2 list-disc pl-5 text-sub space-y-0.5">{APPROVAL_RULES.map((r, i) => <li key={i}>{r}</li>)}</ul>
       </details>
@@ -861,7 +865,7 @@ function DraftSummary({ d, calc, onOpenRef, onClose }: { d: NsrDraft & { ai?: { 
             {t && <span className={`text-[12px] px-1.5 py-0.5 rounded-md border ${TONE[t.tone]}`}>{t.label}{t.approver ? ` · ${t.approver}` : ''}</span>}
             {calc.profit != null && <span className="tabular-nums">กำไร/ท่าน {fmt(calc.profit)}</span>}
             {p20 != null && <span className="text-sub tabular-nums">ขายขั้นต่ำ NSR 20% = {fmt(p20)}</span>}
-            {(() => { const a = approvalNeed(calc, d.job.participants); return a.need ? <span className="text-red-700 font-semibold">ต้องขออนุมัติจาก {a.approver}</span> : null; })()}
+            {(() => { const a = approvalNeed(calc, d.job.participants); return a.need ? <span className="text-red-700 font-semibold">ต้อง{a.step?.key === 'total' ? 'แจ้ง' : 'ขออนุมัติจาก'} {a.approver}</span> : null; })()}
           </div>
         </button>
         <button onClick={onClose} aria-label="ซ่อนผลอ่านบรีฟ" className="tap p-1.5 rounded-lg hover:bg-paper text-sub"><X className="w-4 h-4" /></button>
