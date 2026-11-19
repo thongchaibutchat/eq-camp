@@ -27,13 +27,13 @@ export function HubPill({ onClick }: { onClick: () => void }) {
   );
 }
 
-export default function TeamConnect({ onClose, flash }: { onClose: () => void; flash: (t: string, warn?: boolean) => void }) {
+export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () => void; flash: (t: string, warn?: boolean) => void; setupKey?: string }) {
   const s = useHubState();
-  const [mode, setMode] = useState<'join' | 'owner'>(hubReady() ? 'join' : 'join');
+  const [mode, setMode] = useState<'join' | 'owner'>(setupKey ? 'owner' : 'join');
   const [name, setName] = useState(userName());
   const [link, setLink] = useState('');
   const [url, setUrl] = useState(hubUrl());
-  const [key, setKey] = useState(hubKey() || newHubKey());
+  const [key, setKey] = useState(setupKey || hubKey() || newHubKey());
   const [copied, setCopied] = useState('');
   const code = hubAppsScript(key);
   const connected = hubReady();
