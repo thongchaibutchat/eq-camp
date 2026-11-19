@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Copy, Check, Share2, Link2, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { hubReady, hubUrl, hubKey, setHub, clearHub, userName, setUserName, inviteLink, hubAppsScript, newHubKey, URL_RX, onHubState, HubState, acceptInvite, flush, IN_CLAUDE, LIVE_WEB } from './hub';
+import { hubReady, hubUrl, hubKey, setHub, clearHub, userName, setUserName, inviteLink, hubAppsScript, newHubKey, URL_RX, onHubState, HubState, acceptInvite, flush, IN_CLAUDE, LIVE_WEB, HUB_URL } from './hub';
 import { copyText } from './platform';
 
 /* เชื่อมต่อทีม — ตั้งค่าครั้งเดียว ใช้ได้ทุกส่วน (คำนวณ NSR · ทะเบียนโปรแกรม · งานของทีม · ค้นหา)
@@ -38,10 +38,12 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
   const [name, setName] = useState(userName());
   const [link, setLink] = useState('');
   const [url, setUrl] = useState(hubUrl());
-  const [key, setKey] = useState(setupKey || hubKey() || newHubKey());
+  const installed = !!HUB_URL && !setupKey;   // ติดตั้งศูนย์กลางแล้ว → ทีมเข้าร่วมด้วยลิงก์เชิญเท่านั้น (กันสุ่มรหัสใหม่ที่ไม่ตรงกับสคริปต์)
+  const [key, setKey] = useState(setupKey || hubKey() || (installed ? '' : newHubKey()));
   const [copied, setCopied] = useState('');
   const code = hubAppsScript(key);
-  const connected = hubReady();
+  const badKey = s.code === 'key';
+  const connected = hubReady() && !badKey;
   const base = /github\.io$/.test(location.hostname) || /^https?:\/\/localhost/.test(location.origin) ? location.origin + location.pathname : WEB_BASE;
   const invite = connected ? inviteLink(base) : '';
   const cp = async (t: string, what: string) => { if (await copyText(t)) { setCopied(what); setTimeout(() => setCopied(''), 2000); } };
@@ -63,6 +65,7 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
           <button onClick={onClose} aria-label="ปิด" className="tap p-1.5 rounded-lg hover:bg-paper text-sub"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-4 text-[14px]">
+          {badKey && <div className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3"><div className="flex items-center gap-2 font-semibold"><AlertTriangle className="w-4 h-4 text-amber-700" />รหัสทีมในเครื่องนี้ไม่ตรงกับศูนย์กลาง</div><div className="text-[13px] mt-1">วางลิงก์เชิญล่าสุดจากกลุ่มทีมด้านล่าง (หรือแตะลิงก์เชิญ) — ระบบจะแทนค่าที่ผิดให้เอง</div></div>}
           {connected && (
             <div className={`rounded-xl border px-3.5 py-3 ${s.status === 'live' ? 'border-emerald-200 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
               <div className="flex items-center gap-2 font-semibold">{s.status === 'live' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-700" />}{s.status === 'live' ? 'เชื่อมต่อแล้ว · ซิงก์ทุก 5 วินาที' : s.status === 'connecting' ? 'กำลังเชื่อมต่อ…' : s.msg || 'เชื่อมต่อไม่ได้'}</div>
@@ -87,7 +90,7 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
           ) : (
             <>
               <div className="flex border-b border-brand-mist" role="tablist">
-                {([['join', 'ฉันได้ลิงก์เชิญ'], ['owner', 'ติดตั้งครั้งแรก (เจ้าของชีต)']] as const).map(([id, l]) => (
+                {([['join', 'ฉันได้ลิงก์เชิญ'], ['owner', 'ติดตั้งครั้งแรก (เจ้าของชีต)']] as const).filter(([id]) => id === 'join' || !installed).map(([id, l]) => (
                   <button key={id} role="tab" aria-selected={mode === id} onClick={() => setMode(id)} className={`tap px-3 py-2 text-[14px] border-b-2 -mb-px ${mode === id ? 'border-brand-navy font-semibold' : 'border-transparent text-sub'}`}>{l}</button>
                 ))}
               </div>

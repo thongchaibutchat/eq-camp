@@ -12,8 +12,8 @@ function evalTab(t) {
     else {
       if (depth > 50) return 0;
       let e = x.f.replace(/^=/, '');
-      e = e.replace(/\b([A-M])(\d+):([A-M])(\d+)\b/g, (_, a, b, c2, d) => `RG(${b - 1},${colN(a) - 1},${d - 1},${colN(c2) - 1})`);
-      e = e.replace(/\b([A-M])(\d+)\b/g, (_, a, b) => `V(${b - 1},${colN(a) - 1})`);
+      e = e.replace(/\b([A-O])(\d+):([A-O])(\d+)\b/g, (_, a, b, c2, d) => `RG(${b - 1},${colN(a) - 1},${d - 1},${colN(c2) - 1})`);
+      e = e.replace(/\b([A-O])(\d+)\b/g, (_, a, b) => `V(${b - 1},${colN(a) - 1})`);
       e = e.replace(/(\d+(?:\.\d+)?)%/g, '($1/100)').replace(/\bsum\(/gi, 'S(').replace(/\bMAX\(/gi, 'MX(').replace(/\bIFERROR\(/gi, 'IE(');
       const V = (r2, c2) => val(r2, c2, depth + 1);
       const RG = (r1, c1, r2, c2) => { const a = []; for (let i = r1; i <= r2; i++) for (let j = c1; j <= c2; j++) a.push(V(i, j)); return a; };
@@ -66,7 +66,7 @@ function makeStore(fixture, opt = {}) {
       case 'nsr.changes': return { ok: true, ids: [...touched.entries()].filter(([, ts]) => ts > (Number(req.since) || 0)).map(([id]) => id) };
       case 'nsr.create': {
         if (tabs.some(t => t.title === req.title)) return { ok: false, error: 'exists' };
-        const rows = req.rows; const w = Math.max(13, ...rows.map(r => r.length));
+        const rows = req.rows; const w = Math.max(15, ...rows.map(r => r.length));
         const t = { title: req.title, sheetId: 50000 + tabs.length, values: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? '' : String(v ?? ''); })), formulas: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? v : ''; })) };
         evalTab(t); tabs.splice(Math.min(req.index || 1, tabs.length), 0, t); touch(t.sheetId); bump();
         return { ok: true, sheetId: t.sheetId, title: t.title };

@@ -7,7 +7,7 @@
 // ความปลอดภัย: ทุกคำสั่งต้องมี "รหัสทีม" · ไม่ฝังที่อยู่/รหัสใน bundle สาธารณะ · เข้าร่วมทีมด้วยลิงก์เชิญ (#/join/…)
 // ออฟไลน์: คำสั่งเขียนเข้าคิวในเครื่อง แล้วส่งเองเมื่อกลับมาออนไลน์
 
-export interface HubState { status: 'off' | 'connecting' | 'live' | 'offline' | 'error' | 'blocked'; msg?: string; lastOk?: number; rev?: string; pending: number }
+export interface HubState { status: 'off' | 'connecting' | 'live' | 'offline' | 'error' | 'blocked'; code?: string; msg?: string; lastOk?: number; rev?: string; pending: number }
 type Listener = (rev: string, changed: boolean) => void;
 
 const LS = { url: 'eqcamp.hub.url', key: 'eqcamp.hub.key', name: 'eqcamp.hub.name', dev: 'eqcamp.hub.device', q: 'eqcamp.hub.queue.v1' };
@@ -32,7 +32,7 @@ export const hubReady = () => URL_RX.test(hubUrl()) && !!hubKey();
 export const userName = () => ls.get(LS.name).trim();
 export const setUserName = (n: string) => { ls.set(LS.name, n.trim().slice(0, 40)); };
 export const deviceId = () => { let d = ls.get(LS.dev); if (!d) { d = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); ls.set(LS.dev, d); } return d; };
-export function setHub(url: string, key: string) { ls.set(LS.url, url.trim()); ls.set(LS.key, key.trim()); state = { ...state, status: hubReady() ? 'connecting' : 'off', msg: '' }; emitState(); kick(); }
+export function setHub(url: string, key: string) { ls.set(LS.url, url.trim()); ls.set(LS.key, key.trim()); state = { ...state, status: hubReady() ? 'connecting' : 'off', msg: '', code: undefined }; emitState(); kick(); }
 export function clearHub() { ls.set(LS.url, ''); ls.set(LS.key, ''); state = { status: 'off', pending: queue().length }; emitState(); }
 
 // ── ลิงก์เชิญ: เปิดลิงก์นี้บนเครื่อง/แอปไหนก็เข้าร่วมทีมได้ทันที (ที่อยู่+รหัส อยู่หลัง # → ไม่ถูกส่งถึงเซิร์ฟเวอร์เว็บ) ──
@@ -70,7 +70,7 @@ export async function hubCall<T = any>(op: string, body: Record<string, any> = {
   let j: any; try { j = await r.json(); } catch { throw new HubError('bad', 'ศูนย์กลางทีมตอบกลับผิดรูปแบบ (ตรวจว่า Deploy เป็น Web app แล้ว)'); }
   if (!j || j.ok === false) {
     const c = j?.error || 'server';
-    const msg: Record<string, string> = { key: 'รหัสทีมไม่ถูกต้อง', exists: 'มีแท็บชื่อนี้แล้ว', missing: 'ไม่พบรายการนี้แล้ว', op: 'ศูนย์กลางทีมเป็นรุ่นเก่า — คัดลอกโค้ดใหม่แล้ว Deploy อีกครั้ง', conflict: 'มีคนแก้ระหว่างนี้' };
+    const msg: Record<string, string> = { key: 'รหัสทีมในเครื่องนี้ไม่ตรงกับศูนย์กลาง — เปิดลิงก์เชิญจากกลุ่มทีมอีกครั้ง', exists: 'มีแท็บชื่อนี้แล้ว', missing: 'ไม่พบรายการนี้แล้ว', op: 'ศูนย์กลางทีมเป็นรุ่นเก่า — คัดลอกโค้ดใหม่แล้ว Deploy อีกครั้ง', conflict: 'มีคนแก้ระหว่างนี้' };
     throw new HubError(c, msg[c] || j?.message || 'ศูนย์กลางทีมตอบกลับไม่สำเร็จ', j);
   }
   noteOk(j.rev);
@@ -130,7 +130,7 @@ async function tick() {
   try { await hubCall('rev', {}, 15000); fails = 0; if (queue().length) flush(); }
   catch (e: any) {
     fails++;
-    state = { ...state, status: e?.code === 'offline' ? 'offline' : e?.code === 'blocked' ? 'blocked' : 'error', msg: e?.message };
+    state = { ...state, status: e?.code === 'offline' ? 'offline' : e?.code === 'blocked' ? 'blocked' : 'error', code: e?.code, msg: e?.message };
     emitState();
     if (e?.code === 'key' || e?.code === 'blocked') return;                                 // ไม่วนถามซ้ำเมื่อผิดถาวร
   }
@@ -155,7 +155,7 @@ export const hubAppsScript = (key: string, sheetId = '') => `// EQ Camp — ศ�
 // ไม่ลบแท็บ ไม่แทรก/ลบแถวในแท็บ NSR ไม่ทับสูตรที่ไม่ได้แก้
 const TEAM_KEY = '${key}';
 const NSR_ID = '${sheetId}';   // ว่าง = ใช้ชีตที่สคริปต์ผูกอยู่
-const VERSION = 5;
+const VERSION = 7;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -190,7 +190,7 @@ function route_(q) {
     case 'nsr.list': return { ok: true, url: ss.getUrl(), tabs: ss.getSheets().map(function (s) { return { title: s.getName(), sheetId: s.getSheetId(), index: s.getIndex() - 1 }; }) };
     case 'nsr.read': return { ok: true, tabs: (q.tabs || []).slice(0, 80).map(function (t) {
         var sh = ss.getSheetByName(t); if (!sh) return { title: t, missing: true };
-        var n = Math.min(Math.max(sh.getLastRow(), 1), 60), rg = sh.getRange(1, 1, n, 13);
+        var n = Math.min(Math.max(sh.getLastRow(), 1), 60), rg = sh.getRange(1, 1, n, 15);
         return { title: t, sheetId: sh.getSheetId(), index: sh.getIndex() - 1, values: rg.getDisplayValues(), formulas: rg.getFormulas() }; }) };
     case 'nsr.changes': return { ok: true, since: Number(q.since) || 0, ids: changed_(Number(q.since) || 0) };
     case 'nsr.all': return all_(ss, q);
@@ -235,6 +235,7 @@ function route_(q) {
       case 'job.get': { var jj = jobs_(true).filter(function (j) { return j.id === q.id; })[0]; return jj ? { ok: true, job: jj } : { ok: false, error: 'missing' }; }
       case 'job.put': return putJob_(q.job || {}, q.base, q.dev, q.by);
       case 'job.del': return delJob_(q.id);
+      case 'nsr.migrateOT': return migrateOT_(ss);
       case 'status.set': { var st = q.st || {}; if (st.sheetId === undefined || st.sheetId === null || st.sheetId === '' || !st.status) return { ok: false, error: 'bad' };
         var ssh = tab_('Status', ST_COLS), sn = ssh.getLastRow(), sids = sn > 1 ? ssh.getRange(2, 1, sn - 1, 1).getValues().map(function (r) { return String(r[0]); }) : [];
         st.at = new Date().toISOString(); st.by = q.by || ''; st.dev = q.dev || '';
@@ -294,7 +295,7 @@ function statuses_() { var sh = tab_('Status', ST_COLS), v = sh.getDataRange().g
 // ── ภาพรวมทุกแท็บในคำสั่งเดียว: เก็บสำเนาแต่ละแท็บไว้ในแท็บ NsrCache ของสเปรดชีตข้อมูลกลาง · อ่านแท็บจริงใหม่เฉพาะที่มีคนแก้/เปลี่ยนชื่อ/ใหม่ ──
 var CACHE_COLS = ['sheetId','title','ts','json'];
 function trimRows_(m) { return m.map(function (r) { var a = r.slice(); while (a.length && (a[a.length - 1] === '' || a[a.length - 1] === null)) a.pop(); return a; }); }
-function snap_(sh) { var n = Math.min(Math.max(sh.getLastRow(), 1), 60), rg = sh.getRange(1, 1, n, 13), v = trimRows_(rg.getDisplayValues()), f = trimRows_(rg.getFormulas());
+function snap_(sh) { var n = Math.min(Math.max(sh.getLastRow(), 1), 60), rg = sh.getRange(1, 1, n, 15), v = trimRows_(rg.getDisplayValues()), f = trimRows_(rg.getFormulas());
   while (v.length && !v[v.length - 1].length && !(f[v.length - 1] || []).length) { v.pop(); f.pop(); } return JSON.stringify({ v: v, f: f }); }
 function all_(ss, q) {
   var t0 = Date.now(), since = Number(q.since) || 0, props = props_().getProperties(), sheets = ss.getSheets();
@@ -337,6 +338,40 @@ function all_(ss, q) {
   wants.forEach(function (rec) { rec.d = wh['d:' + rec.sheetId] || String(cs.getRange(rec.want + 2, 4).getValue() || ''); delete rec.want; });
   tm.total = Date.now() - t0;
   return { ok: true, at: t0, tabs: out, left: left, built: built, url: ss.getUrl(), status: statuses_(), tm: tm };
+}
+// ── เติมช่องค่าล่วงเวลาให้แท็บเดิม (ครั้งเดียว): N = คืนล่วงเวลา (0) · O = ค่าตอบแทน/วัน × 25% × คน × คืน · M เดิม + O
+// ตัวเลขเดิมไม่เปลี่ยน (คืน = 0) · ข้ามแท็บที่มีช่องแล้ว/ไม่ใช่ตาราง NSR/คอลัมน์ N:O ไม่ว่าง · ทำทีละ ≤20 วิ เหลือ = left
+function migrateOT_(ss) {
+  var t0 = Date.now(), done = [], skip = 0, left = 0, bad = [], P = props_(), seen = P.getProperties();   // ot:<sheetId> = ตรวจแล้ว (ไม่อ่านซ้ำ)
+  ss.getSheets().forEach(function (sh) {
+    var oid = 'ot:' + sh.getSheetId();
+    if (seen[oid]) { skip++; return; }
+    if (Date.now() - t0 > 20000) { left++; return; }
+    var mark = function (x) { P.setProperty(oid, x); };
+    var n = Math.min(Math.max(sh.getLastRow(), 1), 60), rg = sh.getRange(1, 8, n, 8), v = rg.getDisplayValues(), f = rg.getFormulas(), hr = -1, tr = -1;
+    for (var i = 0; i < v.length; i++) { var h = String(v[i][0]).trim(); if (hr < 0 && h === 'ประเภท') hr = i; else if (hr >= 0 && h.indexOf('รวม') === 0) { tr = i; break; } }
+    if (hr < 0 || tr < 0) { bad.push(sh.getName() + ' (ไม่ใช่ตาราง NSR)'); mark('x'); return; }
+    if (String(v[hr][6]).indexOf('ล่วงเวลา') >= 0) { skip++; mark('1'); return; }
+    for (var r = hr; r <= tr; r++) if (v[r][6] !== '' || v[r][7] !== '' || f[r][6] || f[r][7]) { bad.push(sh.getName() + ' (คอลัมน์ N:O มีข้อมูลอยู่แล้ว)'); mark('x'); return; }
+    var no = [], ms = [], ok = true;   // no = N:O ทุกแถว · ms = [แถว, สูตร M ใหม่] เฉพาะแถวที่มีประเภททีม (แถวว่างไม่แตะ M)
+    for (var r2 = hr + 1; r2 < tr; r2++) {
+      var R = r2 + 1, role = String(v[r2][0]).trim(), mf = f[r2][5], mv = String(v[r2][5]).replace(/[฿,\\s]/g, '');
+      if (!role) { no.push(['', '']); continue; }
+      var m = mf ? '=(' + mf.slice(1) + ')+O' + R : (mv === '' ? '=O' + R : (/^-?\\d+(\\.\\d+)?$/.test(mv) ? '=' + mv + '+O' + R : null));
+      if (m === null) { ok = false; break; }
+      no.push([0, '=I' + R + '*25%*J' + R + '*N' + R]); ms.push([R, m]);
+    }
+    if (!ok) { bad.push(sh.getName() + ' (ช่องค่าตอบแทนเป็นข้อความ)'); mark('x'); return; }
+    sh.getRange(hr + 1, 14, 1, 2).setValues([['คืนล่วงเวลา', 'ค่าล่วงเวลา (25%/คืน)']]);
+    if (no.length) sh.getRange(hr + 2, 14, no.length, 2).setValues(no);
+    ms.forEach(function (x) { sh.getRange(x[0], 13).setValue(x[1]); });
+    sh.getRange(tr + 1, 15).setValue('=SUM(O' + (hr + 2) + ':O' + tr + ')');
+    try { sh.getRange(hr + 1, 13, tr - hr + 1, 1).copyTo(sh.getRange(hr + 1, 14, tr - hr + 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false); } catch (x) {}
+    touch_(sh.getSheetId()); mark('1'); done.push(sh.getName());
+  });
+  if (done.length) bump_();
+  var badAll = []; for (var k in seen) if (k.indexOf('ot:') === 0 && seen[k] === 'x') badAll.push(Number(k.slice(3)));
+  return { ok: true, done: done.length, skip: skip, left: left, bad: bad, badIds: badAll };
 }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 `;
