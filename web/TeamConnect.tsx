@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Copy, Check, Share2, Link2, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { hubReady, hubUrl, hubKey, setHub, clearHub, userName, setUserName, inviteLink, hubAppsScript, newHubKey, URL_RX, onHubState, HubState, acceptInvite, flush } from './hub';
+import { hubReady, hubUrl, hubKey, setHub, clearHub, userName, setUserName, inviteLink, hubAppsScript, newHubKey, URL_RX, onHubState, HubState, acceptInvite, flush, IN_CLAUDE, LIVE_WEB } from './hub';
 import { copyText } from './platform';
 
 /* เชื่อมต่อทีม — ตั้งค่าครั้งเดียว ใช้ได้ทุกส่วน (คำนวณ NSR · ทะเบียนโปรแกรม · งานของทีม · ค้นหา)
@@ -16,6 +16,11 @@ export function HubPill({ onClick }: { onClick: () => void }) {
   useEffect(() => { const id = setInterval(() => tick(t => t + 1), 5000); return () => clearInterval(id); }, []);
   const ago = s.lastOk ? Math.max(0, Math.round((Date.now() - s.lastOk) / 1000)) : null;
   const dot = s.status === 'live' ? 'bg-emerald-500' : s.status === 'connecting' ? 'bg-sky-500 animate-pulse' : s.status === 'off' ? 'bg-gray-300' : 'bg-amber-500';
+  if (IN_CLAUDE) return (   // บน claude.ai เชื่อมทีมไม่ได้ (ระบบบล็อก) → พาไปเวอร์ชันเว็บแบบสด
+    <a href={LIVE_WEB + '#/nsr'} target="_blank" rel="noopener" title="claude.ai ไม่อนุญาตให้หน้านี้ดึงข้อมูลจากชีต — ข้อมูลทีมแบบสดอยู่ที่เวอร์ชันเว็บ"
+      className="tap flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[13px] font-medium whitespace-nowrap">
+      <span className="w-2 h-2 rounded-full bg-emerald-500" /><span className="hidden sm:inline">เปิดแบบเรียลไทม์</span><span className="sm:hidden">สด</span>
+    </a>);
   const label = s.status === 'live' ? (ago != null && ago < 12 ? 'ทีม · สด' : `ทีม · ${ago}s`) : s.status === 'connecting' ? 'กำลังเชื่อม…' : s.status === 'off' ? 'เชื่อมต่อทีม' : s.status === 'offline' ? 'ออฟไลน์' : 'ทีม · มีปัญหา';
   return (
     <button onClick={onClick} title={s.msg || (s.status === 'live' ? 'ข้อมูลทีมซิงก์อยู่ (ตรวจทุก 5 วินาที)' : 'ตั้งค่าเชื่อมต่อทีม')}

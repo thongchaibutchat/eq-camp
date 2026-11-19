@@ -6,7 +6,7 @@ import {
   approvalLines, approvalNeed, SALE_STATUS, LOST_REASONS, SaleStatus, SaleStatusId, normStatus, salesSummary, needsFollow, saleValue
 } from '../src/nsr-core';
 import { Conn, TabInfo, TabData, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
-import { hubReady, onRev, onHubState, HubState, enqueue, userName } from './hub';
+import { hubReady, onRev, onHubState, HubState, enqueue, userName, IN_CLAUDE, LIVE_WEB } from './hub';
 import { normQ } from './Search';
 import { draftFromBrief, draftFromCamp, aiPrompt, applyAi, NsrDraft, DraftField } from '../src/nsr-brief';
 import type { Camp } from '../src/eqcamp-core';
@@ -323,10 +323,12 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
           {connState === 'live' ? <span>เชื่อมชีตแล้ว · {conn?.kind === 'mcp' ? 'บัญชี Google ของคุณ' : 'ศูนย์กลางทีม'} · อัปเดต {timeTh(lastSync)}{loadPct ? ` · กำลังโหลด ${loadPct.done}/${loadPct.total} แท็บ` : ''}</span>
             : connState === 'connecting' ? <span>กำลังเชื่อมชีต…</span>
             : connState === 'error' ? <span>เชื่อมชีตไม่ได้: {connMsg}</span>
+            : IN_CLAUDE ? <span>หน้านี้บน claude.ai ดึงข้อมูลทีมไม่ได้ (claude.ai ไม่ให้หน้าเว็บต่อออกไป Google) — ข้อมูลสดอยู่ที่ “เปิดแบบเรียลไทม์”</span>
             : <span>ยังไม่เชื่อมชีต{cacheAt ? ` · แสดงข้อมูลล่าสุดในเครื่อง (${new Date(cacheAt).toLocaleDateString('th-TH')})` : ' · คำนวณได้ บันทึกในเครื่องนี้'}</span>}
           {connState === 'live' && <button onClick={() => conn && loadTabs(conn, tabs, true)} disabled={!!loadPct} aria-label="โหลดทุกแท็บใหม่" title="โหลดทุกแท็บใหม่" className="tap p-1 rounded-md hover:bg-white disabled:opacity-40"><RefreshCw className={`w-4 h-4 ${loadPct ? 'animate-spin' : ''}`} /></button>}
         </div>
-        {connState !== 'live' && <button onClick={onConnect} className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><Settings className="w-4 h-4" />เชื่อมต่อทีม</button>}
+        {IN_CLAUDE && connState !== 'live' && <a href={LIVE_WEB + '#/nsr'} target="_blank" rel="noopener" className="tap px-3 py-2 rounded-xl bg-brand-navy text-white hover:opacity-90 text-[14px] font-semibold flex items-center gap-1.5"><ExternalLink className="w-4 h-4" />เปิดแบบเรียลไทม์</a>}
+        {!IN_CLAUDE && connState !== 'live' && <button onClick={onConnect} className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><Settings className="w-4 h-4" />เชื่อมต่อทีม</button>}
         {connState === 'live' && sheetUrl() && <a href={sheetUrl()} target="_blank" rel="noopener" className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><ExternalLink className="w-4 h-4" />เปิดชีต</a>}
       </div>
 
@@ -369,7 +371,7 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
           {hiddenCopies > 0 && <button onClick={() => setHideCopy(false)} className="tap mt-1 text-[12.5px] text-brand-navy underline underline-offset-2">มีอีก {hiddenCopies} งานในแท็บ “Copy of” ที่ซ่อนอยู่ — แสดง</button>}
           {loadPct && q.trim() && <div className="mt-1 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">ยังโหลดไม่ครบ ({loadPct.done}/{loadPct.total} แท็บ) — ผลค้นหาจะเพิ่มเองเมื่อโหลดเสร็จ</div>}
           <ul className="mt-1 -mx-1 lg:overflow-y-auto lg:flex-1 divide-y divide-brand-mist/70">
-            {!all.length && <li className="px-2 py-6 text-[14px] text-sub">{connState === 'none' ? 'เชื่อมต่อทีมเพื่อดูงานย้อนหลังทุกแท็บในชีต NSR — หรือเริ่มจากบรีฟ/งานใหม่ได้เลย' : connState === 'error' ? 'อ่านชีตไม่ได้ — ดูข้อความด้านบน' : 'กำลังโหลด…'}</li>}
+            {!all.length && <li className="px-2 py-6 text-[14px] text-sub">{IN_CLAUDE && connState === 'none' ? 'งานย้อนหลังทุกแท็บ ค้นหา และสถานะการขาย ดูแบบสดได้ที่ “เปิดแบบเรียลไทม์” (ด้านบน) — ที่หน้านี้ยังคำนวณจากบรีฟ/งานใหม่ได้' : connState === 'none' ? 'เชื่อมต่อทีมเพื่อดูงานย้อนหลังทุกแท็บในชีต NSR — หรือเริ่มจากบรีฟ/งานใหม่ได้เลย' : connState === 'error' ? 'อ่านชีตไม่ได้ — ดูข้อความด้านบน' : 'กำลังโหลด…'}</li>}
             {shown.slice(0, limit).map(e => {
               const on = !!job && (job.id === e.job.id || (!!job.tab && job.tab === e.row.tab));
               return (
