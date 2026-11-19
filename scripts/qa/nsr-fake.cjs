@@ -29,7 +29,7 @@ function evalTab(t) {
     const n = val(r, c); t.values[r][c] = String(Math.round(n * 10000) / 10000);
   }
 }
-function makeStore(fixture) {
+function makeStore(fixture, opt = {}) {
   // fixture: { [title]: [[value, formula], ...][] } (รูปแบบเดียวกับไฟล์ดึงจากชีต)
   const tabs = []; let id = 1000;
   for (const [title, rows] of Object.entries(fixture)) {
@@ -41,6 +41,8 @@ function makeStore(fixture) {
   const log = [];
   let rev = 1, edit = 0; const touched = new Map(); const events = []; const jobs = new Map();
   const touch = id => { touched.set(id, Date.now()); };
+  const T0 = Date.now(); const built = new Set(); const statuses = new Map(); const statusLog = [];
+  const tsOf = id => touched.get(id) || T0;
   const bump = () => { rev = Date.now(); };
   const same = (a, b) => { const n = s => { const t = String(s ?? '').replace(/[฿,\s]/g, ''); return /^-?\d+(\.\d+)?%?$/.test(t) ? parseFloat(t) / (t.endsWith('%') ? 100 : 1) : null; }; const x = n(a), y = n(b); if (x !== null && y !== null) return Math.abs(x - y) < 0.5; return String(a || '').trim() === String(b || '').trim(); };
   const route = req => {
@@ -48,6 +50,19 @@ function makeStore(fixture) {
       case 'rev': return { ok: true };
       case 'nsr.list': return { ok: true, url: 'https://docs.google.com/spreadsheets/d/TESTSHEET0000000000000000/edit', tabs: tabs.map((t, i) => ({ title: t.title, sheetId: t.sheetId, index: i })) };
       case 'nsr.read': return { ok: true, tabs: (req.tabs || []).map(n => { const i = tabs.findIndex(t => t.title === n); if (i < 0) return { title: n, missing: true }; const t = tabs[i]; return { title: t.title, sheetId: t.sheetId, index: i, values: t.values, formulas: t.formulas }; }) };
+      case 'nsr.all': {
+        if (opt.legacy) break;   // ศูนย์กลางรุ่นเก่า (ไม่มีคำสั่งนี้)
+        const since = Number(req.since) || 0; let budget = opt.buildPer || Infinity, left = 0, nb = 0; const at = Date.now();
+        const out = tabs.map((t, i) => {
+          const rec = { title: t.title, sheetId: t.sheetId, index: i };
+          if (!built.has(t.sheetId)) { if (budget > 0) { budget--; nb++; built.add(t.sheetId); } else { left++; rec.pending = true; return rec; } }
+          rec.ts = tsOf(t.sheetId); if (rec.ts > since || since === 0) rec.d = JSON.stringify({ v: t.values, f: t.formulas });
+          return rec;
+        });
+        return { ok: true, at, tabs: out, left, built: nb, url: 'https://docs.google.com/spreadsheets/d/TESTSHEET0000000000000000/edit', status: [...statuses.values()] };
+      }
+      case 'status.list': if (opt.legacy) break; return { ok: true, status: [...statuses.values()] };
+      case 'status.set': { if (opt.legacy) break; const st = req.st || {}; if (st.sheetId == null || !st.status) return { ok: false, error: 'bad' }; const row = { ...st, by: req.by || '', at: new Date().toISOString() }; statuses.set(String(st.sheetId), row); statusLog.push(row); bump(); return { ok: true, at: row.at }; }
       case 'nsr.changes': return { ok: true, ids: [...touched.entries()].filter(([, ts]) => ts > (Number(req.since) || 0)).map(([id]) => id) };
       case 'nsr.create': {
         if (tabs.some(t => t.title === req.title)) return { ok: false, error: 'exists' };
@@ -80,6 +95,6 @@ function makeStore(fixture) {
   };
   // แก้ค่าในชีตแทน "คนอื่น" (จำลอง onEdit)
   const poke = (title, r, c, v) => { const t = tabs.find(x => x.title === title); t.values[r - 1][c - 1] = String(v); t.formulas[r - 1][c - 1] = ''; evalTab(t); edit = Date.now(); touch(t.sheetId); };
-  return { handle, poke, tabs, log, events, jobs };
+  return { handle, poke, tabs, log, events, jobs, statuses, statusLog };
 }
 module.exports = { makeStore, evalTab };
