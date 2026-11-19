@@ -13,6 +13,7 @@ export const IN_APP: '' | 'LINE' | 'Facebook' | 'Instagram' | 'TikTok' | 'Messen
 export function externalBrowserUrl(): string | null {
   if (typeof location === 'undefined') return null;
   const url = new URL(location.href);
+  try { const ih = sessionStorage.getItem('eqcamp.inviteHash'); if (ih && !/^#\/(join|t)\//.test(url.hash)) url.hash = ih; } catch { /* */ }
   if (IN_APP === 'LINE') { url.searchParams.set('openExternalBrowser', '1'); return url.toString(); }
   if (IS_ANDROID && IN_APP) return `intent://${url.host}${url.pathname}${url.search}${url.hash}#Intent;scheme=${url.protocol.replace(':', '')};package=com.android.chrome;end`;
   return null;

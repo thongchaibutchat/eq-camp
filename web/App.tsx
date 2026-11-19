@@ -7,7 +7,7 @@ import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles 
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv } from './registry';
 import TeamConnect, { HubPill } from './TeamConnect';
 import SearchPalette from './Search';
-import { hubReady, onRev, acceptInvite, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
+import { hubReady, onRev, acceptInvite, isInviteHash, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
 import type { LogEv } from './registry';
 import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete } from './jobs';
 import type { Job, TeamJob } from './jobs';
@@ -91,7 +91,11 @@ export default function App() {
     const check = () => {
       const sk = setupKeyFrom(location.hash);
       if (sk) { setSetupKey(sk); setConnectOpen(true); try { history.replaceState(null, '', '#/'); } catch { /* */ } setViewState('home'); return; }
-      if (location.hash.startsWith('#/join/')) { const ok = acceptInvite(location.hash); try { history.replaceState(null, '', '#/'); } catch { /* */ } setViewState('home'); if (ok) { setConnectOpen(true); flash('เข้าร่วมทีมแล้ว — ใส่ชื่อของคุณ แล้วข้อมูลทีมจะซิงก์อัตโนมัติ'); } else flash('ลิงก์เชิญไม่ถูกต้อง', false); } };
+      // ลิงก์ทีม: #/join/… · #/t/<รหัส> · ?t=<รหัส> · # ที่แอปแชตแปลงเป็น %23
+      let h = location.hash; try { if (/^#%2F|%23/i.test(h)) h = decodeURIComponent(h); } catch { /* */ }
+      const qt = new URLSearchParams(location.search).get('t') || new URLSearchParams(location.search).get('join');
+      if (!isInviteHash(h) && qt) h = qt.startsWith('eq-') ? '#/t/' + qt : '#/join/' + qt;
+      if (isInviteHash(h)) { const ok = acceptInvite(h); try { history.replaceState(null, '', location.pathname + (ok ? '#/nsr' : '#/')); } catch { /* */ } setViewState(ok ? 'nsr' : 'home'); if (ok) { setConnectOpen(true); flash('เข้าร่วมทีมแล้ว — ใส่ชื่อของคุณ แล้วข้อมูลทีมจะซิงก์อัตโนมัติ'); } else flash('ลิงก์เชิญไม่ถูกต้อง', false); } };
     check(); window.addEventListener('hashchange', check); return () => window.removeEventListener('hashchange', check);
   }, []);
   // ค้นหาทั้งระบบ: ⌘K / Ctrl+K / "/"

@@ -42,11 +42,27 @@ export const inviteLink = (base?: string) => `${base || (location.origin + locat
 // ลิงก์ติดตั้ง (เจ้าของชีต): #/setup/<รหัสทีม> — เปิดแล้วกรอกเฉพาะที่อยู่ Web app (รหัสตรงกับโค้ดที่วางแล้ว)
 export const setupKeyFrom = (hash: string): string => { const m = hash.match(/^#\/setup\/([\w-]+)/); if (!m) return ''; try { const k = unb64u(m[1]); return /^[\w-]{8,64}$/.test(k) ? k : ''; } catch { return ''; } };
 export const setupLink = (key: string, base: string) => `${base}#/setup/${b64u(key)}`;
-export function acceptInvite(hash: string): boolean {
-  const m = hash.match(/^#\/join\/([\w-]+)/); if (!m) return false;
-  try { const j = JSON.parse(unb64u(m[1])); if (URL_RX.test(j.u) && j.k) { setHub(j.u, j.k); return true; } } catch { /* ลิงก์เสีย */ }
-  return false;
+// อ่านลิงก์ทีมได้ทุกรูป: ลิงก์เต็ม #/join/…, ลิงก์สั้น #/t/<รหัส>, # ที่ถูกแปลงเป็น %23 (LINE/แอปแชต), โค้ดลิงก์ล้วน หรือรหัสทีมล้วน (eq-…)
+const KEY_RX = /^eq-[a-z0-9]{8,40}$/i;
+export function parseInvite(text: string): { u: string; k: string } | null {
+  let t = String(text || '').trim(); if (!t) return null;
+  try { if (/%23|%2F/i.test(t)) t = decodeURIComponent(t); } catch { /* ไม่ใช่ลิงก์ที่เข้ารหัส */ }
+  const sh = t.match(/(?:#|\/)t\/(eq-[a-z0-9]{8,40})/i) || (KEY_RX.test(t) ? [t, t] : null);
+  if (sh && HUB_URL) return { u: HUB_URL, k: sh[1] };
+  const m = t.match(/(?:#|\/)join\/([\w-]{20,})/) || (/^[\w-]{40,}$/.test(t) ? [t, t] : null);
+  if (m) { try { const j = JSON.parse(unb64u(m[1])); if (URL_RX.test(j.u) && j.k) return { u: j.u, k: String(j.k) }; } catch { /* ลิงก์เสีย/ถูกตัด */ } }
+  return null;
 }
+export const isInviteHash = (h: string) => /^#\/(join|t)\//.test(h);
+export const inviteHash = () => hubUrl() === HUB_URL && HUB_URL ? `#/t/${hubKey()}` : `#/join/${b64u(JSON.stringify({ u: hubUrl(), k: hubKey() }))}`;
+export function acceptInvite(text: string): boolean {
+  const v = parseInvite(text); if (!v) return false; setHub(v.u, v.k);
+  // เปิดจากแอปแชต (LINE ฯลฯ) แล้วกด "เปิดในเบราว์เซอร์" → ลิงก์ที่ส่งต่อยังพารหัสทีมไปด้วย
+  try { sessionStorage.setItem('eqcamp.inviteHash', inviteHash()); } catch { /* */ }
+  return true;
+}
+// ลิงก์ทีมแบบสั้น (ใช้ศูนย์กลางที่ฝังไว้) — สั้น ไม่ขาดกลางบรรทัดในแชต; ศูนย์กลางอื่นใช้ลิงก์เต็ม
+export const teamLink = (base?: string) => `${base || (location.origin + location.pathname)}${inviteHash()}`;
 
 // ── เรียกเซิร์ฟเวอร์ ──
 export class HubError extends Error { code: string; data?: any; constructor(code: string, msg: string, data?: any) { super(msg); this.code = code; this.data = data; } }

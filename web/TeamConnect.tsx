@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Copy, Check, Share2, Link2, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { hubReady, hubUrl, hubKey, setHub, clearHub, userName, setUserName, inviteLink, hubAppsScript, newHubKey, URL_RX, onHubState, HubState, acceptInvite, flush, IN_CLAUDE, LIVE_WEB, HUB_URL } from './hub';
+import { hubReady, hubUrl, hubKey, setHub, clearHub, userName, setUserName, hubAppsScript, newHubKey, URL_RX, onHubState, HubState, acceptInvite, teamLink, flush, IN_CLAUDE, LIVE_WEB, HUB_URL } from './hub';
 import { copyText } from './platform';
 
 /* เชื่อมต่อทีม — ตั้งค่าครั้งเดียว ใช้ได้ทุกส่วน (คำนวณ NSR · ทะเบียนโปรแกรม · งานของทีม · ค้นหา)
@@ -45,14 +45,16 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
   const badKey = s.code === 'key';
   const connected = hubReady() && !badKey;
   const base = /github\.io$/.test(location.hostname) || /^https?:\/\/localhost/.test(location.origin) ? location.origin + location.pathname : WEB_BASE;
-  const invite = connected ? inviteLink(base) : '';
+  const invite = connected ? teamLink(base) : '';
   const cp = async (t: string, what: string) => { if (await copyText(t)) { setCopied(what); setTimeout(() => setCopied(''), 2000); } };
   const share = async () => { try { if ((navigator as any).share) { await (navigator as any).share({ title: 'เข้าร่วมทีม EQ Camp', text: 'เปิดลิงก์นี้เพื่อเชื่อมต่อทีม EQ Camp (ห้ามส่งต่อนอกทีม)', url: invite }); return; } } catch { return; } cp(invite, 'invite'); };
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
   const joinFromLink = () => {
-    const t = link.trim(); const h = t.includes('#') ? t.slice(t.indexOf('#')) : '';
-    if (h && acceptInvite(h)) { if (name.trim()) setUserName(name); flash('เข้าร่วมทีมแล้ว — ข้อมูลทีมซิงก์อัตโนมัติ'); return; }
-    flash('ลิงก์เชิญไม่ถูกต้อง — ขอลิงก์ใหม่จากเจ้าของชีต', true);
+    const t = link.trim();
+    if (acceptInvite(t)) { if (name.trim()) setUserName(name); setLink(''); flash('เข้าร่วมทีมแล้ว — ข้อมูลทีมซิงก์อัตโนมัติ'); return; }
+    flash(/github\.io|eq-camp/.test(t) && !/#|%23/.test(t)
+      ? 'ลิงก์นี้เป็นลิงก์เว็บธรรมดา ไม่มีรหัสทีม — ขอ "ลิงก์ทีม" จากกลุ่ม (ลงท้ายด้วย #/t/eq-…)'
+      : 'อ่านรหัสทีมจากข้อความนี้ไม่ได้ — คัดลอกลิงก์ทีมทั้งบรรทัดมาวางใหม่ หรือพิมพ์รหัสทีม (eq-…)', true);
   };
   return (
     <div className="fixed inset-0 z-50 bg-black/30 flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-label="เชื่อมต่อทีม" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -96,10 +98,10 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
               </div>
               {mode === 'join' ? (
                 <div className="space-y-2">
-                  <p className="text-[13.5px] text-sub">แตะลิงก์เชิญที่ได้รับ (ระบบเชื่อมให้เอง) หรือวางลิงก์ที่นี่</p>
+                  <p className="text-[13.5px] text-sub">แตะลิงก์ทีมที่ได้รับ (ระบบเชื่อมให้เอง) หรือวางลิงก์ทีม / รหัสทีม (eq-…) ที่นี่</p>
                   <div className="flex gap-2">
-                    <input value={link} onChange={e => setLink(e.target.value)} placeholder="https://…/eq-camp/#/join/…" aria-label="วางลิงก์เชิญ" className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-brand-mist text-[14px]" />
-                    <button onClick={joinFromLink} disabled={!link.includes('#/join/')} className="tap px-4 py-2 rounded-lg bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold flex items-center gap-1.5"><Link2 className="w-4 h-4" />เข้าร่วม</button>
+                    <input value={link} onChange={e => setLink(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && link.trim()) joinFromLink(); }} placeholder="ลิงก์ทีม หรือ eq-…" aria-label="วางลิงก์ทีมหรือรหัสทีม" autoCapitalize="off" autoCorrect="off" spellCheck={false} className="flex-1 min-w-0 px-3 py-2.5 rounded-lg border border-brand-mist text-[14px]" />
+                    <button onClick={joinFromLink} disabled={!link.trim()} className="tap px-4 py-2 rounded-lg bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white font-semibold flex items-center gap-1.5"><Link2 className="w-4 h-4" />เข้าร่วม</button>
                   </div>
                 </div>
               ) : (
