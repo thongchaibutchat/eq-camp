@@ -1,0 +1,11 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EQ Camp</title>
+<script>
+// ลิงก์ทีมที่แอปแชตแปลง "#" เป็นส่วนของที่อยู่ (…/eq-camp/%23/t/eq-…) → ส่งกลับหน้าหลักพร้อมรหัสทีม
+(function () {
+  var base = '/eq-camp/', p = location.pathname, rest = '';
+  try { p = decodeURIComponent(p); } catch (e) {}
+  var i = p.indexOf('#'); if (i >= 0) rest = p.slice(i);
+  else { var m = p.match(/\/(t|join)\/([\w-]+)/); if (m) rest = '#/' + m[1] + '/' + m[2]; }
+  location.replace(base + location.search + (rest || location.hash || '#/'));
+})();
+</script></head><body><p style="font-family:sans-serif">กำลังเปิด EQ Camp… <a href="/eq-camp/">แตะที่นี่</a></p></body></html>
