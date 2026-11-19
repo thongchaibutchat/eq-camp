@@ -1,0 +1,26 @@
+// เส้นราคาที่ต้องขออนุมัติ + สรุปสถานะการขาย (ตัวเลขสังเคราะห์)
+import { newJob, computeNsr, approvalLines, approvalNeed, salesSummary, normStatus, needsFollow, tierOf } from '../../src/nsr-core';
+let fail = 0; const ok = (n: string, c: boolean, x = '') => { console.log((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : ' ' + x)); if (!c) fail++; };
+const j = newJob(); j.participants = 80; j.lines = [{ label: 'ค่าที่พัก', price: 1000, qty: 1 }, { label: 'ค่าอาหาร', price: 500, qty: 1 }, { label: 'ค่าวิทยากร', price: 500, qty: 1 }] as any; j.staff = []; j.vatMode = 'rate';
+j.price = 3000; const c = computeNsr(j);
+const L = approvalLines(c, j.participants);
+const p15 = L.find(l => l.tierId === '10-15')!.below!, p10 = L.find(l => l.tierId === 'lt10')!.below!;
+ok('line prices ≈ sub/(1-7%-m), rounded like the sheet', Math.abs(p15 - 2000 / 0.78) < 2 && Math.abs(p10 - 2000 / 0.83) < 2, `${p15} ${p10}`);
+ok('line totals × participants', L.find(l => l.tierId === '10-15')!.belowTotal === p15 * 80);
+ok('approvers from matrix', L.find(l => l.tierId === '10-15')!.approver === 'แพนด้า' && L.find(l => l.tierId === 'lt10')!.approver === 'พี่นก' && L.find(l => l.tierId === '15-20')!.pending);
+const at = (p: number) => { const k = { ...j, price: p }; return { a: approvalNeed(computeNsr(k), 80), t: tierOf(computeNsr(k).pct!).tier.id }; };
+ok('exactly at line → no approval, NSR ≥ 15%', !at(p15).a.need && at(p15).t !== '10-15' && at(p15).t !== 'lt10', JSON.stringify(at(p15)));
+ok('1 baht below line → แพนด้า, tier 10-15', at(p15 - 1).a.need && at(p15 - 1).a.approver === 'แพนด้า' && at(p15 - 1).t === '10-15');
+ok('below lower line → พี่นก, tier lt10', at(p10 - 1).a.approver === 'พี่นก' && at(p10 - 1).t === 'lt10');
+ok('room = price − top line', at(3000).a.room === 3000 - p15);
+const st = new Map([[1, normStatus({ sheetId: 1, status: 'won', finalPax: 90, finalPrice: 3000 })!], [2, normStatus({ sheetId: 2, status: 'lost', reason: 'ราคาสูงกว่างบโรงเรียน' })!], [3, normStatus({ sheetId: 3, status: 'quoted', at: new Date(Date.now() - 20 * 864e5).toISOString() })!], [4, normStatus({ sheetId: 4, status: 'hold', followUp: '2099-01-01', price: 2000, participants: 50 })!]]);
+const rows = [1, 2, 3, 4, 5].map(id => ({ sheetId: id, price: 2500, participants: 100, pct: 0.2 }));
+const S = salesSummary(rows, st);
+ok('summary counts', S.by.won === 1 && S.by.lost === 1 && S.by.quoted === 1 && S.by.hold === 1 && S.none === 1);
+ok('won value uses final figures', S.wonValue === 90 * 3000, String(S.wonValue));
+ok('open value = quoted + hold', S.openValue === 2500 * 100 + 2000 * 50, String(S.openValue));
+ok('win rate of decided', S.winRate === 0.5);
+ok('follow-up: old quote without date', S.follow === 1 && needsFollow(st.get(3)!) && !needsFollow(st.get(4)!));
+ok('lost reasons tallied', S.reasons[0][0] === 'ราคาสูงกว่างบโรงเรียน');
+ok('bad status rejected', normStatus({ sheetId: 9, status: 'maybe' }) === null && normStatus({ status: 'won' }) === null);
+process.exitCode = fail ? 1 : 0;

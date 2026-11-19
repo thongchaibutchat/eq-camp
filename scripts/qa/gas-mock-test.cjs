@@ -14,7 +14,7 @@ function Sheet(ss, name) {
     getRange: (r, c, nr = 1, nc = 1) => { ensure(r + nr - 1, c + nc - 1); const sub = () => g.slice(r - 1, r - 1 + nr).map(row => row.slice(c - 1, c - 1 + nc));
       return { getValues: sub, getDisplayValues: () => sub().map(row => row.map(v => String(v))), getFormulas: () => sub().map(row => row.map(v => (typeof v === 'string' && v.startsWith('=') ? v : ''))),
         getValue: () => g[r - 1][c - 1], getDisplayValue: () => String(g[r - 1][c - 1]),
-        setValues: v => { v.forEach((row, i) => row.forEach((x, j) => { g[r - 1 + i][c - 1 + j] = x; })); },
+        setValues: v => { v.forEach((row, i) => row.forEach((x, j) => { g[r - 1 + i][c - 1 + j] = typeof x === 'string' && x[0] === "'" ? x.slice(1) : x; })); },
         setValue: v => { g[r - 1][c - 1] = v; }, clearContent: () => { for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) g[r - 1 + i][c - 1 + j] = ''; },
         setNumberFormat() {}, setFontWeight() {} }; },
     getDataRange: () => sh.getRange(1, 1, Math.max(1, sh.getLastRow()), Math.max(1, sh.getLastColumn())),
@@ -30,15 +30,16 @@ const NSR = SS('NSRID', 'NSR'); NSR._sheets[0] = Sheet(NSR, 'ตารางค�
 const t1 = NSR.insertSheet('stem@ทดสอบ'); t1.getRange(1, 1, 3, 5).setValues([['x', 'ชื่องานที่จัด', '', '', ''], ['รายละเอียดงาน', 'STEM', 'โคราช', 80, 6], ['', '', '', '', '']]);
 const files = { NSRID: NSR }; let created = 0;
 const NID = (code.match(/const NSR_ID = '([^']*)'/) || [])[1]; if (NID) files[NID] = NSR;
-const props = {}; const triggers = [];
+const props = {}; const triggers = []; const cache = {};
 const env = {
   SpreadsheetApp: { getActiveSpreadsheet: () => NSR, openById: id => { if (!files[id]) throw new Error('nf'); return files[id]; }, create: n => { const id = 'HUB' + (++created); files[id] = SS(id, n); return files[id]; } },
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); }, getProperties: () => ({ ...props }) }) },
-  LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+  LockService: { getScriptLock: () => ({ waitLock() {}, tryLock() { return true; }, releaseLock() {} }) },
   ContentService: { createTextOutput: s => ({ s, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
-  ScriptApp: { getProjectTriggers: () => triggers, deleteTrigger: t => triggers.splice(triggers.indexOf(t), 1), newTrigger: h => ({ forSpreadsheet: id => ({ onEdit: () => ({ create: () => { triggers.push({ getHandlerFunction: () => h, id }); } }) }) }) }
+  CacheService: { getScriptCache: () => ({ getAll: ks => { const o = {}; for (const k of ks) if (k in cache) o[k] = cache[k]; return o; }, putAll: (o) => { Object.assign(cache, o); }, get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
+  ScriptApp: { getProjectTriggers: () => triggers, deleteTrigger: t => triggers.splice(triggers.indexOf(t), 1), newTrigger: h => ({ forSpreadsheet: id => ({ onEdit: () => ({ create: () => { triggers.push({ getHandlerFunction: () => h, id }); } }) }), timeBased: () => ({ everyHours: n => ({ create: () => { triggers.push({ getHandlerFunction: () => h, every: n }); } }) }) }) }
 };
-const fn = new Function(...Object.keys(env), code + '\nreturn { doPost, doGet, onEdit, setup };')(...Object.values(env));
+const fn = new Function(...Object.keys(env), code + '\nreturn { doPost, doGet, onEdit, setup, warmCache };')(...Object.values(env));
 const KEY = (code.match(/const TEAM_KEY = '([^']+)'/) || [])[1];
 const call = (op, body = {}) => JSON.parse(fn.doPost({ postData: { contents: JSON.stringify({ ...body, op, key: KEY }) } }).s);
 let fail = 0; const ok = (n, c, x = '') => { console.log((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : ' ' + x)); if (!c) fail++; };
@@ -55,7 +56,7 @@ const e2 = call('nsr.edit', { title: 'stem@ทดสอบ', edits: [{ r: 2, c: 
 const since = Date.now() - 60000;
 const ch = call('nsr.changes', { since }); ok('nsr.changes lists edited tabs', ch.ids.includes(t1.getSheetId()), JSON.stringify(ch));
 fn.onEdit({ range: { getSheet: () => t1 } }); ok('onEdit bumps rev', call('rev').rev.split('.')[1] !== '0');
-ok('trigger installed (standalone)', /NSR_ID = '';/.test(code) ? true : triggers.length === 1);
+ok('triggers installed (edit + warm cache)', triggers.some(t => t.getHandlerFunction() === 'warmCache' && t.every === 4) && (/NSR_ID = '';/.test(code) || triggers.some(t => t.getHandlerFunction() === 'onEdit')));
 const lg = call('log', { ev: { eid: 'e1', ts: '2026-11-18', school: 'รร.ก', students: 80 } }); ok('log', lg.ok);
 ok('log dedupe', call('log', { ev: { eid: 'e1' } }).dup === true);
 const lm = call('log.many', { events: [{ eid: 'e1' }, { eid: 'e2', school: 'รร.ข' }, { eid: 'e3' }] }); ok('log.many adds new only', lm.added === 2, JSON.stringify(lm));
@@ -68,6 +69,36 @@ const jg2 = call('job.get', { id: 'j1' }); ok('job.put overwrite shrinks', jg2.j
 const js = call('jobs'); ok('jobs list no snap', js.jobs.length === 1 && !js.jobs[0].snap);
 call('job.del', { id: 'j1' }); ok('job.del soft', call('jobs').jobs[0].deleted === true);
 ok('hub spreadsheet created once', created === 1 && files.HUB1.getSheetByName('Log') && files.HUB1.getSheetByName('Jobs'));
+// ── nsr.all: ภาพรวมทุกแท็บคำสั่งเดียว + แคช ──
+const a1 = call('nsr.all'); const tabsN = NSR._sheets.length;
+ok('nsr.all first build = all tabs with data', a1.ok && a1.tabs.length === tabsN && a1.tabs.every(t => t.d && !t.pending) && a1.built === tabsN && a1.left === 0, JSON.stringify(a1).slice(0, 300));
+const d1 = JSON.parse(a1.tabs.find(t => t.title === 'stem@ทดสอบ').d); ok('nsr.all data = values+formulas trimmed', d1.v[1][1] === 'STEM' && d1.v[1].length === 5 && Array.isArray(d1.f), JSON.stringify(d1));
+const lt = NSR.insertSheet('12/2025'); lt.getRange(1, 1, 1, 1).setValues([['x'.repeat(35000)]]);
+const a1b = call('nsr.all', { since: a1.at + 999999 }); const a1c = call('nsr.all', { since: a1.at + 999999 });
+ok('oversize tab: served live, not cached, no crash', a1b.ok && a1b.tabs.find(t => t.title === '12/2025').d && a1c.tabs.find(t => t.title === '12/2025').d && files.HUB1.getSheetByName('NsrCache')._g.some(r => r[1] === '12/2025' && r[3] === '' && r[2] === 1));
+NSR.deleteSheet(lt);
+ok('nsr.all cache sheet', files.HUB1.getSheetByName('NsrCache').getLastRow() === tabsN + 2);
+const a2 = call('nsr.all', { since: a1.at + 999999 }); ok('nsr.all incremental: nothing changed → no data, no rebuild', a2.built === 0 && a2.tabs.every(t => !t.d) && a2.tabs.length === tabsN, JSON.stringify(a2).slice(0, 300));
+const a3 = call('nsr.all'); ok('nsr.all full again from cache (no rebuild)', a3.built === 0 && a3.tabs.every(t => t.d) && a3.tm.miss === 0, JSON.stringify(a3.tm));
+for (const k of Object.keys(cache)) delete cache[k];
+const a3b = call('nsr.all'); ok('cache evicted → served from NsrCache tab + refilled', a3b.tabs.every(t => t.d) && a3b.tm.miss > 0 && Object.keys(cache).length >= a3b.tabs.length - 1, JSON.stringify(a3b.tm));
+for (const k of Object.keys(cache)) delete cache[k]; fn.warmCache(); ok('warmCache refills cache', Object.keys(cache).length >= a3b.tabs.length - 1);
+props['t:' + t1.getSheetId()] = String(Date.now() + 1); t1._g[1][1] = 'STEM แก้';
+while (Date.now() <= Number(props['t:' + t1.getSheetId()])) {}
+const a4 = call('nsr.all', { since: a3.at }); const c4 = a4.tabs.filter(t => t.d);
+ok('nsr.all after edit → rebuilds only that tab', a4.built === 1 && c4.length === 1 && JSON.parse(c4[0].d).v[1][1] === 'STEM แก้', JSON.stringify(a4).slice(0, 300));
+const nt = NSR.insertSheet('ใหม่ล่าสุด@ทดสอบ'); nt.getRange(1, 1, 1, 2).setValues([['a', 'b']]);
+const a5 = call('nsr.all', { since: a4.at + 999999 }); ok('nsr.all new tab built + returned', a5.built === 1 && a5.tabs.some(t => t.title === 'ใหม่ล่าสุด@ทดสอบ' && t.d), JSON.stringify(a5).slice(0, 600));
+const a6 = call('nsr.all'); ok('nsr.all full read after mixed writes', a6.tabs.length === NSR._sheets.length && a6.tabs.every(t => t.d) && JSON.parse(a6.tabs.find(t => t.title === 'stem@ทดสอบ').d).v[1][1] === 'STEM แก้');
+// ── สถานะการขาย ──
+const r1 = call('rev').rev;
+const s1 = call('status.set', { st: { sheetId: t1.getSheetId(), title: 'stem@ทดสอบ', status: 'quoted', price: 3290 }, by: 'ธงชัย', dev: 'd1' });
+ok('status.set', s1.ok && call('rev').rev !== r1);
+call('status.set', { st: { sheetId: t1.getSheetId(), title: 'stem@ทดสอบ', status: 'won', finalPax: 85, finalPrice: 3200 }, by: 'พริ้ม' });
+const sl = call('status.list'); ok('status.list = latest per tab', sl.status.length === 1 && sl.status[0].status === 'won' && sl.status[0].by === 'พริ้ม' && String(sl.status[0].finalPax) === '85', JSON.stringify(sl));
+ok('status history kept', files.HUB1.getSheetByName('StatusLog').getLastRow() === 3);
+ok('status.set bad refused', call('status.set', { st: { title: 'x' } }).error === 'bad');
+ok('nsr.all carries status', call('nsr.all', { since: Date.now() + 1e9 }).status.length === 1);
 ok('doGet', JSON.parse(fn.doGet().s).ok);
 ok('unknown op', call('zzz').error === 'op');
 process.exitCode = fail ? 1 : 0;

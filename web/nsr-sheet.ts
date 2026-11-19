@@ -16,7 +16,12 @@ export interface Conn {
   createTab(title: string, rows: CellOut[][], index: number, fmt: Fmt): Promise<{ sheetId: number; title: string }>;
   editCells(title: string, sheetId: number, edits: CellEdit[], force?: boolean): Promise<{ ok: true } | { ok: false; conflicts: { r: number; c: number; now: string }[] }>;
   changes?(since: number): Promise<number[]>;   // sheetId ที่เปลี่ยนหลังเวลา since (ms)
+  // ทุกแท็บในคำสั่งเดียว (ศูนย์กลางทีมรุ่น 4+) — since = เวลาจากผลครั้งก่อน → คืนข้อมูลเฉพาะแท็บที่เปลี่ยน · left > 0 = ยังเตรียมไม่ครบ เรียกซ้ำ
+  all?(since: number): Promise<AllResult>;
+  setStatus?(st: any): Promise<void>;
 }
+export interface AllResult { at: number; tabs: (TabInfo & { grid?: Grid; pending?: boolean })[]; left: number; built: number; status: any[] }
+
 export interface Fmt { boldRows: number[]; moneyCols: number[]; pctCells: [number, number][]; staffCols: [number, number] }
 
 const LS_SHEET = 'eqcamp.nsr.sheet';
@@ -50,7 +55,17 @@ export function hubConn(): Conn {
       try { await hubCall('nsr.edit', { title, edits, force: !!force }); return { ok: true }; }
       catch (e: any) { if (e?.code === 'conflict') return { ok: false, conflicts: e.data?.conflicts || [] }; throw e; }
     },
-    async changes(since) { const j = await hubCall('nsr.changes', { since }, 20000); return (j.ids || []) as number[]; }
+    async changes(since) { const j = await hubCall('nsr.changes', { since }, 20000); return (j.ids || []) as number[]; },
+    async all(since) {
+      const j = await hubCall('nsr.all', { since }, 60000);
+      if (j.url) setSheetUrl(j.url);
+      const tabs = (j.tabs || []).map((t: any) => {
+        let grid: Grid | undefined; if (t.d) { try { const d = JSON.parse(t.d); grid = toGrid(d.v || [], d.f); } catch { /* แท็บเสีย → อ่านใหม่รอบหน้า */ } }
+        return { title: String(t.title), sheetId: Number(t.sheetId), index: Number(t.index), grid, pending: !!t.pending };
+      });
+      return { at: Number(j.at) || Date.now(), tabs, left: Number(j.left) || 0, built: Number(j.built) || 0, status: Array.isArray(j.status) ? j.status : [] };
+    },
+    async setStatus(st) { await hubCall('status.set', { st }, 30000); },
   };
 }
 

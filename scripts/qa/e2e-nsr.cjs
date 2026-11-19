@@ -86,7 +86,7 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
     ok('formulas written (subtotal covers all lines)', created && created.formulas.some(r => r[4] === '=SUM(E5:E23)') && created.formulas.some(r => r[2] === '=M8/D3'), JSON.stringify(created && created.formulas.map(r => r[4]).filter(Boolean).slice(-6)));
     const resAfter = await pg.locator('[aria-live="polite"]').filter({ hasText: 'NSR (กำไรจริง' }).innerText();
     ok('read-back equals web result', resBefore === resAfter, resBefore.slice(0, 120) + ' | ' + resAfter.slice(0, 120));
-    t = await body(); ok('now a sheet tab', /แท็บในชีต/.test(t) && t.includes('STEM@โรงเรียนใหม่ทดสอบ'));
+    t = await body(); ok('now a sheet tab', t.includes('แท็บ “STEM@โรงเรียนใหม่ทดสอบ”'));
     // บรีฟ → ตารางคำนวณทั้งก้อน (ใช้งานในชีตเป็นงานอ้างอิง)
     if (tag === 'mobile') await pg.getByRole('tab', { name: /งานย้อนหลัง/ }).click();
     await pg.getByRole('button', { name: 'คำนวณจากบรีฟ' }).click(); await pg.waitForTimeout(200);

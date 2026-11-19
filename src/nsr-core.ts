@@ -110,6 +110,7 @@ export interface NsrCalc {
   lines: LineCalc[]; subtotal: number; vat: number; total: number;
   price: number | null; profit: number | null; pct: number | null; nsrTotal: number | null; quote: number | null; target: number | null; gapToTarget: number | null;
   minPrice: { m: number; price: number | null }[];
+  priceBase: number; vatRate: number;   // ราคา p ให้ NSR = 1 − vatRate − priceBase / p
   tier: Tier | null; flags: string[]; missing: string[]; audit: string[];
 }
 
@@ -175,6 +176,13 @@ export function staffSum(staff: StaffLine[]) {
   return { total: staff.reduce((a, s) => a + staffPay(s), 0), people: staff.reduce((a, s) => a + z(s.people), 0), days: Math.max(0, ...staff.map(s => z(s.days))) };
 }
 
+// ราคาต่อท่านต่ำสุด (บาทเต็ม) ที่ NSR ≥ m เมื่อปัดเป็น 2 ตำแหน่งของ % แบบ tierOf/ชีต — base = รวมก่อนภาษี (+ ภาษีคงที่), vr = อัตราภาษีของราคา
+export function priceForNsr(base: number, vr: number, m: number): number | null {
+  const d = 1 - vr - m; if (!(d > 0) || !(base > 0)) return d > 0 ? 0 : null;
+  const pr = (p: number) => Math.round((1 - vr - base / p) * 10000) / 10000;
+  let p = Math.ceil(base / d); while (p > 1 && pr(p - 1) >= m) p--; while (pr(p) < m) p++;
+  return p;
+}
 export function computeNsr(job0: NsrJob): NsrCalc {
   const job = applyAuto(job0);
   const st = staffSum(job.staff);
@@ -195,7 +203,7 @@ export function computeNsr(job0: NsrJob): NsrCalc {
   const pct = price != null && profit != null ? profit / price : null;
   const n = z(job.participants) > 0 ? z(job.participants) : null;
   const vr = job.vatMode === 'rate' ? VAT_RATE : 0, fixedVat = job.vatMode === 'fixed' ? z(job.vatFixed ?? null) : 0;
-  const minPrice = [0.10, 0.15, 0.20, 0.30].map(m => ({ m, price: 1 - vr - m > 0 ? Math.ceil((subtotal + fixedVat) / (1 - vr - m)) : null }));
+  const minPrice = [0.10, 0.15, 0.20, 0.30].map(m => ({ m, price: priceForNsr(subtotal + fixedVat, vr, m) }));
   const t = pct != null ? tierOf(pct) : null;
   const flags = t ? [...t.flags] : [];
   if (pct != null && job.vatMode !== 'rate') flags.push(APPROVAL_RULES[3]);
@@ -219,7 +227,7 @@ export function computeNsr(job0: NsrJob): NsrCalc {
     lines, subtotal, vat, total, price, profit, pct,
     nsrTotal: profit != null && n != null ? profit * n : null, quote: price != null && n != null ? price * n : null,
     target: price != null ? price * TARGET : null, gapToTarget: price != null && profit != null ? profit - price * TARGET : null,
-    minPrice, tier: t ? t.tier : null, flags, missing, audit
+    minPrice, priceBase: subtotal + fixedVat, vatRate: vr, tier: t ? t.tier : null, flags, missing, audit
   };
 }
 
@@ -381,4 +389,65 @@ export function tabNameFor(job: NsrJob, existing: string[], prefix = ''): string
   if (!has.has(base)) return base;
   for (let i = 2; i < 999; i++) { const t = `${base} (${i})`; if (!has.has(t)) return t; }
   return base + ' ' + Date.now();
+}
+
+// ── เส้นราคาที่ต้องขออนุมัติ (จาก Approval Matrix) — ราคาต่อท่านต่ำกว่าเส้น = NSR ต่ำกว่าช่วงนั้น ──
+// ใช้ priceForNsr เดียวกับ "ราคาขายขั้นต่ำ" — ราคาต่ำสุด (บาทเต็ม) ที่ NSR ปัด 2 ตำแหน่งแบบชีตยัง ≥ ขอบช่วง
+export interface ApprovalLine { m: number; below: number | null; belowTotal: number | null; tierId: string; label: string; approver: string; pending: boolean }
+export function approvalLines(calc: NsrCalc, participants: Num): ApprovalLine[] {
+  const n = z(participants) > 0 ? z(participants) : null;
+  return APPROVAL_MATRIX.filter(t => Number.isFinite(t.max)).map(t => {
+    // ราคาต่ำสุดที่ NSR (ปัด 2 ตำแหน่งแบบ tierOf/ชีต) ยัง ≥ ขอบช่วง → ต่ำกว่านี้ตกไปช่วง t
+    const below = priceForNsr(calc.priceBase, calc.vatRate, t.max);
+    return { m: t.max, below, belowTotal: below != null && n ? below * n : null, tierId: t.id, label: t.label, approver: t.approver, pending: t.pending || !t.approver };
+  });
+}
+// ตำแหน่งราคาปัจจุบันเทียบเส้นขออนุมัติที่มีผู้อนุมัติชัดเจน (ช่วงที่ยังรอยืนยันไม่นับเป็น "ต้องขอ")
+export function approvalNeed(calc: NsrCalc, participants: Num): { need: boolean; approver: string; line: ApprovalLine | null; room: number | null } {
+  const lines = approvalLines(calc, participants).filter(l => !l.pending && l.below != null).sort((a, b) => (b.below as number) - (a.below as number));
+  const top = lines[0] || null; const p = calc.price;
+  if (!top || p == null) return { need: false, approver: '', line: top, room: null };
+  const hit = [...lines].reverse().find(l => p < (l.below as number)) || null;   // ช่วงต่ำสุดที่ราคาตกลงไป
+  return hit ? { need: true, approver: hit.approver, line: hit, room: p - (top.below as number) } : { need: false, approver: '', line: top, room: p - (top.below as number) };
+}
+
+// ── สถานะการขายต่อแท็บ (เก็บในศูนย์กลางทีม ไม่แตะชีต NSR) ──
+export type SaleStatusId = 'quoted' | 'hold' | 'won' | 'lost';
+export const SALE_STATUS: { id: SaleStatusId; label: string; short: string; tone: 'ok' | 'mid' | 'warn' | 'bad' | 'mute'; hint: string }[] = [
+  { id: 'quoted', label: 'เสนอราคาแล้ว', short: 'เสนอแล้ว', tone: 'mid', hint: 'ส่งใบเสนอราคา/โปรแกรมให้โรงเรียนแล้ว รอคำตอบ' },
+  { id: 'hold', label: 'รอตัดสินใจ / เลื่อน', short: 'รอตัดสินใจ', tone: 'warn', hint: 'โรงเรียนขอเวลา เลื่อนวัน หรือรออนุมัติงบ' },
+  { id: 'won', label: 'ปิดการขายแล้ว', short: 'ปิดการขาย', tone: 'ok', hint: 'โรงเรียนยืนยันจัดกับเรา' },
+  { id: 'lost', label: 'ไม่ได้งาน', short: 'ไม่ได้งาน', tone: 'bad', hint: 'โรงเรียนไม่จัด หรือเลือกผู้จัดรายอื่น' },
+];
+export const LOST_REASONS = ['ราคาสูงกว่างบโรงเรียน', 'เลือกผู้จัดรายอื่น', 'โรงเรียนไม่จัดค่ายแล้ว', 'วันไม่ตรง / ที่พักไม่ว่าง', 'เลือกแบบอื่นของงานเดียวกัน', 'ติดต่อโรงเรียนไม่ได้'];
+export const FOLLOW_DAYS = 14;   // เสนอแล้วเกินกี่วันโดยไม่มีวันนัดตาม = ต้องตาม
+export interface SaleStatus { sheetId: number; title: string; name?: string; status: SaleStatusId; reason?: string; note?: string; finalPrice?: Num; finalPax?: Num; followUp?: string; pct?: Num; price?: Num; participants?: Num; by?: string; at?: string }
+const numOrNull = (v: unknown): Num => { const r = readNum(v); return r.n; };
+export function normStatus(o: any): SaleStatus | null {
+  const id = Number(o?.sheetId); if (!Number.isFinite(id) || !SALE_STATUS.some(s => s.id === o?.status)) return null;
+  return { sheetId: id, title: String(o.title || ''), name: String(o.name || ''), status: o.status, reason: String(o.reason || ''), note: String(o.note || ''), finalPrice: numOrNull(o.finalPrice), finalPax: numOrNull(o.finalPax), followUp: String(o.followUp || '').slice(0, 10), pct: numOrNull(o.pct), price: numOrNull(o.price), participants: numOrNull(o.participants), by: String(o.by || ''), at: String(o.at || '') };
+}
+export const saleValue = (s: SaleStatus, row?: { price: Num; participants: Num }) => z(s.finalPrice ?? s.price ?? row?.price ?? null) * z(s.finalPax ?? s.participants ?? row?.participants ?? null);
+export function needsFollow(s: SaleStatus, today = new Date()): boolean {
+  if (s.status !== 'quoted' && s.status !== 'hold') return false;
+  const d0 = today.toISOString().slice(0, 10);
+  if (s.followUp) return s.followUp <= d0;
+  const at = Date.parse(s.at || ''); return Number.isFinite(at) && (today.getTime() - at) / 86400000 > FOLLOW_DAYS;
+}
+export interface SalesSummary { total: number; none: number; by: Record<SaleStatusId, number>; wonValue: number; openValue: number; winRate: number | null; follow: number; reasons: [string, number][]; wonPct: number | null; lostPct: number | null }
+export function salesSummary(rows: { sheetId?: number; price: Num; participants: Num; pct: number | null }[], st: Map<number, SaleStatus>, today = new Date()): SalesSummary {
+  const by = { quoted: 0, hold: 0, won: 0, lost: 0 } as Record<SaleStatusId, number>;
+  let none = 0, wonValue = 0, openValue = 0, follow = 0; const rs = new Map<string, number>(); const pw: number[] = [], pl: number[] = [];
+  for (const r of rows) {
+    const s = r.sheetId != null ? st.get(r.sheetId) : undefined;
+    if (!s) { none++; continue; }
+    by[s.status]++;
+    if (s.status === 'won') { wonValue += saleValue(s, r); if (r.pct != null) pw.push(r.pct); }
+    if (s.status === 'quoted' || s.status === 'hold') openValue += saleValue(s, r);
+    if (s.status === 'lost') { if (s.reason) rs.set(s.reason, (rs.get(s.reason) || 0) + 1); if (r.pct != null) pl.push(r.pct); }
+    if (needsFollow(s, today)) follow++;
+  }
+  const avg = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+  const closed = by.won + by.lost;
+  return { total: rows.length, none, by, wonValue, openValue, winRate: closed ? by.won / closed : null, follow, reasons: [...rs.entries()].sort((a, b) => b[1] - a[1]), wonPct: avg(pw), lostPct: avg(pl) };
 }

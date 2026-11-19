@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Wand2, Search, RefreshCw, ExternalLink, Plus, Trash2, Copy, Check, AlertTriangle, Settings, Save, FilePlus, ChevronLeft, X, Phone, CalendarCheck, Scissors } from 'lucide-react';
 import {
   NsrJob, NsrIndexRow, CostLine, StaffLine, Num, computeNsr, parseNsrTab, indexRow, newJob, jobToGrid, gridMeta, diffForTab, tabNameFor, applyAuto, keyOf, hintOf,
-  STD_LINES, APPROVAL_MATRIX, APPROVAL_RULES, FAST_TRACK, NSR_MASTER_TAB, fmt, pctText, readNum, staffPay
+  STD_LINES, APPROVAL_MATRIX, APPROVAL_RULES, FAST_TRACK, NSR_MASTER_TAB, fmt, pctText, readNum, staffPay,
+  approvalLines, approvalNeed, SALE_STATUS, LOST_REASONS, SaleStatus, SaleStatusId, normStatus, salesSummary, needsFollow, saleValue
 } from '../src/nsr-core';
-import { Conn, TabInfo, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
-import { hubReady, onRev, onHubState, HubState } from './hub';
+import { Conn, TabInfo, TabData, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
+import { hubReady, onRev, onHubState, HubState, enqueue, userName } from './hub';
+import { normQ } from './Search';
 import { draftFromBrief, draftFromCamp, aiPrompt, applyAi, NsrDraft, DraftField } from '../src/nsr-brief';
 import type { Camp } from '../src/eqcamp-core';
 
@@ -15,13 +17,13 @@ import type { Camp } from '../src/eqcamp-core';
 
 export interface NsrPrefill { camp: Camp; brief: string }
 type Entry = { row: NsrIndexRow; job: NsrJob; local?: boolean };
-const LS_CACHE = 'eqcamp.nsr.cache.v1', LS_LOCAL = 'eqcamp.nsr.local.v1';
+const LS_CACHE = 'eqcamp.nsr.cache.v1', LS_LOCAL = 'eqcamp.nsr.local.v1', LS_SRV = 'eqcamp.nsr.srvAt.v1', LS_STATUS = 'eqcamp.nsr.status.v1';
 const lsGet = (k: string) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
 const lsSet = (k: string, v: any) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
 const card = 'bg-white rounded-xl border border-brand-mist';
-const TONE: Record<string, string> = { ok: 'text-emerald-700 bg-emerald-50 border-emerald-200', mid: 'text-sky-800 bg-sky-50 border-sky-200', warn: 'text-amber-800 bg-amber-50 border-amber-200', bad: 'text-red-700 bg-red-50 border-red-200' };
+const TONE: Record<string, string> = { ok: 'text-emerald-700 bg-emerald-50 border-emerald-200', mid: 'text-sky-800 bg-sky-50 border-sky-200', warn: 'text-amber-800 bg-amber-50 border-amber-200', bad: 'text-red-700 bg-red-50 border-red-200', mute: 'text-sub bg-paper border-brand-mist' };
+const ST = (id?: string) => SALE_STATUS.find(x => x.id === id);
 const toneOf = (id: string) => APPROVAL_MATRIX.find(m => m.id === id)?.tone || 'mid';
-const norm = (s: string) => String(s || '').toLowerCase().replace(/\s+/g, '');
 const clone = (j: NsrJob): NsrJob => JSON.parse(JSON.stringify(j));
 const tabUrl = (sheetId?: number) => (sheetUrl() ? sheetUrl() + (sheetId != null ? `#gid=${sheetId}` : '') : '');
 const timeTh = (d: Date | null) => (d ? d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '');
@@ -41,9 +43,15 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
   const [cacheAt] = useState<string>(() => lsGet(LS_CACHE)?.at || '');
   const [local, setLocal] = useState<NsrJob[]>(() => lsGet(LS_LOCAL) || []);
   const [loadPct, setLoadPct] = useState<{ done: number; total: number } | null>(null);
+  // สถานะการขายต่อแท็บ (sheetId → สถานะล่าสุด) — มาจากศูนย์กลางทีมพร้อมข้อมูลแท็บ
+  const [statuses, setStatuses] = useState<Map<number, SaleStatus>>(() => new Map(((lsGet(LS_STATUS) || []) as any[]).map(normStatus).filter(Boolean).map(x => [x!.sheetId, x!] as [number, SaleStatus])));
+  const applyStatuses = (raw: any[]) => { const m = new Map<number, SaleStatus>(); for (const r of raw) { const x = normStatus(r); if (x) m.set(x.sheetId, x); } setStatuses(m); lsSet(LS_STATUS, [...m.values()]); };
+  const [stOk, setStOk] = useState(true);   // ศูนย์กลางทีมรองรับสถานะ (รุ่น 4+)
+  const srvRef = useRef<number>(Number(lsGet(LS_SRV)) || 0);
   // ── รายการ ──
   const [q, setQ] = useState('');
   const [fTier, setFTier] = useState('');
+  const [fSt, setFSt] = useState<'' | 'none' | 'follow' | SaleStatusId>('');
   const [hideCopy, setHideCopy] = useState(true);
   const [sort, setSort] = useState<'sheet' | 'pctDesc' | 'pctAsc' | 'name'>('sheet');
   const [limit, setLimit] = useState(60);
@@ -65,11 +73,38 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
     const c: Conn | null = hubReady() ? hubConn() : await mcpConn().catch(() => null);
     if (!c) { setConn(null); setConnState('none'); return; }
     try {
+      if (c.all) {
+        try { setConnState('connecting'); await syncAll(c, srvRef.current); setConn(c); setConnState('live'); setLastSync(new Date()); return; }
+        catch (e: any) { if (e?.code !== 'op') throw e; c.all = undefined; c.setStatus = undefined; setStOk(false); }   // ศูนย์กลางรุ่นเก่า → อ่านทีละชุดแบบเดิม
+      }
       const list = await c.listTabs();
       setConn(c); setTabs(list); setConnState('live'); setLastSync(new Date()); sinceRef.current = Date.now();
       await loadTabs(c, list, true);
     } catch (e: any) { setConn(null); setConnState('error'); setConnMsg(c.kind === 'mcp' ? connError(e) : String(e?.message || e)); }
   };
+  // ทุกแท็บในคำสั่งเดียวจากศูนย์กลางทีม: ครั้งแรก = ทั้งชีต · ครั้งต่อไป = เฉพาะแท็บที่เปลี่ยนตั้งแต่ครั้งก่อน (since)
+  const syncRef = useRef(false);
+  const syncAll = async (c: Conn, since0: number) => {
+    if (!c.all || syncRef.current) return; syncRef.current = true;
+    let since = since0;
+    try {
+      for (let round = 0; round < 15; round++) {
+        const r = await c.all(since);
+        const got = r.tabs.filter(t => t.grid) as TabData[];
+        const known = new Set([...entriesRef.current.keys(), ...got.map(t => t.title)]);
+        // ข้อมูลในเครื่องหาย/ไม่ครบ (เช่น ล้างเบราว์เซอร์) → ขอทั้งชีตใหม่
+        if (since && r.tabs.some(t => !t.pending && !t.grid && t.title !== NSR_MASTER_TAB && !known.has(t.title) && !unreadRef.current.has(t.title))) { since = 0; continue; }
+        putEntries(got, r.tabs); got.forEach(applyFresh);
+        setTabs(r.tabs.map(({ title, sheetId, index }) => ({ title, sheetId, index })));
+        applyStatuses(r.status); setStOk(true);
+        srvRef.current = r.at; lsSet(LS_SRV, r.at); setLastSync(new Date());
+        const total = r.tabs.length;
+        if (!r.left) { setLoadPct(null); break; }
+        setLoadPct({ done: total - r.left, total }); since = r.at;
+      }
+    } finally { syncRef.current = false; }
+  };
+  const unreadRef = useRef<Set<string>>(new Set());   // แท็บที่ไม่ใช่รูปแบบตาราง NSR (อ่านแล้วแต่ไม่มีหัวตาราง)
   const sinceRef = useRef(0);
   // เชื่อม/เปลี่ยนการตั้งค่าศูนย์กลางทีม → ต่อใหม่
   const [hub, setHub] = useState<HubState | null>(null);
@@ -77,9 +112,10 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
   useEffect(() => { connect(); }, []);
 
   const putEntries = (list: { title: string; sheetId: number; index: number; grid: any }[], all?: TabInfo[]) => {
+    if (all) { const keep = new Set(all.map(t => t.title)); for (const k of [...unreadRef.current]) if (!keep.has(k)) unreadRef.current.delete(k); }
     setEntries(prev => {
       const m = new Map(prev);
-      for (const t of list) { const j = parseNsrTab(t.title, t.grid, t.sheetId, t.index); if (j && t.title !== NSR_MASTER_TAB) m.set(t.title, { job: j, row: indexRow(j) }); else m.delete(t.title); }
+      for (const t of list) { const j = parseNsrTab(t.title, t.grid, t.sheetId, t.index); if (j && t.title !== NSR_MASTER_TAB) { m.set(t.title, { job: j, row: indexRow(j) }); unreadRef.current.delete(t.title); } else { m.delete(t.title); if (t.title !== NSR_MASTER_TAB) unreadRef.current.add(t.title); } }
       if (all) { const keep = new Set(all.map(t => t.title)); for (const k of [...m.keys()]) if (!keep.has(k)) m.delete(k); }
       lsSet(LS_CACHE, { at: new Date().toISOString(), jobs: [...m.values()].map(e => e.job) });
       return m;
@@ -91,11 +127,12 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
     if (!titles.length) return;
     setLoadPct({ done: 0, total: titles.length });
     try {
-      for (let i = 0; i < titles.length; i += 40) {
-        const part = await c.readTabs(titles.slice(i, i + 40));
-        putEntries(part, all && i + 40 >= titles.length ? list : undefined);
-        setLoadPct({ done: Math.min(titles.length, i + 40), total: titles.length });
-      }
+      // อ่านพร้อมกันหลายชุด (เดิมทีละชุด ~1 นาที/376 แท็บ ระหว่างนั้นค้นหาได้ไม่ครบ)
+      const chunks: string[][] = []; for (let i = 0; i < titles.length; i += 40) chunks.push(titles.slice(i, i + 40));
+      let next = 0, done = 0;
+      const worker = async () => { while (next < chunks.length) { const ch = chunks[next++]; const part = await c.readTabs(ch); putEntries(part); done += ch.length; setLoadPct({ done, total: titles.length }); } };
+      await Promise.all(Array.from({ length: Math.min(c.kind === 'mcp' ? 2 : 4, chunks.length) }, worker));
+      if (all) putEntries([], list);
       setLastSync(new Date());
     } catch (e: any) { setConnMsg(c.kind === 'mcp' ? connError(e) : String(e?.message || e)); }
     finally { setLoadPct(null); }
@@ -114,6 +151,7 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
     let alive = true, busyR = false, lastList = Date.now(), lastFull = Date.now();
     const refresh = async () => {
       if (busyR || !alive) return; busyR = true;
+      if (conn.all) { try { await syncAll(conn, srvRef.current); } catch { /* รอบถัดไป */ } finally { busyR = false; } return; }
       try {
         const since = sinceRef.current; const now = Date.now();
         let titles: string[] = [];
@@ -137,7 +175,7 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
       finally { busyR = false; }
     };
     const unsub = conn.kind === 'script' ? onRev((_r, changed) => { if (changed) refresh(); else setLastSync(new Date()); }) : (() => { const id = window.setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 15000); return () => window.clearInterval(id); })();
-    const id2 = window.setInterval(() => { if (document.visibilityState !== 'hidden' && Date.now() - lastList > 30000) refresh(); }, 30000);
+    const id2 = window.setInterval(() => { if (document.visibilityState !== 'hidden' && (conn.all || Date.now() - lastList > 30000)) refresh(); }, conn.all ? 60000 : 30000);   // จับการเปลี่ยนชื่อแท็บ (ไม่มีสัญญาณแก้ชีต)
     return () => { alive = false; unsub(); window.clearInterval(id2); };
   }, [conn, connState]);
   const origRef = useRef<NsrJob | null>(null); origRef.current = orig;
@@ -152,16 +190,22 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
     return [...locals, ...sheetList];
   }, [entries, local, tabs]);
   const shown = useMemo(() => {
-    const nq = norm(q);
+    // ค้นจาก ชื่องาน (ในแท็บ) + ชื่อแท็บ + จังหวัด + จำนวนคน + สถานะ — หลายคำ = ต้องพบครบ · ไม่สนเว้นวรรค/เครื่องหมาย/เลขไทย
+    const toks = q.trim().split(/\s+/).map(normQ).filter(Boolean);
+    const stOf = (e: Entry) => (e.job.sheetId != null ? statuses.get(e.job.sheetId) : undefined);
     let l = all.filter(e => (!hideCopy || !e.row.copy) && (!fTier || (fTier === 'audit' ? e.row.audit > 0 : e.row.tier === fTier))
-      && (!nq || norm(`${e.row.tab} ${e.row.name} ${e.row.province} ${e.row.participants ?? ''}`).includes(nq)));
+      && (!fSt || (fSt === 'none' ? !stOf(e) : fSt === 'follow' ? !!stOf(e) && needsFollow(stOf(e)!) : stOf(e)?.status === fSt))
+      && (!toks.length || (() => { const s = stOf(e); const hay = normQ(`${e.row.name} ${e.row.tab} ${e.row.province} ${e.row.participants ?? ''} ${s ? ST(s.status)?.label + ' ' + (s.reason || '') + ' ' + (s.by || '') : ''}`); return toks.every(t => hay.includes(t)); })()));
     const pv = (e: Entry) => e.row.pct ?? -9;
     if (sort === 'pctDesc') l = [...l].sort((a, b) => pv(b) - pv(a));
     else if (sort === 'pctAsc') l = [...l].sort((a, b) => pv(a) - pv(b));
-    else if (sort === 'name') l = [...l].sort((a, b) => (a.row.tab || a.row.name).localeCompare(b.row.tab || b.row.name, 'th'));
+    else if (sort === 'name') l = [...l].sort((a, b) => (a.row.name || a.row.tab).trim().localeCompare((b.row.name || b.row.tab).trim(), 'th'));
     else l = [...l].sort((a, b) => (a.local === b.local ? (a.row.index ?? 9999) - (b.row.index ?? 9999) : a.local ? -1 : 1));
     return l;
-  }, [all, q, fTier, hideCopy, sort]);
+  }, [all, q, fTier, fSt, hideCopy, sort, statuses]);
+  const hiddenCopies = useMemo(() => { if (!hideCopy || !q.trim()) return 0; const toks = q.trim().split(/\s+/).map(normQ).filter(Boolean); return all.filter(e => e.row.copy && toks.every(t => normQ(`${e.row.name} ${e.row.tab} ${e.row.province}`).includes(t))).length; }, [all, q, hideCopy]);
+  const sheetRows = useMemo(() => all.filter(e => !e.local && !(hideCopy && e.row.copy)).map(e => e.row), [all, hideCopy]);
+  const sales = useMemo(() => salesSummary(sheetRows, statuses), [sheetRows, statuses]);
   const counts = useMemo(() => { const c: Record<string, number> = { audit: 0 }; for (const e of all) { if (hideCopy && e.row.copy) continue; c[e.row.tier] = (c[e.row.tier] || 0) + 1; if (e.row.audit) c.audit++; } return c; }, [all, hideCopy]);
 
   // ── เปิด/สร้างงาน ──
@@ -241,6 +285,25 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
     finally { setBusy(''); }
   };
 
+  // ── สถานะการขาย ──
+  const saveStatus = async (j: NsrJob, patch: Partial<SaleStatus> & { status: SaleStatusId }) => {
+    if (j.sheetId == null || !j.tab) return;
+    const c = computeNsr(j);
+    const st: SaleStatus = { reason: '', note: '', followUp: '', finalPrice: null, finalPax: null, ...statuses.get(j.sheetId), ...patch, sheetId: j.sheetId, title: j.tab, name: j.name, pct: c.pct, price: c.price, participants: j.participants, by: userName(), at: new Date().toISOString() };
+    if (st.status !== 'lost') st.reason = '';
+    if (st.status !== 'won') { st.finalPrice = null; st.finalPax = null; }
+    const m = new Map(statuses); m.set(j.sheetId, st); setStatuses(m); lsSet(LS_STATUS, [...m.values()]);
+    if (!conn?.setStatus) { flash(conn ? 'ศูนย์กลางทีมยังเป็นรุ่นเก่า — สถานะเก็บในเครื่องนี้ก่อน (ให้เจ้าของชีตอัปเดตสคริปต์)' : 'ยังไม่ได้เชื่อมต่อทีม — สถานะเก็บในเครื่องนี้ก่อน', true); return; }
+    try { await conn.setStatus(st); flash(`บันทึกสถานะ “${ST(st.status)?.label}” แล้ว — ทุกเครื่องในทีมเห็นภายในไม่กี่วินาที`); }
+    catch (e: any) {
+      if (['net', 'offline', 'timeout'].includes(e?.code)) { enqueue('status.set', { st }, 'st:' + j.sheetId); flash('ยังไม่มีอินเทอร์เน็ต — จะส่งสถานะให้ทีมเองเมื่อกลับมาออนไลน์'); }
+      else flash('บันทึกสถานะไม่สำเร็จ: ' + (e?.message || e), true);
+    }
+  };
+  const siblings = useMemo(() => {   // แท็บอื่นที่ชื่องานเดียวกัน (เช่น งานเดียวคิดหลายโรงแรม)
+    if (!job) return [] as Entry[]; const k = normQ(job.name); if (k.length < 4) return [];
+    return [...entries.values()].filter(e => e.row.tab !== job.tab && normQ(e.row.name) === k);
+  }, [job, entries]);
   const openedRef = useRef('');
   useEffect(() => { if (openTab && openedRef.current !== openTab) { const e = entries.get(openTab); if (e) { openedRef.current = openTab; openEntry(e); } } }, [openTab, entries]);
   const calc = useMemo(() => (job ? computeNsr(job) : null), [job]);
@@ -277,7 +340,7 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
 
       <div className="grid lg:grid-cols-[minmax(300px,380px)_1fr] gap-4 items-start">
         {/* ── งานย้อนหลัง ── */}
-        <section aria-label="งานย้อนหลัง" className={`${pane === 'list' ? '' : 'hidden'} lg:block ${card} p-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:flex lg:flex-col`}>
+        <section aria-label="งานย้อนหลัง" className={`${pane === 'list' ? '' : 'hidden'} lg:block min-w-0 ${card} p-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:flex lg:flex-col [&>*:not(ul)]:shrink-0`}>
           <div className="grid grid-cols-2 gap-2 mb-2">
             <button onClick={() => { setBriefOpen(true); setPane('calc'); if (!briefText) setBriefText(prefill()?.brief || ''); }} className="tap col-span-2 px-3 py-2.5 rounded-xl bg-brand-navy text-white text-[14px] font-semibold flex items-center justify-center gap-1.5"><Wand2 className="w-4 h-4" />คำนวณจากบรีฟ</button>
             <button onClick={startNew} className="tap px-3 py-2 rounded-xl border border-brand-mist hover:bg-paper text-[14px] font-medium flex items-center justify-center gap-1.5"><Plus className="w-4 h-4" />งานว่าง</button>
@@ -286,8 +349,9 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
           <label className="relative block">
             <span className="sr-only">ค้นหางาน</span>
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-sub" />
-            <input value={q} onChange={e => { setQ(e.target.value); setLimit(60); }} placeholder="ค้นหา: โรงเรียน หลักสูตร จังหวัด" className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-brand-mist text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-navy/30" />
+            <input value={q} onChange={e => { setQ(e.target.value); setLimit(60); }} placeholder="ค้นหาชื่องาน: โรงเรียน หลักสูตร จังหวัด" className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-brand-mist text-[15px] focus:outline-none focus:ring-2 focus:ring-brand-navy/30" />
           </label>
+          <SalesOverview s={sales} on={fSt} set={setFSt} ok={stOk} />
           <div className="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="กรองตามระดับ NSR">
             {[['', 'ทั้งหมด'], ...APPROVAL_MATRIX.map(m => [m.id, m.label.replace('NSR ', '').replace(' ถึงต่ำกว่า ', '–<')]), ['audit', 'สูตรชีตผิด']].map(([id, l]) => (
               <button key={id} onClick={() => setFTier(id)} aria-pressed={fTier === id} className={`tap px-2.5 py-1 rounded-full text-[12.5px] border ${fTier === id ? 'bg-brand-navy text-white border-brand-navy' : 'bg-white border-brand-mist text-sub hover:text-brand-ink'}`}>
@@ -301,7 +365,9 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
               <option value="sheet">ลำดับในชีต</option><option value="pctDesc">NSR สูง → ต่ำ</option><option value="pctAsc">NSR ต่ำ → สูง</option><option value="name">ชื่อแท็บ</option>
             </select>
           </div>
-          <div className="text-[12.5px] text-sub mt-2">{shown.length} งาน{loadPct && !entries.size ? ' · กำลังโหลดจากชีต…' : ''}</div>
+          <div className="text-[12.5px] text-sub mt-2">{shown.length} งาน{loadPct && !entries.size ? ' · กำลังโหลดจากชีต…' : ''}{unreadRef.current.size ? ` · ${unreadRef.current.size} แท็บไม่ใช่รูปแบบตาราง NSR` : ''}</div>
+          {hiddenCopies > 0 && <button onClick={() => setHideCopy(false)} className="tap mt-1 text-[12.5px] text-brand-navy underline underline-offset-2">มีอีก {hiddenCopies} งานในแท็บ “Copy of” ที่ซ่อนอยู่ — แสดง</button>}
+          {loadPct && q.trim() && <div className="mt-1 text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">ยังโหลดไม่ครบ ({loadPct.done}/{loadPct.total} แท็บ) — ผลค้นหาจะเพิ่มเองเมื่อโหลดเสร็จ</div>}
           <ul className="mt-1 -mx-1 lg:overflow-y-auto lg:flex-1 divide-y divide-brand-mist/70">
             {!all.length && <li className="px-2 py-6 text-[14px] text-sub">{connState === 'none' ? 'เชื่อมต่อทีมเพื่อดูงานย้อนหลังทุกแท็บในชีต NSR — หรือเริ่มจากบรีฟ/งานใหม่ได้เลย' : connState === 'error' ? 'อ่านชีตไม่ได้ — ดูข้อความด้านบน' : 'กำลังโหลด…'}</li>}
             {shown.slice(0, limit).map(e => {
@@ -311,11 +377,13 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
                   <button onClick={() => openEntry(e)} aria-current={on ? 'true' : undefined} className={`tap w-full text-left px-2 py-2.5 rounded-lg ${on ? 'bg-paper' : 'hover:bg-paper'}`}>
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="text-[14.5px] font-medium truncate">{e.row.tab || e.row.name || 'งานใหม่ (ยังไม่ตั้งชื่อ)'}</div>
-                        <div className="text-[12.5px] text-sub truncate">{[e.local ? 'ในเครื่องนี้' : '', e.row.name !== e.row.tab ? e.row.name : '', e.row.province, e.row.participants ? `${e.row.participants} คน` : '', e.row.price ? `${fmt(e.row.price)} บ./ท่าน` : ''].filter(Boolean).join(' · ')}</div>
+                        <div className="text-[14.5px] font-medium truncate">{(e.row.name || '').trim() || e.row.tab || 'งานใหม่ (ยังไม่ตั้งชื่อ)'}</div>
+                        <div className="text-[12.5px] text-sub truncate">{[e.local ? 'ในเครื่องนี้' : '', e.row.tab && e.row.tab.trim() !== (e.row.name || '').trim() ? 'แท็บ ' + e.row.tab.trim() : '', e.row.province, e.row.participants ? `${e.row.participants} คน` : '', e.row.price ? `${fmt(e.row.price)} บ./ท่าน` : ''].filter(Boolean).join(' · ')}</div>
+                        {(() => { const st = e.job.sheetId != null ? statuses.get(e.job.sheetId) : undefined; const d = st && ST(st.status); return d ? <div className="mt-1 flex items-center gap-1.5 text-[12px]"><span className={`px-1.5 py-0.5 rounded border ${TONE[d.tone]}`}>{d.short}</span>{needsFollow(st!) && <span className="text-amber-800">ต้องตาม</span>}{st!.by && <span className="text-sub truncate">โดย {st!.by}</span>}</div> : null; })()}
                       </div>
                       <div className="text-right shrink-0">
                         <div className={`text-[13px] font-semibold px-2 py-0.5 rounded-md border ${e.row.tier ? TONE[toneOf(e.row.tier)] : 'text-sub border-brand-mist'}`}>{pctText(e.row.pct)}</div>
+                        {(e.row.tier === '10-15' || e.row.tier === 'lt10') && <div className="text-[11.5px] text-red-700 mt-0.5">ต้องขออนุมัติ</div>}
                         {e.row.audit > 0 && <div className="text-[11.5px] text-amber-700 mt-0.5">สูตรชีตผิด</div>}
                       </div>
                     </div>
@@ -337,8 +405,9 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
               <div className="flex flex-wrap items-center gap-2">
                 <button onClick={() => setPane('list')} className="lg:hidden tap p-2 rounded-lg hover:bg-paper" aria-label="กลับไปรายการ"><ChevronLeft className="w-5 h-5" /></button>
                 <div className="min-w-0 mr-auto">
-                  <div className="text-[18px] font-semibold truncate">{job.tab || job.name || 'งานใหม่'}</div>
-                  <div className="text-[13px] text-sub">{job.tab ? <>แท็บในชีต{dirty ? ' · มีการแก้ไขที่ยังไม่บันทึก' : ' · ตรงกับชีต'}</> : isLocal ? 'เก็บในเครื่องนี้ · ยังไม่อยู่ในชีต' : 'งานใหม่ · ยังไม่ได้บันทึก'}</div>
+                  <div className="text-[18px] font-semibold truncate">{(job.name || '').trim() || job.tab || 'งานใหม่'}</div>
+                  <div className="text-[13px] text-sub">{job.tab ? <>แท็บ “{job.tab.trim()}”{dirty ? ' · มีการแก้ไขที่ยังไม่บันทึก' : ' · ตรงกับชีต'}</> : isLocal ? 'เก็บในเครื่องนี้ · ยังไม่อยู่ในชีต' : 'งานใหม่ · ยังไม่ได้บันทึก'}</div>
+                  {siblings.length > 0 && <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12.5px]"><span className="text-sub">งานเดียวกันในแท็บอื่น:</span>{siblings.slice(0, 6).map(e => { const st = e.job.sheetId != null ? statuses.get(e.job.sheetId) : undefined; return <button key={e.row.tab} onClick={() => openEntry(e)} className="tap px-2 py-0.5 rounded-full border border-brand-mist hover:bg-paper">{e.row.tab.trim()} · {pctText(e.row.pct)}{st ? ' · ' + ST(st.status)?.short : ''}</button>; })}</div>}
                 </div>
                 {job.tab && job.sheetId != null && tabUrl(job.sheetId) && <a href={tabUrl(job.sheetId)} target="_blank" rel="noopener" className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><ExternalLink className="w-4 h-4" />เปิดแท็บนี้</a>}
                 {job.tab && <button onClick={copyAsNew} className="tap px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[14px] font-medium flex items-center gap-1.5"><Copy className="w-4 h-4" />คัดลอกเป็นงานใหม่</button>}
@@ -367,8 +436,9 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
                   )}
                 </div>
                 <div className="xl:sticky xl:top-20 space-y-3">
+                  <SaleStatusCard job={job} calc={calc} st={job.sheetId != null ? statuses.get(job.sheetId) : undefined} save={p => saveStatus(job, p)} siblings={siblings.length} />
                   <Result calc={calc} participants={job.participants} />
-                  <Approval calc={calc} />
+                  <Approval calc={calc} participants={job.participants} />
                   {/* บันทึก */}
                   <div className={`${card} p-4 space-y-2`}>
                     <div className="text-[15px] font-semibold">บันทึก</div>
@@ -572,6 +642,7 @@ function PriceVat({ job, calc, set }: { job: NsrJob; calc: ReturnType<typeof com
         {job.vatMode === 'fixed' && <label className="text-[13px] text-sub">ภาษีต่อท่าน (บาท)<NumIn label="ภาษีต่อท่าน" value={job.vatFixed ?? null} onChange={n => set({ vatFixed: n })} className="mt-1" left /></label>}
       </div>
       <Formula>{job.vatMode === 'rate' ? `ภาษี = 7% × ราคาขาย ${calc.price != null ? fmt(calc.price) : '–'} = ${fmt(calc.vat, 2)}` : job.vatMode === 'fixed' ? `ภาษี = ${fmt(calc.vat, 2)} ต่อท่าน (พิมพ์เอง)` : 'ไม่คิดภาษี'}</Formula>
+      <ApprovalLine calc={calc} participants={job.participants} />
     </Step>
   );
 }
@@ -613,12 +684,36 @@ function Result({ calc, participants }: { calc: ReturnType<typeof computeNsr>; p
   );
 }
 
-function Approval({ calc }: { calc: ReturnType<typeof computeNsr> }) {
+// บอกทันทีใต้ช่องราคา: ราคาต่ำกว่าเท่าไรต้องขออนุมัติ และตอนนี้ห่างเส้นเท่าไร
+function ApprovalLine({ calc, participants }: { calc: ReturnType<typeof computeNsr>; participants: Num }) {
+  const need = approvalNeed(calc, participants); const lines = approvalLines(calc, participants).filter(l => !l.pending && l.below != null);
+  if (!lines.length) return null;
+  const top = need.line;
+  return (
+    <div className={`mt-3 rounded-lg border px-3 py-2 text-[14px] ${need.need ? TONE.bad : TONE.mute}`} role="status">
+      {need.need ? <div className="font-semibold">ต้องขออนุมัติจาก {need.approver} ก่อนเสนอราคา — ราคาต่ำกว่าเส้น {fmt(Math.abs(need.room || 0))} บาท/ท่าน</div>
+        : calc.price != null && top ? <div>ลดราคาได้อีกไม่เกิน <b className="font-semibold tabular-nums">{fmt(Math.max(0, (need.room || 0)))}</b> บาท/ท่าน ก่อนต้องขออนุมัติ</div> : null}
+      <ul className="mt-1 space-y-0.5 text-[13.5px]">
+        {lines.map(l => <li key={l.tierId}>ราคาต่ำกว่า <b className="font-semibold tabular-nums">{fmt(l.below as number)}</b> บาท/ท่าน{l.belowTotal != null ? <span className="text-sub"> (ทั้งงานต่ำกว่า {fmt(l.belowTotal)} บาท)</span> : null} → NSR ต่ำกว่า {Math.round(l.m * 100)}% ต้องให้ <b className="font-semibold">{l.approver}</b> อนุมัติ</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function Approval({ calc, participants }: { calc: ReturnType<typeof computeNsr>; participants: Num }) {
   const t = calc.tier;
   const ICON = [Scissors, CalendarCheck, Phone];
+  const lines = approvalLines(calc, participants);
   return (
     <div className={`${card} p-4`}>
       <div className="text-[15px] font-semibold">อนุมัติราคา</div>
+      <div className="mt-2">
+        <div className="text-[13.5px] font-semibold">เส้นราคาที่ต้องขออนุมัติ (ต่อท่าน)</div>
+        <table className="w-full mt-1 text-[13.5px]"><tbody>
+          {lines.map(l => <tr key={l.tierId} className="border-b border-brand-mist/60"><td className="py-1">ต่ำกว่า <b className="font-semibold tabular-nums">{l.below != null ? fmt(l.below) : '–'}</b><div className="text-[12px] text-sub">NSR ต่ำกว่า {Math.round(l.m * 100)}%{l.belowTotal != null ? ` · ทั้งงาน ${fmt(l.belowTotal)}` : ''}</div></td><td className="py-1 text-right">{l.pending ? <span className="text-sub">ผู้อนุมัติรอยืนยัน</span> : <>ขออนุมัติ <b className="font-semibold">{l.approver}</b></>}</td></tr>)}
+        </tbody></table>
+        <Formula>เส้น = รวมก่อนภาษี ÷ (1 − 7% − NSR ของช่วง) · ราคาต่ำกว่าเส้น = NSR ตกไปช่วงล่าง</Formula>
+      </div>
       {!t ? <div className="text-[14px] text-sub mt-1">ใส่ราคาขายเพื่อดูระดับอนุมัติ</div> : (
         <>
           <div className={`mt-2 rounded-lg border px-3 py-2 text-[14px] ${TONE[t.tone]}`}>
@@ -644,6 +739,83 @@ function Approval({ calc }: { calc: ReturnType<typeof computeNsr> }) {
   );
 }
 
+
+// ── สถานะการขาย (ต่อแท็บ) — ทีมเห็นทุกเครื่อง ──
+const addDays = (n: number) => { const d = new Date(Date.now() + n * 86400000); return d.toISOString().slice(0, 10); };
+const dateTh = (s?: string) => { const t = Date.parse(s || ''); return Number.isFinite(t) ? new Date(t).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : ''; };
+function SaleStatusCard({ job, calc, st, save, siblings }: { job: NsrJob; calc: ReturnType<typeof computeNsr>; st?: SaleStatus; save: (p: Partial<SaleStatus> & { status: SaleStatusId }) => void; siblings: number }) {
+  const [pick, setPick] = useState<SaleStatusId | null>(null);
+  const [f, setF] = useState<{ reason: string; other: string; note: string; followUp: string; pax: Num; price: Num }>({ reason: '', other: '', note: '', followUp: '', pax: null, price: null });
+  useEffect(() => { setPick(null); }, [job.tab]);
+  if (!job.tab || job.sheetId == null) return <div className={`${card} p-4 text-[14px]`}><div className="text-[15px] font-semibold">สถานะการขาย</div><div className="text-sub mt-1">บันทึกเป็นแท็บในชีตก่อน จึงตั้งสถานะ เสนอแล้ว / ปิดการขาย / ไม่ได้งาน ได้</div></div>;
+  const cur = st && ST(st.status); const need = approvalNeed(calc, job.participants);
+  const open = (id: SaleStatusId) => { setPick(id); setF({ reason: st?.status === 'lost' ? st.reason || '' : '', other: '', note: st?.status === id ? st.note || '' : '', followUp: id === 'quoted' || id === 'hold' ? (st?.status === id && st.followUp) || addDays(7) : '', pax: (st?.status === 'won' && st.finalPax) || job.participants, price: (st?.status === 'won' && st.finalPrice) || calc.price }); };
+  const submit = () => {
+    if (!pick) return;
+    const reason = pick === 'lost' ? (f.reason === 'อื่น ๆ' ? f.other.trim() : f.reason) : '';
+    if (pick === 'lost' && !reason) return;
+    save({ status: pick, reason, note: f.note.trim(), followUp: pick === 'quoted' || pick === 'hold' ? f.followUp : '', finalPax: pick === 'won' ? f.pax : null, finalPrice: pick === 'won' ? f.price : null });
+    setPick(null);
+  };
+  return (
+    <div className={`${card} p-4`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[15px] font-semibold">สถานะการขาย</div>
+        {cur ? <span className={`text-[12.5px] px-2 py-0.5 rounded-md border ${TONE[cur.tone]}`}>{cur.label}</span> : <span className="text-[12.5px] text-sub">ยังไม่ระบุ</span>}
+      </div>
+      {st && <div className="text-[13px] text-sub mt-1">{[st.by && 'โดย ' + st.by, dateTh(st.at)].filter(Boolean).join(' · ')}
+        {st.status === 'won' && <div className="text-brand-ink mt-0.5">{st.finalPax ? `${fmt(st.finalPax)} คน` : ''}{st.finalPrice ? ` × ${fmt(st.finalPrice)} บาท` : ''}{saleValue(st) ? ` = ${fmt(saleValue(st))} บาท` : ''}{st.pct != null ? ` · NSR ตอนปิด ${pctText(st.pct)}` : ''}</div>}
+        {st.status === 'lost' && st.reason && <div className="text-brand-ink mt-0.5">เหตุผล: {st.reason}</div>}
+        {(st.status === 'quoted' || st.status === 'hold') && st.followUp && <div className={needsFollow(st) ? 'text-amber-800 mt-0.5' : 'mt-0.5'}>นัดตาม {dateTh(st.followUp)}{needsFollow(st) ? ' — ถึงกำหนดแล้ว' : ''}</div>}
+        {(st.status === 'quoted' || st.status === 'hold') && !st.followUp && needsFollow(st) && <div className="text-amber-800 mt-0.5">เสนอไว้นานแล้ว ยังไม่มีผล — ควรโทรตาม</div>}
+        {st.note && <div className="text-brand-ink mt-0.5">หมายเหตุ: {st.note}</div>}
+      </div>}
+      <div className="grid grid-cols-2 gap-1.5 mt-3" role="group" aria-label="ตั้งสถานะการขาย">
+        {SALE_STATUS.map(x => <button key={x.id} onClick={() => open(x.id)} aria-pressed={pick === x.id || (!pick && st?.status === x.id)} title={x.hint}
+          className={`tap px-2 py-2 rounded-lg border text-[13.5px] font-medium ${pick === x.id || (!pick && st?.status === x.id) ? TONE[x.tone] : 'border-brand-mist hover:bg-paper'}`}>{x.label}</button>)}
+      </div>
+      {pick && (
+        <form onSubmit={e => { e.preventDefault(); submit(); }} className="mt-3 space-y-2 text-[13px]">
+          {pick === 'won' && <div className="grid grid-cols-2 gap-2">
+            <label className="text-sub">จำนวนผู้เข้าร่วมจริง<NumIn label="จำนวนผู้เข้าร่วมจริง" value={f.pax} onChange={n => setF({ ...f, pax: n })} className="mt-1" left /></label>
+            <label className="text-sub">ราคาที่ตกลง / ท่าน<NumIn label="ราคาที่ตกลงต่อท่าน" value={f.price} onChange={n => setF({ ...f, price: n })} className="mt-1" left /></label>
+          </div>}
+          {pick === 'lost' && <div><div className="text-sub mb-1">เหตุผลที่ไม่ได้งาน</div><div className="flex flex-wrap gap-1.5">
+            {[...LOST_REASONS, 'อื่น ๆ'].map(r => <button type="button" key={r} onClick={() => setF({ ...f, reason: r })} aria-pressed={f.reason === r} className={`tap px-2 py-1 rounded-full border text-[12.5px] ${f.reason === r ? 'bg-brand-navy text-white border-brand-navy' : 'border-brand-mist hover:bg-paper'}`}>{r}</button>)}
+          </div>{f.reason === 'อื่น ๆ' && <input value={f.other} onChange={e => setF({ ...f, other: e.target.value })} placeholder="ระบุเหตุผล" className="mt-1.5 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px]" />}</div>}
+          {(pick === 'quoted' || pick === 'hold') && <label className="block text-sub">นัดโทรตาม<input type="date" value={f.followUp} onChange={e => setF({ ...f, followUp: e.target.value })} className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink" /></label>}
+          <label className="block text-sub">หมายเหตุ (ไม่บังคับ)<input value={f.note} onChange={e => setF({ ...f, note: e.target.value })} maxLength={300} placeholder={pick === 'won' ? 'เช่น มัดจำแล้ว / ยืนยันวัน' : pick === 'lost' ? 'เช่น งบโรงเรียน 2,800' : 'เช่น รอผอ.อนุมัติ'} className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink" /></label>
+          {(pick === 'won' || pick === 'quoted') && need.need && <div className="text-red-700">ราคานี้ต้องได้รับอนุมัติจาก {need.approver} ก่อน</div>}
+          {pick === 'won' && siblings > 0 && <div className="text-sub">งานนี้มีอีก {siblings} แท็บ (คนละแบบ) — ตั้งแท็บที่ไม่ได้ใช้เป็น “ไม่ได้งาน · เลือกแบบอื่นของงานเดียวกัน” เพื่อให้ยอดไม่ซ้ำ</div>}
+          <div className="flex gap-2">
+            <button type="submit" disabled={pick === 'lost' && !(f.reason === 'อื่น ๆ' ? f.other.trim() : f.reason)} className="tap flex-1 px-3 py-2 rounded-lg bg-brand-navy enabled:hover:opacity-90 disabled:opacity-40 text-white text-[14px] font-semibold">บันทึก “{ST(pick)?.label}”</button>
+            <button type="button" onClick={() => setPick(null)} className="tap px-3 py-2 rounded-lg border border-brand-mist text-[14px]">ยกเลิก</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+const money = (n: number) => (n >= 1e6 ? (n / 1e6).toLocaleString('th-TH', { maximumFractionDigits: 2 }) + ' ล้าน' : fmt(n));
+function SalesOverview({ s, on, set, ok }: { s: ReturnType<typeof salesSummary>; on: string; set: (v: any) => void; ok: boolean }) {
+  const chips: [string, string, number, string][] = [['', 'ทุกสถานะ', s.total, 'mute'], ['none', 'ยังไม่ระบุ', s.none, 'mute'], ...SALE_STATUS.map(x => [x.id, x.short, s.by[x.id], x.tone] as [string, string, number, string]), ['follow', 'ต้องตาม', s.follow, 'warn']];
+  const closed = s.by.won + s.by.lost;
+  return (
+    <div className="mt-2 rounded-xl border border-brand-mist bg-paper/60 p-2.5">
+      <div className="flex items-baseline justify-between gap-2"><div className="text-[13.5px] font-semibold">สถานะการขาย</div>
+        {s.winRate != null && <div className="text-[12.5px] text-sub">ปิดได้ <b className="text-brand-ink font-semibold">{Math.round(s.winRate * 100)}%</b> ของงานที่รู้ผล ({s.by.won}/{closed})</div>}</div>
+      <div className="flex flex-wrap gap-1.5 mt-1.5" role="group" aria-label="กรองตามสถานะการขาย">
+        {chips.map(([id, l, n, tone]) => <button key={id || 'all'} onClick={() => set(on === id ? '' : id)} aria-pressed={on === id}
+          className={`tap px-2 py-0.5 rounded-full text-[12.5px] border ${on === id ? 'bg-brand-navy text-white border-brand-navy' : id && n ? TONE[tone] : 'bg-white border-brand-mist text-sub'}`}>{l} {n}</button>)}
+      </div>
+      {(s.wonValue > 0 || s.openValue > 0) && <div className="text-[12.5px] text-sub mt-1.5">มูลค่าที่ปิดได้ <b className="text-brand-ink font-semibold">{money(s.wonValue)}</b> บาท · รอผล {money(s.openValue)} บาท</div>}
+      {s.wonPct != null && s.lostPct != null && <div className="text-[12.5px] text-sub">NSR เฉลี่ย: ปิดได้ {pctText(s.wonPct)} · ไม่ได้งาน {pctText(s.lostPct)}</div>}
+      {s.reasons.length > 0 && <div className="text-[12.5px] text-sub">ไม่ได้งานเพราะ: {s.reasons.slice(0, 3).map(([r, n]) => `${r} ${n}`).join(' · ')}</div>}
+      {!ok && <div className="text-[12.5px] text-amber-800 mt-1">ศูนย์กลางทีมยังเป็นรุ่นเก่า — ต้องอัปเดตสคริปต์ก่อน สถานะจึงจะเห็นทุกเครื่อง</div>}
+    </div>
+  );
+}
 
 // ── บรีฟ → คำนวณทั้งก้อน ──
 const EX_BRIEF = 'โรงเรียนตัวอย่างวิทยา ค่าย STEM 3 วัน 2 คืน นักเรียน 80 คน ครู 6 คน พักที่ภูวิวรีสอร์ท ห้องละ 1,500 บาท พัก 4 คน รถบัส 2 คัน ราคา 3,290 บาท/ท่าน';
@@ -687,6 +859,7 @@ function DraftSummary({ d, calc, onOpenRef, onClose }: { d: NsrDraft & { ai?: { 
             {t && <span className={`text-[12px] px-1.5 py-0.5 rounded-md border ${TONE[t.tone]}`}>{t.label}{t.approver ? ` · ${t.approver}` : ''}</span>}
             {calc.profit != null && <span className="tabular-nums">กำไร/ท่าน {fmt(calc.profit)}</span>}
             {p20 != null && <span className="text-sub tabular-nums">ขายขั้นต่ำ NSR 20% = {fmt(p20)}</span>}
+            {(() => { const a = approvalNeed(calc, d.job.participants); return a.need ? <span className="text-red-700 font-semibold">ต้องขออนุมัติจาก {a.approver}</span> : null; })()}
           </div>
         </button>
         <button onClick={onClose} aria-label="ซ่อนผลอ่านบรีฟ" className="tap p-1.5 rounded-lg hover:bg-paper text-sub"><X className="w-4 h-4" /></button>
