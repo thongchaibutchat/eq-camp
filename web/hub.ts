@@ -39,6 +39,9 @@ export function clearHub() { ls.set(LS.url, ''); ls.set(LS.key, ''); state = { s
 const b64u = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/'))));
 export const inviteLink = (base?: string) => `${base || (location.origin + location.pathname)}#/join/${b64u(JSON.stringify({ u: hubUrl(), k: hubKey() }))}`;
+// ลิงก์ติดตั้ง (เจ้าของชีต): #/setup/<รหัสทีม> — เปิดแล้วกรอกเฉพาะที่อยู่ Web app (รหัสตรงกับโค้ดที่วางแล้ว)
+export const setupKeyFrom = (hash: string): string => { const m = hash.match(/^#\/setup\/([\w-]+)/); if (!m) return ''; try { const k = unb64u(m[1]); return /^[\w-]{8,64}$/.test(k) ? k : ''; } catch { return ''; } };
+export const setupLink = (key: string, base: string) => `${base}#/setup/${b64u(key)}`;
 export function acceptInvite(hash: string): boolean {
   const m = hash.match(/^#\/join\/([\w-]+)/); if (!m) return false;
   try { const j = JSON.parse(unb64u(m[1])); if (URL_RX.test(j.u) && j.k) { setHub(j.u, j.k); return true; } } catch { /* ลิงก์เสีย */ }
@@ -143,13 +146,22 @@ function start() {
 export const notifyLocalChange = () => { bc?.postMessage({ t: 'changed' }); };
 
 // ── โค้ดฝั่งเซิร์ฟเวอร์ (Apps Script ผูกกับชีต NSR) ──
-export const hubAppsScript = (key: string) => `// EQ Camp — ศูนย์กลางทีม (วางทั้งไฟล์ใน ส่วนขยาย → Apps Script ของชีต NSR แล้ว Deploy เป็น Web app)
+// sheetId ว่าง = สคริปต์ผูกกับชีต (วางใน ส่วนขยาย → Apps Script) · มี sheetId = สคริปต์เดี่ยวในไดรฟ์ (สร้างไฟล์ให้ได้เลย)
+export const hubAppsScript = (key: string, sheetId = '') => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
 // Execute as: Me · Who has access: Anyone — ทุกคำสั่งต้องมีรหัสทีมด้านล่าง
 // เก็บ: NSR = ชีตนี้ · ทะเบียน/งานของทีม = สเปรดชีต "EQ Camp — ข้อมูลกลางทีม" ที่สคริปต์สร้างให้ในไดรฟ์ของคุณ (ไม่แชร์สาธารณะ)
 // ไม่ลบแท็บ ไม่แทรก/ลบแถวในแท็บ NSR ไม่ทับสูตรที่ไม่ได้แก้
 const TEAM_KEY = '${key}';
-const VERSION = 2;
+const NSR_ID = '${sheetId}';   // ว่าง = ใช้ชีตที่สคริปต์ผูกอยู่
+const VERSION = 3;
+function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
+// สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
+function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'onEdit') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('onEdit').forSpreadsheet(NSR_ID).onEdit().create(); p.setProperty('trig', NSR_ID); }
 function doGet() { return out_({ ok: true, app: 'EQ Camp Hub', version: VERSION }); }
+// เรียกครั้งแรกจากตัวแก้สคริปต์เพื่ออนุญาตสิทธิ์ล่วงหน้า (ไม่บังคับ)
+function setup() { nsr_().getName(); hub_(); ensureTrigger_(); return 'ok'; }
 function doPost(e) {
   var req; try { req = JSON.parse(e.postData.contents); } catch (x) { return out_({ ok: false, error: 'bad' }); }
   if (!req || req.key !== TEAM_KEY) return out_({ ok: false, error: 'key' });
@@ -160,7 +172,8 @@ function doPost(e) {
   } catch (err) { return out_({ ok: false, error: 'server', message: String(err) }); }
 }
 function route_(q) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = nsr_();
+  try { ensureTrigger_(); } catch (x) {}
   switch (q.op) {
     case 'rev': return { ok: true, version: VERSION };
     case 'nsr.list': return { ok: true, url: ss.getUrl(), tabs: ss.getSheets().map(function (s) { return { title: s.getName(), sheetId: s.getSheetId(), index: s.getIndex() - 1 }; }) };
@@ -200,6 +213,9 @@ function route_(q) {
       case 'log': { var ev = q.ev || {}; if (!ev.eid) return { ok: false, error: 'bad' };
         var lg = tab_('Log', LOG_COLS); if (seen_(lg, ev.eid)) return { ok: true, dup: true };
         lg.appendRow(LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); })); bump_(); return { ok: true }; }
+      case 'log.many': { var lg2 = tab_('Log', LOG_COLS), have = {}, n2 = lg2.getLastRow(); if (n2 > 1) lg2.getRange(2, 2, n2 - 1, 1).getValues().forEach(function (r) { have[r[0]] = 1; });
+        var add = (q.events || []).slice(0, 500).filter(function (ev) { return ev && ev.eid && !have[ev.eid]; }).map(function (ev) { return LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); }); });
+        if (add.length) { lg2.getRange(lg2.getLastRow() + 1, 1, add.length, LOG_COLS.length).setValues(add); bump_(); } return { ok: true, added: add.length }; }
       case 'events': { var lv = tab_('Log', LOG_COLS).getDataRange().getValues(); var hd = lv.shift() || [];
         return { ok: true, events: lv.map(function (r) { var o = {}; hd.forEach(function (h, i) { o[h] = r[i] instanceof Date ? r[i].toISOString() : r[i]; }); return o; }) }; }
       case 'jobs': return { ok: true, jobs: jobs_().map(function (j) { delete j.snap; return j; }).filter(function (j) { return !q.since || j.savedAt > q.since; }) };
@@ -226,7 +242,7 @@ function hub_() {
   if (!ss) { ss = SpreadsheetApp.create('EQ Camp — ข้อมูลกลางทีม (ห้ามแชร์สาธารณะ)'); p.setProperty('HUB_ID', ss.getId()); }
   return ss;
 }
-function tab_(name, cols) { var ss = hub_(), sh = ss.getSheetByName(name); if (!sh) { sh = ss.insertSheet(name); sh.appendRow(cols); sh.setFrozenRows(1); var d = ss.getSheetByName('Sheet1') || ss.getSheetByName('แผ่น1'); if (d && ss.getSheets().length > 1) ss.deleteSheet(d); } return sh; }
+function tab_(name, cols) { var ss = hub_(), sh = ss.getSheetByName(name); if (!sh) { sh = ss.insertSheet(name); sh.appendRow(cols); sh.setFrozenRows(1); var d = ss.getSheetByName('Sheet1') || ss.getSheetByName('ชีต1') || ss.getSheetByName('แผ่น1'); if (d && ss.getSheets().length > 1) ss.deleteSheet(d); } return sh; }
 function seen_(sh, eid) { var n = sh.getLastRow(); if (n < 2) return false; var v = sh.getRange(Math.max(2, n - 300), 2, Math.min(300, n - 1), 1).getValues(); for (var i = 0; i < v.length; i++) if (v[i][0] === eid) return true; return false; }
 // งาน: ข้อมูลงาน (JSON) แบ่งเก็บหลายช่อง ช่องละไม่เกิน 45,000 ตัวอักษร (เพดานชีต 50,000)
 function jobs_(withSnap) {

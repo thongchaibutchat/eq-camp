@@ -20,10 +20,18 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
   const A = await mk({ viewport: { width: 1400, height: 950 } }, 'A');
   const B = await mk(devices['iPhone 13'], 'B');
   const body = p => p.locator('body').innerText();
-  // A = เจ้าของ: ตั้งค่าศูนย์กลาง
-  await A.ctx.addInitScript(([u]) => { if (!sessionStorage.getItem('i')) { localStorage.clear(); localStorage.setItem('eqcamp.hub.url', u); localStorage.setItem('eqcamp.hub.key', 'nsr-testkey'); localStorage.setItem('eqcamp.hub.name', 'คอมฝ่ายขาย'); sessionStorage.setItem('i', '1'); } }, [URL_]);
-  await A.pg.goto(BASE + '/#/'); await A.pg.waitForTimeout(1500);
-  await A.pg.getByRole('button', { name: /สถานะทีม/ }).click(); await A.pg.waitForTimeout(300);
+  // A = เจ้าของ: ทำงานไว้ก่อนเชื่อม (ต้องถูกส่งเข้าทีมทีหลัง) → เปิดลิงก์ติดตั้ง → วางที่อยู่ Web app
+  await A.ctx.addInitScript(() => { if (!sessionStorage.getItem('i')) { localStorage.clear(); localStorage.setItem('eqcamp.hub.name', 'คอมฝ่ายขาย'); sessionStorage.setItem('i', '1'); } });
+  await A.pg.goto(BASE + '/#/build'); await A.pg.waitForTimeout(800);
+  { const bt0 = A.pg.getByRole('button', { name: /บรีฟ/ }).first(); if (!(await A.pg.locator('textarea').count()) && await bt0.count()) { await bt0.click(); await A.pg.waitForTimeout(300); } }
+  await A.pg.locator('textarea').first().fill('โรงเรียนก่อนเชื่อมวิทยา จำนวน 60 คน ค่ายภาษาอังกฤษ 1 วัน ราคา 890 บาท');
+  await A.pg.getByRole('button', { name: /เริ่มงานใหม่/ }).first().click(); await A.pg.waitForTimeout(1500);
+  const b64 = Buffer.from('nsr-testkey').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  await A.pg.goto(BASE + '/#/setup/' + b64); await A.pg.waitForTimeout(800);
+  ok('setup link: owner tab + key prefilled', (await A.pg.getByLabel(/รหัสทีม/).inputValue()) === 'nsr-testkey');
+  await A.pg.getByLabel('ที่อยู่ Web app').fill(URL_);
+  await A.pg.getByRole('button', { name: 'เชื่อมต่อ', exact: true }).click(); await A.pg.waitForTimeout(3500);
+  ok('seed: earlier local job pushed to hub', [...store.jobs.values()].some(j => /ก่อนเชื่อม/.test(j.name)), JSON.stringify([...store.jobs.values()].map(j => j.name)));
   const invite = await A.pg.getByLabel('ลิงก์เชิญ').inputValue();
   ok('A: invite link created', /#\/join\/[\w-]{20,}$/.test(invite), invite.slice(0, 80));
   ok('A: connected live', /เชื่อมต่อแล้ว/.test(await body(A.pg)));

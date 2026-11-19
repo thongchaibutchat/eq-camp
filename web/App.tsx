@@ -7,7 +7,7 @@ import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles 
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv } from './registry';
 import TeamConnect, { HubPill } from './TeamConnect';
 import SearchPalette from './Search';
-import { hubReady, onRev, acceptInvite, setUserName, userName, deviceId } from './hub';
+import { hubReady, onRev, acceptInvite, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
 import type { LogEv } from './registry';
 import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete } from './jobs';
 import type { Job, TeamJob } from './jobs';
@@ -86,8 +86,12 @@ export default function App() {
   // ลิงก์เชิญเข้าทีม (#/join/…) — เปิดจากแอปไหนก็เชื่อมต่อให้ทันที แล้วถามชื่อ
   const [connectOpen, setConnectOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [setupKey, setSetupKey] = useState('');
   useEffect(() => {
-    const check = () => { if (location.hash.startsWith('#/join/')) { const ok = acceptInvite(location.hash); try { history.replaceState(null, '', '#/'); } catch { /* */ } setViewState('home'); if (ok) { setConnectOpen(true); flash('เข้าร่วมทีมแล้ว — ใส่ชื่อของคุณ แล้วข้อมูลทีมจะซิงก์อัตโนมัติ'); } else flash('ลิงก์เชิญไม่ถูกต้อง', false); } };
+    const check = () => {
+      const sk = setupKeyFrom(location.hash);
+      if (sk) { setSetupKey(sk); setConnectOpen(true); try { history.replaceState(null, '', '#/'); } catch { /* */ } setViewState('home'); return; }
+      if (location.hash.startsWith('#/join/')) { const ok = acceptInvite(location.hash); try { history.replaceState(null, '', '#/'); } catch { /* */ } setViewState('home'); if (ok) { setConnectOpen(true); flash('เข้าร่วมทีมแล้ว — ใส่ชื่อของคุณ แล้วข้อมูลทีมจะซิงก์อัตโนมัติ'); } else flash('ลิงก์เชิญไม่ถูกต้อง', false); } };
     check(); window.addEventListener('hashchange', check); return () => window.removeEventListener('hashchange', check);
   }, []);
   // ค้นหาทั้งระบบ: ⌘K / Ctrl+K / "/"
@@ -139,6 +143,15 @@ export default function App() {
     setTeamJobs(l);
     const cur = l.find(t => t.id === jobIdRef.current), loc = jobsRef.current.find(j => j.id === jobIdRef.current);
     if (cur && !cur.deleted && cur.dev && cur.dev !== deviceId() && loc && cur.savedAt > loc.savedAt) setRemoteJob(cur);
+  }), []);
+  // เชื่อมต่อทีมครั้งแรกบนเครื่องนี้ → ส่งงานที่ทำไว้ทั้งหมด + ทะเบียนเดิมเข้าศูนย์กลาง (ครั้งเดียวต่อศูนย์กลาง)
+  useEffect(() => onHubState(st => {
+    if (st.status !== 'live') return;
+    const flag = 'eqcamp.hub.seeded:' + hubUrl();
+    try { if (localStorage.getItem(flag)) return; localStorage.setItem(flag, new Date().toISOString()); } catch { return; }
+    const mine = loadJobs(); mine.forEach(j => pushJob({ ...j, by: userName() } as any));
+    const evs = loadLocal(); for (let i = 0; i < evs.length; i += 300) enqueue('log.many', { events: evs.slice(i, i + 300) }, 'seed:' + i);
+    if (mine.length || evs.length) flash(`ส่งข้อมูลเดิมของเครื่องนี้เข้าทีมแล้ว: งาน ${mine.length} · ทะเบียน ${evs.length} รายการ`);
   }), []);
   const openTeamJob = async (t: TeamJob) => {
     try {
@@ -801,7 +814,7 @@ export default function App() {
       )}
 
       {saveSheet && <SaveSheet sheet={saveSheet} onClose={() => setSaveSheet(null)} download={anchorDownload} />}
-      {connectOpen && <TeamConnect onClose={() => setConnectOpen(false)} flash={(t, w) => flash(t, !w)} />}
+      {connectOpen && <TeamConnect setupKey={setupKey} onClose={() => { setConnectOpen(false); setSetupKey(''); }} flash={(t, w) => flash(t, !w)} />}
       {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} jobs={jobs} teamJobs={teamJobs}
         go={(a) => {
           setSearchOpen(false);

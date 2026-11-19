@@ -64,6 +64,7 @@ function makeStore(fixture) {
         evalTab(t); touch(t.sheetId); bump(); return { ok: true };
       }
       case 'log': { if (!req.ev || !req.ev.eid) return { ok: false, error: 'bad' }; if (!events.some(e => e.eid === req.ev.eid)) { events.push(req.ev); bump(); } return { ok: true }; }
+      case 'log.many': { let added = 0; for (const ev of req.events || []) if (ev && ev.eid && !events.some(e => e.eid === ev.eid)) { events.push(ev); added++; } if (added) bump(); return { ok: true, added }; }
       case 'events': return { ok: true, events };
       case 'jobs': return { ok: true, jobs: [...jobs.values()].map(({ snap, ...m }) => m) };
       case 'job.get': { const j = jobs.get(req.id); return j ? { ok: true, job: j } : { ok: false, error: 'missing' }; }
