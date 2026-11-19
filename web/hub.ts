@@ -16,7 +16,7 @@ const ls = {
   set(k: string, v: string) { try { if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); return true; } catch { return false; } }
 };
 // ที่อยู่ web app ฝังได้เมื่อทีมส่งมา (ไม่ลับ) — รหัสทีมไม่ฝังเด็ดขาด
-export const HUB_URL = '';
+export const HUB_URL = 'https://script.google.com/macros/s/AKfycbxLIYQHufbhDLnpF_bCwXhs8ZaCqAZeVNVZJRmNshaS3jDsu7zCh8lEB_wxKcQ-k1L6KA/exec';
 export const URL_RX = /^https:\/\/script\.google(usercontent)?\.com\/macros\/s\/[\w-]+\/exec$/;
 
 // ย้ายค่าที่ตั้งไว้แบบเดิม (NSR / ชีตทะเบียน) มาเป็นศูนย์กลางเดียว
