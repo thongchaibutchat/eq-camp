@@ -50,7 +50,9 @@ export function acceptInvite(hash: string): boolean {
 
 // ── เรียกเซิร์ฟเวอร์ ──
 export class HubError extends Error { code: string; data?: any; constructor(code: string, msg: string, data?: any) { super(msg); this.code = code; this.data = data; } }
-const IN_CLAUDE = typeof window !== 'undefined' && !!(window as any).claude;
+export const IN_CLAUDE = typeof window !== 'undefined' && !!(window as any).claude;
+// claude.ai ห้ามหน้าเว็บเรียกเว็บอื่น (fetch ไป Google ถูกบล็อกเสมอ) → ข้อมูลทีมแบบสดใช้ได้เฉพาะเวอร์ชันเว็บนี้
+export const LIVE_WEB = 'https://thongchaibutchat.github.io/eq-camp/';
 export async function hubCall<T = any>(op: string, body: Record<string, any> = {}, timeout = 45000): Promise<T> {
   const url = hubUrl(), key = hubKey();
   if (!URL_RX.test(url) || !key) throw new HubError('off', 'ยังไม่ได้เชื่อมต่อทีม');
