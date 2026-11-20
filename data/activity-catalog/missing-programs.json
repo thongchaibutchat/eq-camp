@@ -1,0 +1,156 @@
+{
+ "_note": "โปรแกรมจริงใน Drive ที่ยังไม่ถูกแกะเข้า data/course-templates.raw.json — คัดลอกตามต้นฉบับ (อ่าน 21 พ.ย. 2569)",
+ "programs": [
+  {
+   "code": "PL CHI 0109",
+   "dur": "day2",
+   "variant": "day2engchi",
+   "fileId": "1BgvxfqXQy41s3Dha2EjttG7ADRWaPltQ",
+   "titles": [
+    "หลักสูตร “ค่ายบูรณาการวิชาการภาษาอังกฤษและภาษาจีน”",
+    "(English & Chinese Camp 2025)"
+   ],
+   "sections": [
+    {
+     "h": "กิจกรรมเชิงบูรณาการ",
+     "items": [
+      "1.กิจกรรมเปิดประตูสู่ห้องเรียน (Ice Breaking Activity)",
+      "2.กระบวนการกิจกรรมระดมสมองประลองปัญญา",
+      "3.กิจกรรมสถานีความรู้พาเพลิน (Play & Learn Activities)",
+      "4.กิจกรรมทดสอบหลังการเรียนรู้ (After Action Review : AAR)"
+     ]
+    }
+   ],
+   "days": [
+    {
+     "day": 1,
+     "rows": [
+      {
+       "time": "09.00 – 09.30",
+       "title": "Registration / Opening Ceremony",
+       "subs": []
+      },
+      {
+       "time": "09.30 – 10.30",
+       "title": "Warm up learning. (Ice Breaking)",
+       "subs": []
+      },
+      {
+       "time": "10.30 – 11.00",
+       "title": "Time for Break",
+       "subs": []
+      },
+      {
+       "time": "11.00 – 11.30",
+       "title": "4 Braves to boost up your English & Chinese",
+       "subs": []
+      },
+      {
+       "time": "11.30 – 12.00",
+       "title": "Play & Learn Activities. Part.1",
+       "subs": [
+        "Activity 1 : Classification.",
+        "Activity 2 : Crossword."
+       ]
+      },
+      {
+       "time": "12.00 – 13.00",
+       "title": "Have Lunch",
+       "subs": []
+      },
+      {
+       "time": "13.00 – 14.30",
+       "title": "Play & Learn Activities. Part.2",
+       "subs": [
+        "Activity 3 : Chinese Word Quest."
+       ]
+      },
+      {
+       "time": "14.30 – 15.00",
+       "title": "Time for Break",
+       "subs": []
+      },
+      {
+       "time": "15.00 – 16.00",
+       "title": "Play & Learn Activities. Part.3",
+       "subs": [
+        "Activity 4 : Scrabble Man"
+       ]
+      },
+      {
+       "time": "16.00 – 16.30",
+       "title": "Conclusion Play & Learn Activities.",
+       "subs": []
+      }
+     ]
+    },
+    {
+     "day": 2,
+     "rows": [
+      {
+       "time": "09.00 – 10.00",
+       "title": "Warm up learning. (Ice Breaking)",
+       "subs": []
+      },
+      {
+       "time": "10.00 – 11.00",
+       "title": "Play & Learn Activities.",
+       "subs": [
+        "Activity 5 : Run for Word."
+       ]
+      },
+      {
+       "time": "11.00 – 11.15",
+       "title": "Time for Break",
+       "subs": []
+      },
+      {
+       "time": "11.15 – 12.00",
+       "title": "Activity 6 : Charade Game.",
+       "subs": []
+      },
+      {
+       "time": "12.00 – 13.00",
+       "title": "Have Lunch",
+       "subs": []
+      },
+      {
+       "time": "13.00 – 14.30",
+       "title": "Activity 7 : Whisper",
+       "subs": []
+      },
+      {
+       "time": "14.30 – 15.00",
+       "title": "Time for Break",
+       "subs": []
+      },
+      {
+       "time": "15.00 – 16.00",
+       "title": "Activity 8 : Chinese Challenger",
+       "subs": []
+      },
+      {
+       "time": "16.00 – 16.30",
+       "title": "Conclusion Play & Learn Activities.",
+       "subs": []
+      }
+     ]
+    }
+   ],
+   "price": {
+    "text": "ราคาปกติ 1,590 ลดเหลือเพียง 990 บ./ท่าน",
+    "normal": 1590,
+    "special": 990
+   },
+   "budget": [
+    "ค่าวิทยากรและทีมงาน 6 – 8 ท่าน",
+    "ค่าเดินทางวิทยากร",
+    "ค่าวัสดุอุปกรณ์จัดกิจกรรม",
+    "ค่าดำเนินการ"
+   ],
+   "photos": [],
+   "venuePhotos": {},
+   "note": "รหัสเอกสารในไฟล์ = PL0110/2568 (ซ้ำรหัสนิติวิทย์ PL FOR 0110) — วางไว้ใต้ PL CHI 0109 ตามโฟลเดอร์ Drive (Chinese Camp/โปรแกรม/Day Camp); ไฟล์มีหน้าภาพ 'Activity' แต่อ่านภาพจาก Drive ไม่ได้ในรอบนี้"
+  }
+ ]
+}

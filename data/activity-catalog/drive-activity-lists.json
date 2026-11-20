@@ -1,0 +1,390 @@
+{
+ "_note": "รายชื่อกิจกรรมจากโฟลเดอร์ 'รายชื่อกิจกรรม' ใน Drive 1C5XXMbaIZa5lhSCxhbGszSCITXn_qQU8 — คัดลอกตามต้นฉบับทุกตัวอักษร (ไม่แก้คำสะกด)",
+ "PL CHI 0109": {
+  "file": "กิจกรรม Chinese Camp.docx",
+  "fileId": "1Wp-AIu0qbxhnpoXrjW7TLP97kxyMF7qo",
+  "groups": [
+   {
+    "group": "กิจกรรม Station",
+    "items": [
+     "Classification",
+     "Chinese Worlds Quest",
+     "Chinese Challenger",
+     "Charade Game",
+     "Whisper",
+     "Scrabble Man",
+     "บันไดมังกร",
+     "ตัดกระดาษจีน",
+     "เขียนพู่กันจีน",
+     "ทำอาหารจีน"
+    ]
+   }
+  ]
+ },
+ "PL PRE 0105": {
+  "file": "กิจกรรม Pre-Genius Camp.docx",
+  "fileId": "1QuAqMv0xIIrPQs4bUOzm4Q0_o7wYPOWt",
+  "groups": [
+   {
+    "group": "กิจกรรม Station คณิตศาสตร์",
+    "items": [
+     "Number Run",
+     "Arrow Gang",
+     "เก่งยกแก๊ง",
+     "คณิตคาดคะเน",
+     "บิงโกตัวเลข",
+     "A – Math",
+     "บันไดงู",
+     "สายลับตรวจจับโจทย์(Detective Math)",
+     "Run For Math",
+     "Math Escape",
+     "Pyramid สมการ",
+     "Math Games Battle"
+    ]
+   },
+   {
+    "group": "กิจกรรม Station วิทยาศาสตร์",
+    "items": [
+     "ทศกัณฐ์ยกวิทย์",
+     "มหัศจรรย์ของใส",
+     "Periodic Table",
+     "Slurpee"
+    ]
+   }
+  ]
+ },
+ "PL MAT 0107": {
+  "file": "กิจกรรม Math Camp.docx",
+  "fileId": "1AuoZy98dYnZtw1-RE_N_fhza0dr01ANx",
+  "groups": [
+   {
+    "group": "กิจกรรม Station",
+    "items": [
+     "Number Run",
+     "Arrow Gang",
+     "เก่งยกแก๊ง",
+     "คณิตคาดคะเน",
+     "บิงโกตัวเลข",
+     "A – Math",
+     "บันไดงู",
+     "สายลับตรวจจับโจทย์(Detective Math)",
+     "Run For Math",
+     "Math Escape",
+     "Pyramid สมการ",
+     "Math Games Battle"
+    ]
+   }
+  ]
+ },
+ "PL STM 0101": {
+  "file": "กิจกรรม STEM.docx",
+  "fileId": "1dA8vGZWaOfPkBZZBrD8usOZahW_Qc32B",
+  "groups": [
+   {
+    "group": "กิจกรรมครึ่งวันเช้า",
+    "items": [
+     {
+      "name": "Center of Gravity",
+      "learn": "รูปร่างรูปทรง,จุดศูนย์ถ่วง และการทรงตัว",
+      "level": "ม.ต้น",
+      "hours": "1-2 ชั่วโมง",
+      "place": "จัดภายในหอประชุม"
+     },
+     {
+      "name": "Roller Coaster",
+      "learn": "พลังงานศักดิ์โน้มถ่วง,พลังงานจลน์,กฎการอนุรักษ์พลังงาน",
+      "level": "ม.ต้น และ ม.ปลาย",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม"
+     },
+     {
+      "name": "Baking Rocket",
+      "learn": "การผสมสาร,ปฏิกิริยาเคมี,แรงต้านแรงโน้มถ่วง",
+      "level": "ม.ต้น และ ม.ปลาย",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม และต้องใช้พื้นที่ภายนอก ในการทดลอง",
+      "slot": "สามารถอยู่ได้ทั้ง เช้า/บ่าย"
+     },
+     {
+      "name": "ลูกโป่งน้ำล้มโดมิโน่",
+      "learn": "สมบัติของของไหล ,กฎของปาสคาลและความดัน",
+      "level": "ม.3 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม และต้องใช้พื้นที่ภายนอก ในการทดลอง",
+      "slot": "สามารถอยู่ได้ทั้ง เช้า/บ่าย"
+     }
+    ]
+   },
+   {
+    "group": "กิจกรรมครึ่งวันบ่าย",
+    "items": [
+     {
+      "name": "Hoover Power",
+      "learn": "วงจรไฟฟ้าเบื้องต้น,ประดิษฐ์โปรโตไทป์,หลักการทำงานของมอเตอร์,ฟิสิกส์เบื้องต้น",
+      "level": "ม.3 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "สามารถอยู่ได้ทั้ง บ่าย"
+     },
+     {
+      "name": "Bubble Machine",
+      "learn": "หลักกลศาศตร์ พลังงานลม การต่อวงจรไฟฟ้า ปฏิกิริยาเคมีและแรงตึงผิว",
+      "level": "ม.3 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "สามารถอยู่ได้ทั้ง บ่าย"
+     },
+     {
+      "name": "Wonderful Light",
+      "learn": "แสง สีและการสะท้อนของแสงเงา",
+      "level": "ม.3 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุมเท่านั้น",
+      "slot": "สามารถอยู่ได้ทั้ง บ่าย"
+     },
+     {
+      "name": "Bridge Building",
+      "learn": "หลักการออกแบบเชิงวิศวกรรม,โครงสร้างและการรับน้ำหนัก",
+      "level": "ป.4 ขึ้น",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุมเท่านั้น",
+      "slot": "สามารถอยู่ได้ทั้ง บ่าย"
+     },
+     {
+      "name": "Cotton Candy",
+      "learn": "การเปลี่ยนสถานะของสสาร โมเลกุล และแรงหมุน",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "สามารถอยู่ได้ทั้ง บ่าย"
+     },
+     {
+      "name": "Slurpee",
+      "learn": "สมบัติคอลลิเกทีฟ สภาวะเย็นยวดยิ่ง และปรากฏการณ์นิวคลีเอ",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "สามารถจัดได้ บ่าย"
+     },
+     {
+      "name": "Bungee Jump",
+      "learn": "พลังงานศักดิ์โน้มถ่วง,พลังงานจลน์,การเปลี่ยนรูปพลังงาน",
+      "level": "ม.2 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม และทดลองนอกห้องประชุม",
+      "slot": "สามารถจัดได้ บ่าย"
+     },
+     {
+      "name": "Static Electricity Racers",
+      "learn": "ประจุไฟฟ้าและการไหลของอิเล็กตรอน",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "1.30 - 2 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "สามารถจัดได้ บ่าย"
+     },
+     {
+      "name": "Roller box",
+      "learn": "พลังงานศักดิ์โน้มถ่วง,พลังงานจลน์,กฎการอนุรักษ์พลังงาน",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "สามารถจัดได้ บ่าย"
+     },
+     {
+      "name": "Steamboat",
+      "learn": "แรงดันไอน้ำ,หลักการออกแบบเชิงวิศวกรรม",
+      "level": "ม.2 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม และทดลองนอกห้องประชุม",
+      "slot": "สามารถจัดได้ บ่าย"
+     },
+     {
+      "name": "Titanic",
+      "learn": "แรงลอยตัว/แรงพยุง",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "2 - 3 ชั่วโมง",
+      "place": "จัดภายในหอประชุม และทดลองนอกห้องประชุม",
+      "slot": "สามารถจัดได้ บ่าย"
+     }
+    ]
+   },
+   {
+    "group": "กิจกรรมเต็มวัน",
+    "items": [
+     {
+      "name": "Smart City",
+      "learn": "หลักออกแบบเชิงวิศวกรรม, Internet of things,การนำเสนอ",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "3 - 4 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "บ่าย"
+     },
+     {
+      "name": "Smart Farm",
+      "learn": "หลักออกแบบเชิงวิศวกรรม, Internet of things,การนำเสนอ",
+      "level": "ม.1 ขึ้นไป",
+      "hours": "3 - 4 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "บ่าย"
+     },
+     {
+      "name": "Earthquake",
+      "learn": "หลักการออกแบบเชิงวิศวกรรม,โครงสร้างและการรับน้ำหนักตึก",
+      "level": "ม.3 ขึ้นไป",
+      "hours": "3 - 4 ชั่วโมง",
+      "place": "จัดภายในหอประชุม",
+      "slot": "บ่าย"
+     }
+    ]
+   }
+  ],
+  "images": {
+   "ocr": true,
+   "files": [
+    "กิจกรรม STEMSTEAM Camp 1.jpg (1oUdZat0EiOKvyE_XmSVyitEKF3z1Kvkr)",
+    "กิจกรรม STEMSTEAM Camp 2.jpg (1V-Y5wQIR3Q4eZVbNuHpwIWNRToWPnrdS)"
+   ],
+   "items": [
+    "Center of Gravity",
+    "Roller Coaster",
+    "Hoover Power",
+    "Bubble Machine",
+    "Wonderful Light",
+    "Smart Farm",
+    "Smart City",
+    "Baking Rocket",
+    "Bridge Building",
+    "Bungee Jump",
+    "Cotton Candy",
+    "Slurpee",
+    "Steamboat",
+    "Titanic",
+    "ลูกโป่งน้ำล้มโดมิโน่",
+    "เครื่องกดน้ำ",
+    "รถไฟฟ้าพลังงานสถิตย์",
+    "สว่างไสวด้วยสายน้ำ",
+    "ลูกแก้วแสนกล",
+    "กาลักน้ำ"
+   ],
+   "note": "ภาพการ์ด 20 กิจกรรม — 5 รายการ (เครื่องกดน้ำ, รถไฟฟ้าพลังงานสถิตย์, สว่างไสวด้วยสายน้ำ, ลูกแก้วแสนกล, กาลักน้ำ) ไม่อยู่ใน 'กิจกรรม STEM.docx'; docx มี Static Electricity Racers / Roller box / Earthquake ที่ไม่อยู่ในภาพ"
+  }
+ },
+ "PL LEA 0102": {
+  "file": null,
+  "note": "โฟลเดอร์ 'รายชื่อกิจกรรม' (1Ojx7PRaRl6SxfOMv8KILQ8Taa-Lki4Mt) ว่าง — ไม่มีไฟล์"
+ },
+ "PL ENG 0104": {
+  "file": "Activity English Camp 1.jpg, Activity English Camp 2.jpg + รายละเอียดกิจกรรม/1–28.jpg",
+  "fileIds": {
+   "overview1": "12qc8VN8eaPa_uls7wnHNKjiabJMycOSs",
+   "overview2": "1Cuhr7kiWNaNoiJ4VU_67cB2Er-TV1484",
+   "detailFolder": "1A8ayso42w6QqZhilfuExmbRY2XIN4geb"
+  },
+  "ocr": true,
+  "note": "อ่านจากภาพด้วย OCR — ข้อความในวงเล็บหลัง 'Pictionary' ในภาพรวม อ่านไม่ชัด (OCR ได้ '(u.cu)') ให้ทีมยืนยัน",
+  "groups": [
+   {
+    "group": "Activities English Camp (ภาพรวม 23 กิจกรรม)",
+    "items": [
+     "Who am I?",
+     "Run for Word",
+     "Pictionary",
+     "Hawk Eye",
+     "Scrabble Man",
+     "The Line",
+     "Charade Game",
+     "Left or Right",
+     "Whisper",
+     "Best Match",
+     "Run Read & Write",
+     "20 Questions",
+     "Davinci",
+     "Taxi Driver",
+     "Crossword",
+     "Debate",
+     "Conversation Gang",
+     "Snakes and Ladders Game",
+     "Sentence Survival",
+     "Google Earth",
+     "Google Map",
+     "Bingo",
+     "Word Hunt"
+    ]
+   }
+  ],
+  "detailCards": [
+   {
+    "name": "Run for Words",
+    "cards": "1.jpg (ไทย) / 2.jpg (EN)",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Crossword",
+    "cards": "3/4",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Charades",
+    "cards": "5/6",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Run Read & Write",
+    "cards": "7/8",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "20 Questions",
+    "cards": "9/10",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Best Match!",
+    "cards": "11/12",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Scrabble Man",
+    "cards": "13/14",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Hawk Eye",
+    "cards": "15/16",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Silence Tale",
+    "cards": "17/18",
+    "minutes": "25 - 30",
+    "note": "ไม่อยู่ในภาพรวม 23 กิจกรรม — มีเฉพาะการ์ดรายละเอียด"
+   },
+   {
+    "name": "Pictionary",
+    "cards": "19/20",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Conversation Gang",
+    "cards": "21/22",
+    "minutes": "25 - 30",
+    "note": "การ์ดภาษาอังกฤษ (22.jpg) ใส่ขั้นตอนของ Pictionary ผิด — ให้ทีมแก้การ์ด"
+   },
+   {
+    "name": "Who Am I?",
+    "cards": "23/24",
+    "minutes": "25 - 30"
+   },
+   {
+    "name": "Left or Right",
+    "cards": "25/26",
+    "minutes": "40 - 60"
+   },
+   {
+    "name": "Snakes and Ladders Game",
+    "cards": "27/28",
+    "minutes": "40 - 60"
+   }
+  ]
+ }
+}

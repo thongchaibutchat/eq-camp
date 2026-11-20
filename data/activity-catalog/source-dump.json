@@ -1,0 +1,3962 @@
+{
+ "courses": [
+  {
+   "code": "PL TI 0116",
+   "name": "หลักสูตรค่าย Innovation: เทคโนโลยีโดรน (Drone Innovation Camp)",
+   "family": "ai",
+   "obj1": "เพื่อส่งเสริมความเข้าใจด้านวิทยาศาสตร์ เทคโนโลยี วิศวกรรม และคณิตศาสตร์ (STEM) ผ่านการเรียนรู้เกี่ยวกับโดรน",
+   "obj2": "เพื่อบูรณาการความรู้ด้าน Coding, วิศวกรรมการออกแบบ และฟิสิกส์การบินในเชิงปฏิบัติ"
+  },
+  {
+   "code": "PL GEO 0112",
+   "name": "ค่ายธรณีวิทยา (Geology Camp)",
+   "family": "steam",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้านวิทยาศาสตร์ ด้านสิ่งแวดล้อมและธรณีวิทยา",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักวิทยาศาสตร์ นักวิจัย รวมถึงสาขาอาชีพในสายงานวิทยาศาสตร์สิ่งแวดล้อมและธรณีวิทยา"
+  },
+  {
+   "code": "PL SEA 0103",
+   "name": "ค่ายวิชาการวิทยาศาสตร์และสิ่งแวดล้อมทางทะเล (Sea & Science Camp)",
+   "family": "steam",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะวิทยาศาสตร์และการอนุรักษ์สิ่งแวดล้อมทางทะเล",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักวิทยาศาสตร์ นักวิจัย รวมถึงสาขาอาชีพในสายงานวิทยาศาสตร์ และเทคโนโลยี ด้านการอนุรักษ์ทรัพยากรธรรมชาติ"
+  },
+  {
+   "code": "PL CHI 0109",
+   "name": "ค่ายภาษาและวัฒนธรรมจีน (Chinese Camp)",
+   "family": "chinese",
+   "obj1": "เพื่อเป็นการฝึกฝนพัฒนาความรู้และทักษะทางด้านภาษาจีนโดยผ่านการลงมือปฏิบัติจริง",
+   "obj2": "เปิดโอกาสให้นักเรียนได้แลกเปลี่ยนเรียนรู้วัฒนธรรมจีน จากเจ้าของภาษา"
+  },
+  {
+   "code": "PL ENV 0106",
+   "name": "ค่ายบูรณาการวิทยาศาสตร์เทคโนโลยีและสิ่งแวดล้อม (Environmental Camp)",
+   "family": "steam",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้านวิทยาศาสตร์ เทคโนโลยี วิศวกรรมศาสตร์ และสิ่งแวดล้อม",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักวิทยาศาสตร์ เทคนิคการแพทย์ นักวิจัย รวมถึงสาขาอาชีพในสายงานวิทยาศาสตร์เทคโนโลยีและสิ่งแวดล้อม"
+  },
+  {
+   "code": "PL LEA 0102",
+   "name": "ค่ายพัฒนาสมรรถนะผู้เรียน (Leadership Camp)",
+   "family": "leadership",
+   "obj1": "เพื่อให้นักเรียนเกิดกระบวนการเรียนรู้จักความรับผิดชอบต่อตัวเอง และมีทักษะการปรับตัวในการทำงานร่วมกับผู้อื่น",
+   "obj2": "เพื่อให้สามารถพัฒนาความฉลาดทางอารมณ์ (EQ) ควบคู่ไปกับการพัฒนาความฉลาดทางสติปัญญา (IQ) ได้อย่างมีประสิทธิภาพ"
+  },
+  {
+   "code": "PL PRE 0105",
+   "name": "ค่ายบูรณาการคณิตศาสตร์ วิทยาศาสตร์ (Pre-genius Camp)",
+   "family": "math",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้าน วิทยาศาสตร์ เทคโนโลยี",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักวิทยาศาสตร์ นักวิจัย รวมถึงสาขาอาชีพในสายงานวิทยาศาสตร์และเทคโนโลยี"
+  },
+  {
+   "code": "PL MAT 0107",
+   "name": "ค่ายบูรณาการคณิตศาสตร์ (Math Camp)",
+   "family": "math",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้านคณิตศาสตร์ วิทยาศาสตร์และเทคโนโลยี",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักคณิตศาสตร์ นักวิจัย รวมถึงสาขาอาชีพในสายงานคณิตศาสตร์"
+  },
+  {
+   "code": "PL COD 0111",
+   "name": "ค่ายบูรณาการเทคโนโลยีและโค้ดดิ้งแคมป์ (Coding & Robot Camp)",
+   "family": "ai",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความรู้ความสามารถและทักษะในการเขียนโค้ดสั่งการหุ่นยนต์ พร้อมทั้งพัฒนาทักษะด้านวิทยาศาสตร์ เทคโนโลยี วิศวกรรม และคณิตศาสตร์ (STEM) ผ่านการเรียนรู้แบบปฏิบัติจริง",
+   "obj2": "เพื่อส่งเสริมและสนับสนุนให้นักเรียนมีแรงบันดาลใจในการศึกษาและทำงานด้านวิทยาศาสตร์ เทคโนโลยี หุ่นยนต์ และการวิจัย รวมถึงการเตรียมความพร้อมสู่สายอาชีพที่เกี่ยวข้องในอนาคต"
+  },
+  {
+   "code": "PL ITD 0113",
+   "name": "ค่ายเทคโนโลยีและสารสนเทศ (IT Digital & Business Camp)",
+   "family": "ai",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะด้านวิทยาศาสตร์เทคโนโลยี และคอมพิวเตอร์ธุรกิจ",
+   "obj2": "เพื่อให้นักเรียนมีพื้นฐานการสร้างกรอบความคิดเริ่มต้น (Startup Mindset) ได้โดยสามารถใช้เครื่องมือประเภทต่างๆที่สอดคล้องเหมาะสมกับตัวเองได้"
+  },
+  {
+   "code": "PL AST 0108",
+   "name": "ค่ายดาราศาสตร์ (Astronomy Camp)",
+   "family": "steam",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้านดาราศาสตร์ ด้านวิทยาศาสตร์ ด้านเทคโนโลยี ด้านวิศวกรรมศาสตร์ และด้านคณิตศาสตร์",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักดาราศาสตร์ นักวิทยาศาสตร์ นักวิจัย รวมถึงสาขาอาชีพในสายงานวิทยาศาสตร์และเทคโนโลยี"
+  },
+  {
+   "code": "PL FOR 0110",
+   "name": "ค่ายนิติวิทยาศาสตร์และชีววิทยา (Forensic Science Camp)",
+   "family": "steam",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะในด้านวิทยาศาสตร์ ชีววิทยา เคมีและฟิสิกส์",
+   "obj2": "เพื่อให้นักเรียนมีความรู้ ความสามารถขั้นพื้นฐานและเกิดเข้าใจความสำคัญในการนำความรู้ทาง นิติวิทยาศาสตร์"
+  },
+  {
+   "code": "PL STM 0101",
+   "name": "ค่ายบูรณาการสตรีมศึกษา (STEAM Camp)",
+   "family": "steam",
+   "obj1": "เพื่อพัฒนานักเรียนให้มีความสามารถและมีทักษะการบูรณาการความรู้ด้านวิทยาศาสตร์ เทคโนโลยี วิศวกรรมศาสตร์ และคณิตศาสตร์",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักวิทยาศาสตร์ นักวิจัย รวมถึงสาขาอาชีพในสายงานวิทยาศาสตร์และเทคโนโลยี"
+  },
+  {
+   "code": "PL ENG 0104",
+   "name": "ค่ายวิชาการภาษาอังกฤษ (English Camp)",
+   "family": "english",
+   "obj1": "เพื่อพัฒนาทักษะภาษาอังกฤษทั้ง 4 ด้าน คือ ทักษะการฟัง การพูด การอ่าน และการเขียน ของนักเรียนให้มีประสิทธิภาพยิ่งขึ้น",
+   "obj2": "เพื่อส่งเสริมและสนับสนุน ให้นักเรียนมีแรงบันดาลใจในการเป็นนักสื่อสาร รวมถึงสาขาอาชีพในสายงานภาษาอังกฤษและภาษาต่างประเทศ"
+  }
+ ],
+ "acts": [
+  {
+   "id": "ref-drone-c17feadf09",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "opening",
+   "title": "กิจกรรม \"Reboot Your Brain\" – กระบวนการสันทนาการ"
+  },
+  {
+   "id": "ref-drone-6ffa080822",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมการเรียนรู้พื้นฐานการทำงานของโดรนและอุปกรณ์หลัก"
+  },
+  {
+   "id": "ref-drone-f791a45189",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมเวิร์กชอปประกอบโดรนจำลอง (Drone Kit)"
+  },
+  {
+   "id": "ref-drone-35327bb742",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมฝึกใช้โปรแกรมจำลองการบิน (DroneBlocks / DJI Simulator / Tynker Drone)"
+  },
+  {
+   "id": "ref-drone-627e813c1b",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมCoding Lab: การเขียนคำสั่งควบคุมโดรนเบื้องต้น สนามทดสอบบิน (Indoor / Outdoor)"
+  },
+  {
+   "id": "ref-drone-00ee79fbe6",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมแข่งขัน Drone Mission Challenge"
+  },
+  {
+   "id": "ref-drone-15fab27d81",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม \"Game Inspiration\" (สันทนาการ)"
+  },
+  {
+   "id": "ref-drone-4b4e99b838",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "night",
+   "title": "กิจกรรม “Netflix Lover” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-drone-938b6b6a7c",
+   "course": "PL TI 0116",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fun. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-geology-e06d8f0785",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม \"BRAIN STORM X2\" (กระบวนการสันทนาการสร้างสัมพันธ์)"
+  },
+  {
+   "id": "ref-geology-d91fc4fa65",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "core",
+   "title": "ทัศนศึกษาแหล่งเรียนรู้ ณ พิพิธภัณฑ์ธรณีศาสตร์ มหาวิทยาลัยมหิดล วิทยาเขตกาญจนบุรี"
+  },
+  {
+   "id": "ref-geology-19215f80b9",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "core",
+   "title": "ทัศนศึกษาแหล่งเรียนรู้ ณ ถ้ำกระแซ ทางรถไฟสายมรณะ กาญจนบุรี"
+  },
+  {
+   "id": "ref-geology-698c02d8bf",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Geological Stations”"
+  },
+  {
+   "id": "ref-geology-2e62e8f856",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Geological Stations” Part.1"
+  },
+  {
+   "id": "ref-geology-dfcac30aec",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Geological Stations” Part.2"
+  },
+  {
+   "id": "ref-geology-b53b82371c",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "night",
+   "title": "กิจกรรมปาร์ตี้ “ธีม Bohemian” (Collaborative Skill)"
+  },
+  {
+   "id": "ref-geology-8b5a4e596b",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “Reboot Your Brain. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-geology-5c031c49cf",
+   "course": "PL GEO 0112",
+   "family": "steam",
+   "kind": "closing",
+   "title": "กิจกรรม “The Next Step”"
+  },
+  {
+   "id": "ref-sea-8b280d6240",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรมเปิดประตูสู่ห้องเรียน (Ice Breaking Activity)"
+  },
+  {
+   "id": "ref-sea-dacdcb982e",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กระบวนการกิจกรรมระดมสมองประลองปัญญา"
+  },
+  {
+   "id": "ref-sea-ebfae669fd",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรมสถานีความรู้พาเพลิน (Play & Learn Activities)"
+  },
+  {
+   "id": "ref-sea-33ca40b79b",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “ทศกัณฐ์ ธีม Under The Sea”"
+  },
+  {
+   "id": "ref-sea-a52e16cdc6",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Mini Lab Activity” Part.1"
+  },
+  {
+   "id": "ref-sea-5e5d95ed3e",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Mini Lab Activity” Part.2"
+  },
+  {
+   "id": "ref-sea-648e2de9f1",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Beachcomber นักสำรวจชายหาด” Part.1"
+  },
+  {
+   "id": "ref-sea-29cb6a4b7b",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Beachcomber นักสำรวจชายหาด” Part.2"
+  },
+  {
+   "id": "ref-sea-f3898ae836",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Beachcomber นักสำรวจชายหาด”"
+  },
+  {
+   "id": "ref-sea-00f92f26bb",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "night",
+   "title": "กิจกรรมปาร์ตี้ธีม “Netflix Lovers” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-sea-32ff52a738",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"ปลูกปะการังและเรียนรู้การอนุรักษ์ทางทะเล” ( marine conservation )"
+  },
+  {
+   "id": "ref-sea-bd03723df7",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “ดำน้ำชมความมหัศจรรย์แห่งธรรมชาติใต้ท้องทะเล”"
+  },
+  {
+   "id": "ref-sea-01664a97de",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "night",
+   "title": "กิจกรรมปาร์ตี้ธีม “Under The Sea” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-sea-32b376da9f",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม \"Warm up learning.\""
+  },
+  {
+   "id": "ref-sea-02a1d7884f",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตูสู่ห้องเรียน” (ละลายพฤติกรรม)"
+  },
+  {
+   "id": "ref-sea-9fc706cb28",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Mini Lab Activity”"
+  },
+  {
+   "id": "ref-sea-2109486695",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Sea Quest Mission”"
+  },
+  {
+   "id": "ref-sea-377cd9c5d5",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"เรียนรู้การอนุรักษ์ทางทะเล” ( marine conservation )"
+  },
+  {
+   "id": "ref-sea-8b5a4e596b",
+   "course": "PL SEA 0103",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “Reboot Your Brain. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-chinese-a78dac1ce1",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Chinese Worlds Quest"
+  },
+  {
+   "id": "ref-chinese-f0a3a3a659",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Chinese Challenger"
+  },
+  {
+   "id": "ref-chinese-c87e515136",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Charade Game"
+  },
+  {
+   "id": "ref-chinese-ba7955598f",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Whisper"
+  },
+  {
+   "id": "ref-chinese-5bfb7a6525",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Scrabble Man"
+  },
+  {
+   "id": "ref-chinese-364081f6f7",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "บันไดมังกร"
+  },
+  {
+   "id": "ref-chinese-4b14bcac4f",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "ตัดกระดาษจีน"
+  },
+  {
+   "id": "ref-chinese-002fda4cf7",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "เขียนพู่กันจีน"
+  },
+  {
+   "id": "ref-chinese-093bc6adc8",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "ทำอาหารจีน"
+  },
+  {
+   "id": "ref-chinese-29e2f0a115",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "กิจกรรม “เควสมังกร” (Critical & Creative Thinking)"
+  },
+  {
+   "id": "ref-chinese-8b5a4e596b",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "opening",
+   "title": "กิจกรรม “Reboot Your Brain.” (นันทนาการ)"
+  },
+  {
+   "id": "ref-chinese-d0ae225064",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "กิจกรรม “The Art of Guzheng” Part.1"
+  },
+  {
+   "id": "ref-chinese-5477f38327",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "กิจกรรม “The Art of Guzheng” Part.2"
+  },
+  {
+   "id": "ref-chinese-c252c3af58",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "night",
+   "title": "กิจกรรมปาร์ตี้ ธีม “Chinatown Party” (Brainstorm and Communication Skills)"
+  },
+  {
+   "id": "ref-chinese-938b6b6a7c",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fun.” (นันทนาการ)"
+  },
+  {
+   "id": "ref-chinese-5c031c49cf",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "closing",
+   "title": "กิจกรรม “The Next Step”"
+  },
+  {
+   "id": "ref-chinese-8b280d6240",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "opening",
+   "title": "กิจกรรมเปิดประตูสู่ห้องเรียน (Ice Breaking Activity)"
+  },
+  {
+   "id": "ref-chinese-dacdcb982e",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "กระบวนการกิจกรรมระดมสมองประลองปัญญา"
+  },
+  {
+   "id": "ref-chinese-ebfae669fd",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "กิจกรรมสถานีความรู้พาเพลิน (Play & Learn Activities)"
+  },
+  {
+   "id": "ref-chinese-9f0c8aa526",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Classification."
+  },
+  {
+   "id": "ref-chinese-7d2dd69231",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Crossword."
+  },
+  {
+   "id": "ref-chinese-79cd953270",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Chinese Word Quest."
+  },
+  {
+   "id": "ref-chinese-bbe4933824",
+   "course": "PL CHI 0109",
+   "family": "chinese",
+   "kind": "core",
+   "title": "Run for Word."
+  },
+  {
+   "id": "ref-environment-34b4e54ba5",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม\" Reboot Your Brain\" (กระบวนการสันทนาการสร้างสัมพันธ์)"
+  },
+  {
+   "id": "ref-environment-da35e4b5ca",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรมระดมสมองประลองปัญญา"
+  },
+  {
+   "id": "ref-environment-1358b74918",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"Creative Learning Station\""
+  },
+  {
+   "id": "ref-environment-ccde23dccb",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “EARLY LAB  ”"
+  },
+  {
+   "id": "ref-environment-cc29141834",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตูสู่ห้องแลป”"
+  },
+  {
+   "id": "ref-environment-932a1c24eb",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม ธีม “อาชีพในฝัน” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-environment-e24780cdff",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fresh”"
+  },
+  {
+   "id": "ref-environment-e9f552747b",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม ธีม “Mini Game”"
+  },
+  {
+   "id": "ref-environment-955ba4da11",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"นักสืบสายน้ำ\" (Water Detective) Part.1"
+  },
+  {
+   "id": "ref-environment-6332116268",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"นักสืบสายน้ำ\" (Water Detective) Part.2"
+  },
+  {
+   "id": "ref-environment-4b4e99b838",
+   "course": "PL ENV 0106",
+   "family": "steam",
+   "kind": "night",
+   "title": "กิจกรรม “Netflix Lover” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-leadership-c7f92e3b0d",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "opening",
+   "title": "กิจกรรม “Fun First, Leader Next!” ( ละลายพฤติกรรม )"
+  },
+  {
+   "id": "ref-leadership-01c013bdb4",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “Mini Quest Challenge.”"
+  },
+  {
+   "id": "ref-leadership-7a461519c7",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “NextGen Leaders 5 ทักษะสำคัญของการเป็นผู้นำแห่งอนาคต”"
+  },
+  {
+   "id": "ref-leadership-bd92da75ff",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม Workshop เรื่อง “ MBTI (Myers-Briggs Type Indicator) แบบทดสอบบุคลิกภาพความเป็นผู้นำ"
+  },
+  {
+   "id": "ref-leadership-8300f581f5",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "closing",
+   "title": "กิจกรรม “The Next Step To Leadership”"
+  },
+  {
+   "id": "ref-leadership-de1eeedb73",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "opening",
+   "title": "กิจกรรม “Fun First, Leadership” ( ละลายพฤติกรรม )"
+  },
+  {
+   "id": "ref-leadership-30b0206a00",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “ BOMBER MAN”"
+  },
+  {
+   "id": "ref-leadership-c22e80ac22",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "night",
+   "title": "กิจกรรม The Talent Show ธีม “Dress As Your Initial ตัวอักษรย่อชื่อ”"
+  },
+  {
+   "id": "ref-leadership-938b6b6a7c",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fun. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-leadership-997decf2a8",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "opening",
+   "title": "กิจกรรม “รู้จัก รู้ใจ ใกล้ชิด” ( ละลายพฤติกรรม )"
+  },
+  {
+   "id": "ref-leadership-9f0821797b",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม Workshop “4 C ทักษะสำคัญของการเป็นผู้นำ Leadership Skills )"
+  },
+  {
+   "id": "ref-leadership-58afe9cb12",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม Workshop เรื่อง “ DISC Model 4 บุคลิกภาพความเป็นผู้นำ ”"
+  },
+  {
+   "id": "ref-leadership-8efe5e339f",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม Workshop “Soft skills in the 21st century”"
+  },
+  {
+   "id": "ref-leadership-f6cdd5d84f",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “รู้จัก รู้ใจใกล้ชิด”"
+  },
+  {
+   "id": "ref-leadership-efa94fa3d2",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม Workshop “Mission to the Moon”"
+  },
+  {
+   "id": "ref-leadership-8b5a4e596b",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "opening",
+   "title": "กิจกรรม “Reboot Your Brain.” (นันทนาการ)"
+  },
+  {
+   "id": "ref-leadership-bebb780aef",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “ The Bridge Challenge ”"
+  },
+  {
+   "id": "ref-leadership-1943fb0ee6",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “เควส พระเจ้า 69 ข้อ”"
+  },
+  {
+   "id": "ref-leadership-717b7f6c05",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “เทพผู้พิทักษ์”"
+  },
+  {
+   "id": "ref-leadership-fde540d2a5",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “Mini Game Challenge.”"
+  },
+  {
+   "id": "ref-leadership-031e9962e2",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “Leadership Lift-Off.” (นันทนาการ)"
+  },
+  {
+   "id": "ref-leadership-73e4d3a356",
+   "course": "PL LEA 0102",
+   "family": "leadership",
+   "kind": "core",
+   "title": "กิจกรรม “The Arcane Magic พลังเวทมนตร์”"
+  },
+  {
+   "id": "ref-pregen-db8b7a6a04",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Number Run"
+  },
+  {
+   "id": "ref-pregen-46b12795e1",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Arrow Gang"
+  },
+  {
+   "id": "ref-pregen-7f0c0333c4",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "เก่งยกแก๊ง"
+  },
+  {
+   "id": "ref-pregen-6dcca388ff",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "คณิตคาดคะเน"
+  },
+  {
+   "id": "ref-pregen-23f3f40844",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "บิงโกตัวเลข"
+  },
+  {
+   "id": "ref-pregen-f0632eefac",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "A – Math"
+  },
+  {
+   "id": "ref-pregen-9a7a784cf2",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "บันไดงู"
+  },
+  {
+   "id": "ref-pregen-8da31fa13b",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "สายลับตรวจจับโจทย์ (Detective Math)"
+  },
+  {
+   "id": "ref-pregen-cddd63aecf",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Run For Math"
+  },
+  {
+   "id": "ref-pregen-f62b13c2ac",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Math Escape"
+  },
+  {
+   "id": "ref-pregen-c781c7dee3",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Pyramid สมการ"
+  },
+  {
+   "id": "ref-pregen-2c5867c590",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Math Games Battle"
+  },
+  {
+   "id": "ref-pregen-d413434e9e",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "ทศกัณฐ์ยกวิทย์"
+  },
+  {
+   "id": "ref-pregen-da8f11a5f8",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "มหัศจรรย์ของใส"
+  },
+  {
+   "id": "ref-pregen-7fb58b65c5",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Periodic Table"
+  },
+  {
+   "id": "ref-pregen-7f58c31946",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "Slurpee"
+  },
+  {
+   "id": "ref-pregen-997decf2a8",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "opening",
+   "title": "กิจกรรม “ รู้จัก รู้ใจ ใกล้ชิด ”  (ละลายพฤติกรรม)"
+  },
+  {
+   "id": "ref-pregen-a29c55cc44",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Science Stations.”สนุกคิด วิทย์น่ารู้"
+  },
+  {
+   "id": "ref-pregen-9be3700396",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม Baking Rocket."
+  },
+  {
+   "id": "ref-pregen-829f81b861",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม Walk Rally “Science & Mathematics Stations.”"
+  },
+  {
+   "id": "ref-pregen-b17d8615a0",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "opening",
+   "title": "กิจกรรม \"เปิดประตูสู่ห้องเรียน\""
+  },
+  {
+   "id": "ref-pregen-f6c603f15e",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “ถอดรหัสอัจฉริยะ”"
+  },
+  {
+   "id": "ref-pregen-5f77bb4d8d",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre - Genius Stations.” Part.1"
+  },
+  {
+   "id": "ref-pregen-16999c42b8",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre - Genius Stations.” Part.2"
+  },
+  {
+   "id": "ref-pregen-bde76d7bbb",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre - Genius Stations.” Part.3"
+  },
+  {
+   "id": "ref-pregen-f7ad6a6d6d",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre – Genius Stations.”"
+  },
+  {
+   "id": "ref-pregen-f362d395fc",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre – Genius Challenge”"
+  },
+  {
+   "id": "ref-pregen-938b6b6a7c",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fun” (นันทนาการ)"
+  },
+  {
+   "id": "ref-pregen-8e92ec62bc",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre – Genius Stations.” สนุกคิด คณิต วิทย์ เทคโนโลยี” Part 1"
+  },
+  {
+   "id": "ref-pregen-6b941350d5",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre-Genius Stations.” สนุกคิด คณิต วิทย์ เทคโนโลยี” Part 2"
+  },
+  {
+   "id": "ref-pregen-907f898d40",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "night",
+   "title": "กิจกรรมการแสดง “ Netflix Lover ”"
+  },
+  {
+   "id": "ref-pregen-8b5a4e596b",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "opening",
+   "title": "กิจกรรม “Reboot Your Brain. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-pregen-7285c459a2",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "opening",
+   "title": "กิจกรรมสานสัมพันธ์ (ละลายพฤติกรรม)"
+  },
+  {
+   "id": "ref-pregen-7995100210",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre Genius Activity”"
+  },
+  {
+   "id": "ref-pregen-2bd96d318b",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre - Genius Station” Part 1"
+  },
+  {
+   "id": "ref-pregen-56e8a26aea",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre - Genius Station” Part 2"
+  },
+  {
+   "id": "ref-pregen-8886d098ad",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Pre - Genius Station”"
+  },
+  {
+   "id": "ref-pregen-324362c5cb",
+   "course": "PL PRE 0105",
+   "family": "math",
+   "kind": "night",
+   "title": "กิจกรรมการแสดง “ Netflix Lover ” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-math-db8b7a6a04",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Number Run"
+  },
+  {
+   "id": "ref-math-46b12795e1",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Arrow Gang"
+  },
+  {
+   "id": "ref-math-7f0c0333c4",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "เก่งยกแก๊ง"
+  },
+  {
+   "id": "ref-math-6dcca388ff",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "คณิตคาดคะเน"
+  },
+  {
+   "id": "ref-math-23f3f40844",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "บิงโกตัวเลข"
+  },
+  {
+   "id": "ref-math-f0632eefac",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "A – Math"
+  },
+  {
+   "id": "ref-math-9a7a784cf2",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "บันไดงู"
+  },
+  {
+   "id": "ref-math-8da31fa13b",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "สายลับตรวจจับโจทย์ (Detective Math)"
+  },
+  {
+   "id": "ref-math-cddd63aecf",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Run For Math"
+  },
+  {
+   "id": "ref-math-f62b13c2ac",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Math Escape"
+  },
+  {
+   "id": "ref-math-c781c7dee3",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Pyramid สมการ"
+  },
+  {
+   "id": "ref-math-2c5867c590",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Math Games Battle"
+  },
+  {
+   "id": "ref-math-34b4e54ba5",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "opening",
+   "title": "กิจกรรม\" Reboot Your Brain\" (กระบวนการสันทนาการสร้างสัมพันธ์)"
+  },
+  {
+   "id": "ref-math-da35e4b5ca",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรมระดมสมองประลองปัญญา"
+  },
+  {
+   "id": "ref-math-1358b74918",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม \"Creative Learning Station\""
+  },
+  {
+   "id": "ref-math-d407949c4c",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรมกลุ่มสัมพันธ์ “กระตุ้นสมอง ประลองกำลัง”"
+  },
+  {
+   "id": "ref-math-6776c2f7ca",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Mathematics  Station ฝึกคิดคณิตน่ารู้” Part.1"
+  },
+  {
+   "id": "ref-math-68cc280435",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Mathematics  Station ฝึกคิดคณิตน่ารู้” Part.2"
+  },
+  {
+   "id": "ref-math-e24780cdff",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fresh”"
+  },
+  {
+   "id": "ref-math-32b376da9f",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "opening",
+   "title": "กิจกรรม \"Warm up learning.\""
+  },
+  {
+   "id": "ref-math-57603000f3",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "ลูกโป่งน้ำล้มโดมิโน่ Part.1"
+  },
+  {
+   "id": "ref-math-e343f17eb8",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "ลูกโป่งน้ำล้มโดมิโน่ Part.2"
+  },
+  {
+   "id": "ref-math-c38348cd64",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Bridge Building Part.1"
+  },
+  {
+   "id": "ref-math-662dfc0246",
+   "course": "PL MAT 0107",
+   "family": "math",
+   "kind": "core",
+   "title": "Bridge Building Part.2"
+  },
+  {
+   "id": "ref-robotics-5f2a99dc06",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "opening",
+   "title": "กิจกรรม “ RoboFest” (ละลายพฤติกรรม)"
+  },
+  {
+   "id": "ref-robotics-0fb69167c0",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "เรียนรู้พื้นฐาน การทำความเข้าใจและการใช้งานบอร์ด ( IPST / Kid Bright )"
+  },
+  {
+   "id": "ref-robotics-2f3aff54d5",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Code & Create Robotics.”"
+  },
+  {
+   "id": "ref-robotics-8e189b9741",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมการแข่งขัน “Robotics Challenge”"
+  },
+  {
+   "id": "ref-robotics-9eae23caaa",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Code & Create Robotics” Part 1"
+  },
+  {
+   "id": "ref-robotics-062786e150",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Code & Create Robotics” Part 2"
+  },
+  {
+   "id": "ref-robotics-bb6b290f1b",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Innovate Challenge”"
+  },
+  {
+   "id": "ref-robotics-aaafd610ec",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม \"Robot Reflection & Skill Sharing\""
+  },
+  {
+   "id": "ref-robotics-0fb2d35bc2",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม \"Inspire the Future: Robo-Dreamers\""
+  },
+  {
+   "id": "ref-robotics-8d5b8ae2d5",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม \"Robot Showcase & Awards\""
+  },
+  {
+   "id": "ref-robotics-06c4db7d87",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม \"Robot Assembly & Development\""
+  },
+  {
+   "id": "ref-robotics-4c950c4a5b",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม \"Advanced Coding & Programming\""
+  },
+  {
+   "id": "ref-robotics-2dd46374e2",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Final Robotics Coding & Assembly”"
+  },
+  {
+   "id": "ref-robotics-5706c3e4ac",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมการแข่งขัน “Ultimate Robotics Challenge”"
+  },
+  {
+   "id": "ref-robotics-5c2c15a342",
+   "course": "PL COD 0111",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Sports Fest” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-digital-ec702fd081",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตู สู่โลกอนาคต” (Ice breaking)"
+  },
+  {
+   "id": "ref-digital-622ad90f05",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Introduction to  E-Commerce”"
+  },
+  {
+   "id": "ref-digital-c74b1ea1c6",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Workshop : Online Marketing Station”"
+  },
+  {
+   "id": "ref-digital-625eca4bf8",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Idea I Do เทคโนโลยีเปลี่ยนโลก”"
+  },
+  {
+   "id": "ref-digital-c4bde16084",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Workshop : Online Marketing Station” Part.1"
+  },
+  {
+   "id": "ref-digital-9487811c5f",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Workshop : Online Marketing Station” Part.2"
+  },
+  {
+   "id": "ref-digital-826e28fd09",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "opening",
+   "title": "กิจกรรม “Hello World” (Ice breaking)"
+  },
+  {
+   "id": "ref-digital-b7567a6948",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Introduction to Startup” Part.1"
+  },
+  {
+   "id": "ref-digital-c37616deba",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Introduction to Startup” Part.2"
+  },
+  {
+   "id": "ref-digital-0b735c9ae8",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Idea I Do เทคโนโลยีเปลี่ยนโลก” Part.1"
+  },
+  {
+   "id": "ref-digital-6df2b6136b",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Idea I Do เทคโนโลยีเปลี่ยนโลก” Part.2"
+  },
+  {
+   "id": "ref-digital-b6d2595d29",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Team Building” (สร้างความสัมพันธ์ในกลุ่ม)"
+  },
+  {
+   "id": "ref-digital-eed2c9ae13",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรมการแสดงธีม “Dream career”"
+  },
+  {
+   "id": "ref-digital-3f18cee05d",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Future Trends in Tech” (แนวโน้มเทคโนโลยีในอนาคต)"
+  },
+  {
+   "id": "ref-digital-efb62f9dc7",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Networking Night”"
+  },
+  {
+   "id": "ref-digital-f010b406cb",
+   "course": "PL ITD 0113",
+   "family": "ai",
+   "kind": "core",
+   "title": "กิจกรรม “Pitch Your Startup” (นำเสนอไอเดียธุรกิจ)"
+  },
+  {
+   "id": "ref-astronomy-34b4e54ba5",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม\" Reboot Your Brain\" (กระบวนการสันทนาการสร้างสัมพันธ์)"
+  },
+  {
+   "id": "ref-astronomy-e1ebe8b245",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \" Intro To Astronomy & Space \""
+  },
+  {
+   "id": "ref-astronomy-1358b74918",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"Creative Learning Station\""
+  },
+  {
+   "id": "ref-astronomy-f0830d02a5",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตูสู่ โลกของดวงดาวและอวกาศ”"
+  },
+  {
+   "id": "ref-astronomy-8b04de8276",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “มองภาพผ่านตา มองดาวผ่านกล้อง”"
+  },
+  {
+   "id": "ref-astronomy-b17d8615a0",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม \"เปิดประตูสู่ห้องเรียน\""
+  },
+  {
+   "id": "ref-astronomy-226540a7cc",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \" Intro To Astronomy & Space \"  EP.1"
+  },
+  {
+   "id": "ref-astronomy-7e7c7feb48",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \" Intro To Astronomy & Space \"  EP.2"
+  },
+  {
+   "id": "ref-astronomy-9910275a26",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรมการแสดง ธีม “The Mask”"
+  },
+  {
+   "id": "ref-astronomy-938b6b6a7c",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fun. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-astronomy-5c031c49cf",
+   "course": "PL AST 0108",
+   "family": "steam",
+   "kind": "closing",
+   "title": "กิจกรรม “The Next Step”"
+  },
+  {
+   "id": "ref-forensic-7285c459a2",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรมสานสัมพันธ์ (ละลายพฤติกรรม)"
+  },
+  {
+   "id": "ref-forensic-5bf4905724",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตูสู่ห้องเรียนนิติวิทยาศาสตร์”"
+  },
+  {
+   "id": "ref-forensic-6fa85d790a",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม : สืบจากหลักฐาน “วัตถุพยานทางชีววิทยาและการตรวจหาลายนิ้วมือ”"
+  },
+  {
+   "id": "ref-forensic-b909be8f7f",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม Paranormal Detectives นักสืบวิญญาณ.”"
+  },
+  {
+   "id": "ref-forensic-918e358b1e",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรมเปิดแฟ้มคดีปริศนา ตามล่าฆาตกรต่อเนื่อง ( Role Playing Activity )"
+  },
+  {
+   "id": "ref-forensic-afbe1fba4c",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม : สืบจากหลักฐาน “วัตถุพยานทางชีววิทยาและการตรวจหาลายนิ้วมือ” Part.1"
+  },
+  {
+   "id": "ref-forensic-d49beb2b6c",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม : สืบจากหลักฐาน “วัตถุพยานทางชีววิทยาและการตรวจหาลายนิ้วมือ” Part.2"
+  },
+  {
+   "id": "ref-forensic-43ec10bc7e",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “การวิเคราะห์พฤติกรรมอาชญากรในมุมมองทางจิตวิทยา”"
+  },
+  {
+   "id": "ref-forensic-7f88d55831",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “BRAIN STORM X2” (กิจกรรมสันทนาการ)"
+  },
+  {
+   "id": "ref-forensic-2805b95ce9",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Spy Night Party” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-forensic-3c10576451",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “แอดเวนเจอร์ Game”"
+  },
+  {
+   "id": "ref-forensic-adec017d3c",
+   "course": "PL FOR 0110",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตูสู่ห้องเรียนนิติวิทยาศาสตร์” (Introduction to Forensic Science)"
+  },
+  {
+   "id": "ref-stem-fe55334b49",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Center of Gravity"
+  },
+  {
+   "id": "ref-stem-586fc97a34",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Roller Coaster"
+  },
+  {
+   "id": "ref-stem-9b72a3c095",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Baking Rocket"
+  },
+  {
+   "id": "ref-stem-5ba98d70f2",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "ลูกโป่งน้ำล้มโดมิโน่"
+  },
+  {
+   "id": "ref-stem-f436cc067f",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Hoover Power"
+  },
+  {
+   "id": "ref-stem-d75cf0ebab",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Bubble Machine"
+  },
+  {
+   "id": "ref-stem-38377295ca",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Wonderful Light"
+  },
+  {
+   "id": "ref-stem-c7bd3b077b",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Bridge Building"
+  },
+  {
+   "id": "ref-stem-e3d8fd8ab7",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Cotton Candy"
+  },
+  {
+   "id": "ref-stem-7f58c31946",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Slurpee"
+  },
+  {
+   "id": "ref-stem-3f7adaa33a",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Bungee Jump"
+  },
+  {
+   "id": "ref-stem-cde1e19cf1",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Static Electricity Racers"
+  },
+  {
+   "id": "ref-stem-9be5d24a3e",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Roller box"
+  },
+  {
+   "id": "ref-stem-4038c70b4e",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Steamboat"
+  },
+  {
+   "id": "ref-stem-34b4e54ba5",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม\" Reboot Your Brain\" (กระบวนการสันทนาการสร้างสัมพันธ์)"
+  },
+  {
+   "id": "ref-stem-da35e4b5ca",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรมระดมสมองประลองปัญญา"
+  },
+  {
+   "id": "ref-stem-1358b74918",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"Creative Learning Station\""
+  },
+  {
+   "id": "ref-stem-2f364222d2",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “เปิดประตู สู่โลกของ STEM”  (ละลายพฤติกรรม)"
+  },
+  {
+   "id": "ref-stem-7eeb21fbab",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"STEM Mission\""
+  },
+  {
+   "id": "ref-stem-cabdb55ac3",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Hoover Power Part.1"
+  },
+  {
+   "id": "ref-stem-f0d610a4f0",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Hoover Power  Part.2"
+  },
+  {
+   "id": "ref-stem-32b376da9f",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม \"Warm up learning.\""
+  },
+  {
+   "id": "ref-stem-51bc12dd48",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Baking Rocket Part.1"
+  },
+  {
+   "id": "ref-stem-a2885b22b3",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Baking Rocket Part.2"
+  },
+  {
+   "id": "ref-stem-c722f672bf",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Bubble Machine Part.1"
+  },
+  {
+   "id": "ref-stem-0dd3585a00",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "Bubble Machine Part.2"
+  },
+  {
+   "id": "ref-stem-8857f4ca9d",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรมการแสดงธีม “Dream Job Party” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-stem-938b6b6a7c",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “Morning Fun.” (นันทนาการ)"
+  },
+  {
+   "id": "ref-stem-5c031c49cf",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "closing",
+   "title": "กิจกรรม “The Next Step”"
+  },
+  {
+   "id": "ref-stem-c8269d2953",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม เรียนรู้พื้นฐาน STEAM ด้วยกระบวนการ 5 STEPs Active Learning"
+  },
+  {
+   "id": "ref-stem-fec61b593c",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม การเรียนรู้ \" STEM Mission \""
+  },
+  {
+   "id": "ref-stem-7fac065d69",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม “อาชีพในฝัน Dream career ” (Collaborative and Leadership Skills.)"
+  },
+  {
+   "id": "ref-stem-2f398b8020",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \" STEAM  Mission \""
+  },
+  {
+   "id": "ref-stem-25c9dcbc5e",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "night",
+   "title": "กิจกรรมปาร์ตี้ “Netflix Lovers”"
+  },
+  {
+   "id": "ref-stem-8b5a4e596b",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม “Reboot Your Brain. (นันทนาการ)”"
+  },
+  {
+   "id": "ref-stem-b17d8615a0",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "opening",
+   "title": "กิจกรรม \"เปิดประตูสู่ห้องเรียน\""
+  },
+  {
+   "id": "ref-stem-c889b188a3",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \" STEM Mission \" #EP.1"
+  },
+  {
+   "id": "ref-stem-2075bda275",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \"Wake up learning\""
+  },
+  {
+   "id": "ref-stem-9107298b8d",
+   "course": "PL STM 0101",
+   "family": "steam",
+   "kind": "core",
+   "title": "กิจกรรม \" STEM Mission \" #EP.2"
+  },
+  {
+   "id": "ref-english-5d7d8f0502",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "opening",
+   "title": "กิจกรรม Warm up learning. (Recreation)"
+  },
+  {
+   "id": "ref-english-92d33bf36f",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "กิจกรรม 4 Braves to boost up your English."
+  },
+  {
+   "id": "ref-english-66fa21030d",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "กิจกรรมสถานีการเรียนรู้ภาษาอังกฤษ  (Play & Learn Activities)"
+  },
+  {
+   "id": "ref-english-f691565169",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Pictionary."
+  },
+  {
+   "id": "ref-english-5bfb7a6525",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Scrabble Man."
+  },
+  {
+   "id": "ref-english-aceeadfd7e",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "20 Questions."
+  },
+  {
+   "id": "ref-english-bbe4933824",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Run For Word."
+  },
+  {
+   "id": "ref-english-de375cdace",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Crossword Game."
+  },
+  {
+   "id": "ref-english-673ca19314",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Conversation Gang."
+  },
+  {
+   "id": "ref-english-4dfdbc9d01",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "The Hawk Eye."
+  },
+  {
+   "id": "ref-english-8b280d6240",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "opening",
+   "title": "กิจกรรมเปิดประตูสู่ห้องเรียน (Ice Breaking Activity)"
+  },
+  {
+   "id": "ref-english-dacdcb982e",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "กระบวนการกิจกรรมระดมสมองประลองปัญญา"
+  },
+  {
+   "id": "ref-english-ebfae669fd",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "กิจกรรมสถานีความรู้พาเพลิน (Play & Learn Activities)"
+  },
+  {
+   "id": "ref-english-7d2dd69231",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Crossword."
+  },
+  {
+   "id": "ref-english-c87e515136",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Charade Game."
+  },
+  {
+   "id": "ref-english-ba7955598f",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Whisper"
+  },
+  {
+   "id": "ref-english-6f7a9000cc",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Debate."
+  },
+  {
+   "id": "ref-english-faf4d7da7b",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Taxi Driver."
+  },
+  {
+   "id": "ref-english-aace984af8",
+   "course": "PL ENG 0104",
+   "family": "english",
+   "kind": "core",
+   "title": "Best Match!."
+  }
+ ],
+ "notion": [
+  {
+   "id": "3aadd28fb875809c8b5ae0361455f540",
+   "name": "3D Wonder",
+   "cats": [
+    "Science"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true
+  },
+  {
+   "id": "3aadd28fb875805ea095edf6da200e8e",
+   "name": "Alien food",
+   "cats": [
+    "STEM"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true
+  },
+  {
+   "id": "3aadd28fb87580d09f85e5d784c7b448",
+   "name": "Baking rocket",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "aliases": [
+    "Baking Rocket"
+   ],
+   "perGroup": [
+    {
+     "name": "เบกกิ้งโซดา",
+     "qty": "1 กระปุก (เก็บครึ่งกระปุก)"
+    },
+    {
+     "name": "เทปพันสายไฟ",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "ฟิวเจอร์บอร์ด A4",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "ขวดบีบใส่น้ำส้มสายชู",
+     "qty": "1 ขวด (มีน้ำส้มสายชูเต็มขวด)"
+    },
+    {
+     "name": "กระดาษทิชชู่",
+     "qty": "6 แผ่น"
+    },
+    {
+     "name": "ถุงมือยาง",
+     "qty": "1 คู่"
+    },
+    {
+     "name": "เทปหนังไก่",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "หนังยางวง",
+     "qty": "5 วง"
+    },
+    {
+     "name": "ถุงซิปล็อค",
+     "qty": "1 ถุง"
+    },
+    {
+     "name": "ตะเกียบ",
+     "qty": "2 คู่"
+    },
+    {
+     "name": "ขวดน้ำอัดลม",
+     "qty": "1 ขวด"
+    },
+    {
+     "name": "ช้อนพลาสติก",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "กระดาษสี A4",
+     "qty": "2 แผ่น"
+    }
+   ],
+   "shared": [
+    {
+     "name": "ถังขยะ / กะละมัง",
+     "qty": "1 ใบ"
+    },
+    {
+     "name": "กรวยใส่น้ำส้มสายชู",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "น้ำส้มสายชู",
+     "qty": "1 แกลลอน"
+    },
+    {
+     "name": "ฐานปล่อย (ฟิวเจอร์บอร์ดวงกลมติดกับต้าย 3 เมตร)",
+     "qty": "1 ชุด"
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb87580a6b4b8dec19415023d",
+   "name": "Bridge building",
+   "cats": [
+    "STEM",
+    "Math camp"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/0gtk4dgvy0yq1j2"
+   ],
+   "lab": true,
+   "aliases": [
+    "Bridge Building"
+   ],
+   "perGroup": [
+    {
+     "name": "ตะเกียบ",
+     "qty": "50 คู่"
+    },
+    {
+     "name": "เทปหนังไก่",
+     "qty": "2 ม้วน"
+    },
+    {
+     "name": "เชือกขาว",
+     "qty": "3 ม้วน"
+    },
+    {
+     "name": "ตะกร้า",
+     "qty": "1 อัน/การทดลอง"
+    },
+    {
+     "name": "ตะขอตัว S",
+     "qty": "1 อัน/การทดลอง"
+    },
+    {
+     "name": "ขวดน้ำดื่ม 600 ml",
+     "qty": "12 ขวด/การทดลอง"
+    }
+   ],
+   "shared": []
+  },
+  {
+   "id": "3aadd28fb87580308410c09831cc7ca3",
+   "name": "Bubble machine",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-30",
+   "slides": [
+    "https://canva.link/rcgt1l1ds979sd5"
+   ],
+   "lab": true,
+   "aliases": [
+    "Bubble Machine"
+   ],
+   "perGroup": [
+    {
+     "name": "ฟิวเจอร์บอร์ด A4",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "สายไฟดำ",
+     "qty": "2 เส้น"
+    },
+    {
+     "name": "สายไฟแดง",
+     "qty": "2 เส้น"
+    },
+    {
+     "name": "สวิตช์ไฟ 2 ขา",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "รางถ่าน",
+     "qty": "2 อัน"
+    },
+    {
+     "name": "มอเตอร์ 3V",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "มอเตอร์ 6V",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ใบพัด",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "หลอด",
+     "qty": "4 อัน"
+    },
+    {
+     "name": "ฝาขวด",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ห่วงฝาขวด (เฉพาะวงกลม)",
+     "qty": "8 อัน"
+    },
+    {
+     "name": "ถ่าน AA",
+     "qty": "4 ก้อน"
+    }
+   ],
+   "shared": [
+    {
+     "name": "ปืนกาว",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "ไส้ปืนกาว",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "กล่องพลาสติกใสแนวนอน",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "น้ำยาทำฟองสบู่",
+     "qty": "ทั้งหมด"
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb875807197c9cb819326e8e5",
+   "name": "Bungee jump",
+   "cats": [
+    "STEM",
+    "Math camp"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true,
+   "aliases": [
+    "Bungee Jump"
+   ]
+  },
+  {
+   "id": "3aadd28fb87580f09078d4acbd465706",
+   "name": "Burglar Alarm",
+   "cats": [
+    "Technology"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true
+  },
+  {
+   "id": "3aadd28fb8758063926dc859047ebd69",
+   "name": "Cotton candy",
+   "cats": [
+    "STEM"
+   ],
+   "status": "กำลังดำเนินการ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/oa1bynlj7t0qe1b",
+    "https://canva.link/41z5dqan40ehto8"
+   ],
+   "lab": true,
+   "perGroup": [],
+   "shared": [],
+   "aliases": [
+    "Cotton Candy"
+   ]
+  },
+  {
+   "id": "3aadd28fb875807198ced1eb6316ded6",
+   "name": "Earth quake",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/56xrtwgf0xzfqmx",
+    "https://canva.link/40m492p6m5k89q5"
+   ],
+   "lab": true,
+   "aliases": [
+    "Earthquake",
+    "แผ่นดินไหว"
+   ],
+   "perGroup": [
+    {
+     "name": "ตะเกียบไม้ไผ่",
+     "qty": "50 คู่"
+    },
+    {
+     "name": "หลอดดูดน้ำแบบมีข้องอ",
+     "qty": "20 อัน"
+    },
+    {
+     "name": "เทปหนังไก่",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "กาวร้อน (ขวด)",
+     "qty": "1 ขวด"
+    },
+    {
+     "name": "ดินน้ำมัน",
+     "qty": "3 ก้อน"
+    },
+    {
+     "name": "เชือก",
+     "qty": "1 ม้วน"
+    }
+   ],
+   "shared": [
+    {
+     "name": "เครื่องสั่นออกกำลังกาย",
+     "qty": "1 เครื่อง"
+    },
+    {
+     "name": "ฟิวเจอร์บอร์ด A3 สีชมพู",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ไม้กระดาน A3",
+     "qty": "1 อัน"
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb87580819798eaaabbdcbfbb",
+   "name": "Hoover power",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/38tvs4pcizn5lrc"
+   ],
+   "lab": true,
+   "aliases": [
+    "Hoover Power"
+   ],
+   "perGroup": [
+    {
+     "name": "ขวดน้ำพลาสติกขนาด 1.5 ลิตร",
+     "qty": "1 ขวด"
+    },
+    {
+     "name": "ท่อเฟล็ก",
+     "qty": "1 ท่อ"
+    },
+    {
+     "name": "ผ้าตาข่าย",
+     "qty": "1 ผืน"
+    },
+    {
+     "name": "มอเตอร์12V",
+     "qty": "1 ชิ้น"
+    },
+    {
+     "name": "ใบพัด",
+     "qty": "1 ใบ"
+    },
+    {
+     "name": "สายไฟแดง",
+     "qty": "4 เส้น"
+    },
+    {
+     "name": "สายไฟดำ",
+     "qty": "4 เส้น"
+    },
+    {
+     "name": "หัวแปลงDC ตัวเมีย",
+     "qty": "1 ตัว"
+    },
+    {
+     "name": "ตะเกียบ",
+     "qty": "2 คู่"
+    }
+   ],
+   "shared": [
+    {
+     "name": "Adaptor",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "ปืนกาว",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "ไส้ปืนกาว",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "หัวแร้งพร้อมขาตั้ง",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "กระดาษฝุ่น",
+     "qty": ""
+    },
+    {
+     "name": "คีมปอกสายไฟ",
+     "qty": ""
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb87580dfaec9f0888386c9cc",
+   "name": "Hydrolic arms",
+   "cats": [
+    "STEM"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-10-14",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true,
+   "aliases": [
+    "Hydraulic arm"
+   ]
+  },
+  {
+   "id": "3aadd28fb87580fe9187d82d1cbaa0a2",
+   "name": "Minilab Activities",
+   "cats": [
+    "Science"
+   ],
+   "status": "กำลังดำเนินการ",
+   "edited": "2026-08-25",
+   "slides": [
+    "https://canva.link/nx8rscrsnzncoe7",
+    "https://canva.link/s524losmu4qmhjo"
+   ],
+   "lab": true,
+   "perGroup": [],
+   "shared": []
+  },
+  {
+   "id": "3aadd28fb8758050a009dc66479d742c",
+   "name": "Roller box",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/6k0ii5q070e1499"
+   ],
+   "lab": true,
+   "perGroup": [
+    {
+     "name": "กล่องลัง",
+     "qty": "1 กล่อง"
+    },
+    {
+     "name": "ดินน้ำมัน",
+     "qty": "3 ก้อน"
+    },
+    {
+     "name": "ไม้ไอติม",
+     "qty": "2 แพ็ค"
+    },
+    {
+     "name": "ตะเกียบ",
+     "qty": "5 คู่"
+    },
+    {
+     "name": "ไม้เสียบลูกชิ้น",
+     "qty": "10 อัน"
+    },
+    {
+     "name": "หนังยางเล็ก",
+     "qty": "5 เส้น"
+    },
+    {
+     "name": "ไซริงก์ขนาด",
+     "qty": "8 อัน"
+    },
+    {
+     "name": "สายออกซิเจนขนาด",
+     "qty": "4 เส้น"
+    },
+    {
+     "name": "เทปใส",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "เทปหนังไก่",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "กาวร้อน (ขวด)",
+     "qty": "1 ขวด"
+    }
+   ],
+   "shared": []
+  },
+  {
+   "id": "3aadd28fb87580e0abb7eede82126a1e",
+   "name": "Roller coaster",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "aliases": [
+    "Roller Coaster"
+   ],
+   "perGroup": [
+    {
+     "name": "ฉนวนหุ้มท่อแอร์สีดำ",
+     "qty": "2 เส้น"
+    },
+    {
+     "name": "เทปพันสายไฟ",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "เทปใส",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "ตะเกียบ",
+     "qty": "8 คู่"
+    },
+    {
+     "name": "เทปหนังไก่",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "ไม้บรรทัด",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ลูกแก้ว",
+     "qty": "2 ลูก"
+    },
+    {
+     "name": "sheet lab",
+     "qty": "1 ชุด"
+    }
+   ],
+   "shared": [],
+   "note": "เช็คลิสต์มี \"sheet lab 1 ชุด\" แต่ยังไม่มีไฟล์ใบงานในหน้า Notion"
+  },
+  {
+   "id": "3aadd28fb87580e0bf13f95f0c16c54c",
+   "name": "Slurpee",
+   "cats": [
+    "Science"
+   ],
+   "status": "กำลังดำเนินการ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/o34m7fjglr90ek4"
+   ],
+   "lab": true,
+   "perGroup": [
+    {
+     "name": "น้ำอัดลม",
+     "qty": "1 ขวด"
+    },
+    {
+     "name": "เกลือ",
+     "qty": "1 แก้ว"
+    },
+    {
+     "name": "ถัง",
+     "qty": "1 ถัง"
+    }
+   ],
+   "shared": [
+    {
+     "name": "น้ำแข็ง",
+     "qty": ""
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb8758065b8bdc16a11abe526",
+   "name": "Smart city",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-16",
+   "slides": [
+    "https://canva.link/nxpytjs96pol5bn"
+   ],
+   "lab": true,
+   "perGroup": [
+    {
+     "name": "ฟิวเจอร์บอร์ด A3",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "หลอดไฟ LED 3V",
+     "qty": "4 ดวง"
+    },
+    {
+     "name": "โฟโต้บอร์ด",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "รางถ่าน",
+     "qty": "2 อัน"
+    },
+    {
+     "name": "ถ่าน AA",
+     "qty": "4 ก้อน"
+    },
+    {
+     "name": "สวิตช์ไฟ 2 ขา",
+     "qty": "2 อัน"
+    },
+    {
+     "name": "สายไฟดำแดง",
+     "qty": "4 เส้น"
+    },
+    {
+     "name": "มอเตอร์ 3V",
+     "qty": "1 ตัว"
+    },
+    {
+     "name": "ใบพัด 4 แฉก",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "โมเดลสัตว์ ต้นไม้ บ้าน",
+     "qty": "กลุ่มละ 5 ตัว"
+    },
+    {
+     "name": "ดินน้ำมัน",
+     "qty": "2 ก้อน"
+    },
+    {
+     "name": "ขนมจาจาโฮม",
+     "qty": "1 ซอง"
+    },
+    {
+     "name": "ตะเกียบ",
+     "qty": "10 คู่"
+    },
+    {
+     "name": "ไม้ไอติม",
+     "qty": "1 แพ็ค"
+    },
+    {
+     "name": "กระดาษลัง A4",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ลูกปัด",
+     "qty": "10 เม็ด"
+    },
+    {
+     "name": "กาวลาเท็กซ์",
+     "qty": "1 กระป๋อง"
+    },
+    {
+     "name": "กระดาษน้ำตาล A4",
+     "qty": "2 แผ่น"
+    },
+    {
+     "name": "สก็อตไบร์ท",
+     "qty": "2 ชิ้น"
+    },
+    {
+     "name": "กระดาษฟอยล์สีเงิน A5",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "ลวดดัด DIY หลากสี",
+     "qty": "12 เส้น"
+    }
+   ],
+   "shared": [
+    {
+     "name": "ปืนกาว",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "ไส้กาวร้อน",
+     "qty": "ละ 3 แท่ง"
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb8758075a582c9ad7e65474a",
+   "name": "Smart farm",
+   "cats": [
+    "STEM",
+    "Math camp",
+    "Technology"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-16",
+   "slides": [
+    "https://canva.link/ajz361msnef1ovc"
+   ],
+   "lab": true,
+   "perGroup": [
+    {
+     "name": "ฟิวเจอร์บอร์ด A3",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "หลอดไฟ LED 3V",
+     "qty": "4 ดวง"
+    },
+    {
+     "name": "โฟโต้บอร์ด",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "รางถ่าน",
+     "qty": "2 อัน"
+    },
+    {
+     "name": "ถ่าน AA",
+     "qty": "4 ก้อน"
+    },
+    {
+     "name": "สวิตช์ไฟ 2 ขา",
+     "qty": "2 อัน"
+    },
+    {
+     "name": "สายไฟดำแดง",
+     "qty": "4 เส้น"
+    },
+    {
+     "name": "มอเตอร์ 3V",
+     "qty": "1 ตัว"
+    },
+    {
+     "name": "ใบพัด 4 แฉก",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "โมเดลสัตว์ ต้นไม้ บ้าน",
+     "qty": "กลุ่มละ 5 ตัว"
+    },
+    {
+     "name": "ดินน้ำมัน",
+     "qty": "2 ก้อน"
+    },
+    {
+     "name": "ขนมจาจาโฮม",
+     "qty": "1 ซอง"
+    },
+    {
+     "name": "ตะเกียบ",
+     "qty": "10 คู่"
+    },
+    {
+     "name": "ไม้ไอติม",
+     "qty": "1 แพ็ค"
+    },
+    {
+     "name": "กระดาษลัง A4",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ลูกปัด",
+     "qty": "10 เม็ด"
+    },
+    {
+     "name": "กาวลาเท็กซ์",
+     "qty": "1 กระป๋อง"
+    },
+    {
+     "name": "กระดาษน้ำตาล A4",
+     "qty": "2 แผ่น"
+    },
+    {
+     "name": "สก็อตไบร์ท",
+     "qty": "2 ชิ้น"
+    },
+    {
+     "name": "กระดาษฟอยล์สีเงิน A5",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "ลวดดัด DIY หลากสี",
+     "qty": "12 เส้น"
+    }
+   ],
+   "shared": [
+    {
+     "name": "ปืนกาว",
+     "qty": "ทั้งหมด"
+    },
+    {
+     "name": "ไส้กาวร้อน",
+     "qty": "ละ 3 แท่ง"
+    }
+   ],
+   "note": "รายการอุปกรณ์ตรงกับ Smart city ทุกข้อ (ภาพเช็คลิสต์ไฟล์เดียวกัน) — ควรตรวจใน Notion ว่าคัดลอกมาหรือใช้ชุดเดียวกันจริง"
+  },
+  {
+   "id": "3c0dd28fb875800c9e8dd55d8750fe0f",
+   "name": "Titanic",
+   "cats": [
+    "STEM"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true
+  },
+  {
+   "id": "3aadd28fb8758003b21ac32450455b0b",
+   "name": "Wonderful light",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [
+    "https://canva.link/ohk6cm6l0d3isjc",
+    "https://canva.link/4lnh6p9mrska6j5"
+   ],
+   "lab": true,
+   "aliases": [
+    "Wonderful Light"
+   ],
+   "perGroup": [
+    {
+     "name": "สวิตช์ไฟ 2 ขา",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "สายไฟดำแดง",
+     "qty": "4 ชุด"
+    },
+    {
+     "name": "เทปใส",
+     "qty": "2 ม้วน"
+    },
+    {
+     "name": "หุ่นไม้",
+     "qty": "2 ตัว"
+    },
+    {
+     "name": "กล่องลัง/กระดาษ",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "ผ้าขาวบาง",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "คีมปอกสายไฟ",
+     "qty": "1 อัน"
+    },
+    {
+     "name": "สายรุ้งตกแต่ง",
+     "qty": "1 เส้น"
+    },
+    {
+     "name": "โมเดลตกแต่ง",
+     "qty": "จัดเซ็ตตามชิ้น (ต้นไม้/รั้ว/บ้าน ฯลฯ)"
+    },
+    {
+     "name": "หัวแปลง DC ตัวเมีย",
+     "qty": "1 อัน"
+    }
+   ],
+   "shared": []
+  },
+  {
+   "id": "3aadd28fb8758010b09bc6e0d4ca7ff1",
+   "name": "รถแข่งพลังไฟฟ้าสถิต",
+   "cats": [
+    "STEM"
+   ],
+   "status": "เสร็จ",
+   "edited": "2026-09-21",
+   "slides": [],
+   "lab": false,
+   "perGroup": [
+    {
+     "name": "ท่อ PVC",
+     "qty": "1 ท่อน"
+    },
+    {
+     "name": "กระป๋องน้ำอัดลม",
+     "qty": "1 กระป๋อง"
+    },
+    {
+     "name": "ไม้บัลซ่า",
+     "qty": "4 อัน"
+    },
+    {
+     "name": "ไม้เสียบลูกชิ้น",
+     "qty": "6 ไม้"
+    },
+    {
+     "name": "หลอดดูดยาว",
+     "qty": "4 หลอด"
+    },
+    {
+     "name": "เทปหนังไก่",
+     "qty": "1 ม้วน"
+    },
+    {
+     "name": "ฝาขวด",
+     "qty": "2 ฝา"
+    },
+    {
+     "name": "ฟิวเจอร์บอร์ด A4",
+     "qty": "1 แผ่น"
+    },
+    {
+     "name": "ลูกโป่ง",
+     "qty": "1 ลูก"
+    },
+    {
+     "name": "ผ้าเช็ดหน้าแห้ง",
+     "qty": "1 ผืน"
+    }
+   ],
+   "shared": [
+    {
+     "name": "เทปกาวสีแดง (สำหรับทำสนามแข่งขัน)",
+     "qty": "1 ม้วน"
+    }
+   ]
+  },
+  {
+   "id": "3aadd28fb8758063ab56e1fe93c0a92f",
+   "name": "ลูกโป่งน้ำ ล้มโดมิโน่",
+   "cats": [
+    "Science"
+   ],
+   "status": "ยังไม่ได้เริ่ม",
+   "edited": "2026-07-27",
+   "slides": [],
+   "lab": false,
+   "perGroup": [],
+   "shared": [],
+   "empty": true,
+   "aliases": [
+    "ลูกโป่งน้ำล้มโดมิโน่"
+   ]
+  }
+ ],
+ "fresh": {
+  "PL TI 0116": {
+   "source": "Drone Camp (ก.พ. 2569)",
+   "ids": [
+    "na8tbjmx4tnd",
+    "nuc6pd3wodre",
+    "narh7gtmlzdm",
+    "ncwm5pamx2vs",
+    "nybcg4u1dh4w",
+    "nzvwxe31vwrr",
+    "nvmqxxttxufz",
+    "nxfawajv73qe"
+   ]
+  },
+  "PL STM 0101": {
+   "source": "3D Printer / STEAM (ก.พ. 2569)",
+   "ids": [
+    "nycr6zxiq2hi",
+    "nuroyptn3w7v",
+    "neupmwhxpol5",
+    "nzeezuqnmoqk",
+    "nec6gapnsaoi",
+    "n838y8ll42qi",
+    "nxxn7arbdknx",
+    "nl1lobzs4wv2"
+   ]
+  },
+  "PL COD 0111": {
+   "source": "Coding Camp (2568)",
+   "ids": [
+    "nq3ezo1aurux",
+    "nxth390r2xqm",
+    "nu37t3sy5s2a",
+    "nlxrhgvtcmwh",
+    "nejlsfuof2x5",
+    "n1oj9riagflr"
+   ]
+  },
+  "PL FOR 0110": {
+   "source": "ค่ายนิติวิทยาศาสตร์ (ก.ย. 2568)",
+   "ids": [
+    "n79sxeebddhh",
+    "n8pq1sfivvxm",
+    "nshhiaijz13d",
+    "najico6upcsn",
+    "nr46arfd6nfs",
+    "nghjvygnkniv"
+   ]
+  },
+  "PL ENV 0106": {
+   "source": "ค่ายสิ่งแวดล้อม (พ.ค. 2568)",
+   "ids": [
+    "nvn6kkxc6zm4",
+    "n0mm3tapvzym",
+    "nwica4lm6gwc",
+    "njr741umaxpd",
+    "nlzq14w1opti",
+    "nsfxjpmi7fkz"
+   ]
+  },
+  "PL ENG 0104": {
+   "source": "English Camp (2567–2568)",
+   "ids": [
+    "n7ui50hmqkim",
+    "noggmlotyvbs",
+    "n51xl1tdhkyj",
+    "nteqqq5jldyb",
+    "nwxfnznw3ry0",
+    "neqyvyfuvcnq"
+   ]
+  },
+  "PL MAT 0107": {
+   "source": "Math Camp (พ.ค. 2568)",
+   "ids": [
+    "nayksoc1xynd",
+    "n9k5f3jmp7k7",
+    "ncgydho9badg",
+    "nuwyoucxukse",
+    "nsdfyemwblq5",
+    "nppvceb8btyx"
+   ]
+  },
+  "PL LEA 0102": {
+   "source": "ค่ายผู้นำ (พ.ค. 2568)",
+   "ids": [
+    "ntysgtxbdois",
+    "nusongpymqxv",
+    "nhfehjx56xpl",
+    "nkrq5nndyezj",
+    "ngxookvuavxo"
+   ]
+  },
+  "PL CHI 0109": {
+   "source": "Chinese Camp (ธ.ค. 2568)",
+   "ids": [
+    "nafi1v28mpxo"
+   ]
+  }
+ },
+ "venuePhotos": [
+  {
+   "name": "Fortune Hotel Korat",
+   "province": "นครราชสีมา",
+   "photos": [
+    "3927658e9d07",
+    "8e70ecb6952a",
+    "dc1a331ea1e8",
+    "e48c180d949f",
+    "7d71010278d9",
+    "dff5c7124ef1"
+   ],
+   "source": "PL AST 0108__o21"
+  },
+  {
+   "name": "Loei Palace Hotel",
+   "province": "เลย",
+   "photos": [
+    "1238e4a99004",
+    "5c7946e5af42",
+    "b7d34dc37c56",
+    "61b6e88e8fca",
+    "deaeeb7ae663",
+    "d63561b37f1c"
+   ],
+   "source": "PL COD 0111__o32"
+  },
+  {
+   "name": "Fountain Tree Resort",
+   "province": "นครราชสีมา",
+   "photos": [
+    "7b2ec4a63b00",
+    "ac5bd516b62b",
+    "8d3b04a71a19",
+    "7870d5dafd7e",
+    "98f8eee463de",
+    "b93226625823"
+   ],
+   "source": "PL FOR 0110__o21"
+  },
+  {
+   "name": "BCP Hotel Rayong",
+   "province": "ระยอง",
+   "photos": [
+    "9c06a4b8bfbd",
+    "3a815ac2be49",
+    "190794bf986b",
+    "922684cd4b36",
+    "4fb8ee9b23bd",
+    "c1d5f3aebbf3"
+   ],
+   "source": "PL PRE 0105__o21"
+  },
+  {
+   "name": "Bella Villa Cabana Pattaya",
+   "province": "ชลบุรี",
+   "photos": [
+    "95753631c513",
+    "445039571b30",
+    "675755cc0be3",
+    "ca0fd44738ac",
+    "5c840e3b8194",
+    "cfa99d3f384b",
+    "849f53b57d6d",
+    "65160bfad9e6"
+   ],
+   "source": "PL SEA 0103__o21sea"
+  },
+  {
+   "name": "Kasalong Resort and Spa",
+   "province": "ชลบุรี",
+   "photos": [
+    "e4cdd83cc5a2",
+    "84b3f2a38f0c",
+    "a4f4c8b5acf3",
+    "a147afdf0cd8",
+    "5a6c56b91ca5",
+    "c54c7e104f20"
+   ],
+   "source": "PL SEA 0103__o32"
+  },
+  {
+   "name": "โรงแรมจันทรา รีสอร์ท",
+   "province": "",
+   "photos": [
+    "d60a31fbf342",
+    "713ddcb06ebe",
+    "14b674773c65",
+    "6b6da97f5101",
+    "cf8cba52e0cd",
+    "48c5dbf28651"
+   ],
+   "source": "PL STM 0101__o21"
+  }
+ ],
+ "venues": [
+  {
+   "province": "เลย",
+   "name": "โรงแรมเชียงคานฮิลล์รีสอร์ท",
+   "visit": "ถนนวัฒนธรรมเชียงคาน / ชมวิวทะเลหมอก ณ ภูทอก อำเภอเชียงคาน จังหวัดเลย",
+   "note": "พร้อมห้องประชุมและสระว่ายน้ำ"
+  },
+  {
+   "province": "ระยอง",
+   "name": "โรงแรมโกลเด้น ซิตี้ ระยอง",
+   "visit": "ศูนย์การเรียนรู้ด้านพลังงาน / สถานแสดงพันธุ์สัตว์น้ำระยอง",
+   "note": "คุณทราย 088-6171446 (ห้องประชุมจุได้สูงสุด 1,800 คน)"
+  },
+  {
+   "province": "ระยอง",
+   "name": "ปาล์มมาลี บีช รีสอร์ท ระยอง",
+   "visit": "สวนพฤกษศาสตร์ระยอง / สวนสุภัทราแลนด์",
+   "note": "คุณโต้ง 096-9817556"
+  },
+  {
+   "province": "นครนายก",
+   "name": "ธารา ชลพฤกษ์ รีสอร์ท",
+   "visit": "เขื่อนขุนด่านปราการชล / ศูนย์ภูมิรักษ์ธรรมชาติ",
+   "note": "คุณเป้ 089-7790126 (ห้องประชุมจุได้ 300 คน)"
+  },
+  {
+   "province": "ชลบุรี",
+   "name": "สวนนงนุช พัทยา รีสอร์ท",
+   "visit": "ทัศนศึกษาสวนนงนุชและหุบเขาไดโนเสาร์",
+   "note": "คุณฟ้า 092-2928296"
+  },
+  {
+   "province": "กาญจนบุรี",
+   "name": "เฟลิกซ์ ริเวอร์แคว รีสอร์ท",
+   "visit": "พิพิธภัณฑ์ธรณีศาสตร์ ม.มหิดล กาญจนบุรี / ถ้ำกระแซ",
+   "note": "คุณปุ้ย 062-3599138"
+  }
+ ],
+ "courseLabel": {
+  "PL STM 0101": "STEM",
+  "PL LEA 0102": "ผู้นำ",
+  "PL SEA 0103": "วิทยาศาสตร์ทางทะเล",
+  "PL ENG 0104": "ภาษาอังกฤษ",
+  "PL PRE 0105": "Pre-genius",
+  "PL ENV 0106": "สิ่งแวดล้อม",
+  "PL MAT 0107": "คณิตศาสตร์",
+  "PL AST 0108": "ดาราศาสตร์",
+  "PL CHI 0109": "ภาษาจีน",
+  "PL FOR 0110": "นิติวิทยาศาสตร์",
+  "PL COD 0111": "หุ่นยนต์และโค้ดดิ้ง",
+  "PL GEO 0112": "ธรณีวิทยา",
+  "PL ITD 0113": "เทคโนโลยีสารสนเทศ",
+  "PL TI 0116": "โดรน"
+ },
+ "templates": [
+  {
+   "id": "PL AST 0108__day",
+   "code": "PL AST 0108",
+   "dur": "day1",
+   "variant": "day",
+   "area": [],
+   "photos": [
+    "96a08e9fe62d",
+    "bdd2dbaa5e13",
+    "1c5654029b04",
+    "448b54ce265f",
+    "3e09235ad833",
+    "c5265ee2c9d4"
+   ]
+  },
+  {
+   "id": "PL AST 0108__o21",
+   "code": "PL AST 0108",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [
+    "นครราชสีมา"
+   ],
+   "photos": [
+    "c5265ee2c9d4",
+    "7945a397d10b",
+    "dfc492bdfe2e",
+    "ea4e98f68d97",
+    "fb9526b5d640",
+    "fab7ad1cb6e2"
+   ],
+   "venue": "Fortune Hotel Korat"
+  },
+  {
+   "id": "PL AST 0108__o32",
+   "code": "PL AST 0108",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "นครราชสีมา"
+   ],
+   "photos": [
+    "c5265ee2c9d4",
+    "7945a397d10b",
+    "dfc492bdfe2e",
+    "ea4e98f68d97",
+    "fb9526b5d640",
+    "fab7ad1cb6e2"
+   ],
+   "venue": "Fortune Hotel Korat"
+  },
+  {
+   "id": "PL CHI 0109__day1",
+   "code": "PL CHI 0109",
+   "dur": "day1",
+   "variant": "day1",
+   "area": [],
+   "photos": [
+    "ce5add335693",
+    "ed89efda6a7d",
+    "34b9a2a3e185",
+    "2a8827a0abd5",
+    "02a60f48ce8b",
+    "99fcb0308615"
+   ]
+  },
+  {
+   "id": "PL CHI 0109__o21",
+   "code": "PL CHI 0109",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "ce5add335693",
+    "ed89efda6a7d",
+    "34b9a2a3e185",
+    "2a8827a0abd5",
+    "02a60f48ce8b",
+    "99fcb0308615"
+   ]
+  },
+  {
+   "id": "PL CHI 0109__o32",
+   "code": "PL CHI 0109",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [],
+   "photos": [
+    "30b16e19323a",
+    "b79551d4b8fa",
+    "ce5add335693",
+    "ed89efda6a7d",
+    "458a30cdd807",
+    "9f2529db7d94",
+    "34b9a2a3e185",
+    "91ecad4249e9"
+   ]
+  },
+  {
+   "id": "PL COD 0111__day2",
+   "code": "PL COD 0111",
+   "dur": "day2",
+   "variant": "day2",
+   "area": [],
+   "photos": [
+    "d8a7a3a130bf",
+    "517e348cfcf0",
+    "29cc5fc633fb",
+    "aff753cfd029",
+    "18d83ed099e9",
+    "38d40928f0c0"
+   ]
+  },
+  {
+   "id": "PL COD 0111__o21",
+   "code": "PL COD 0111",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "d8a7a3a130bf",
+    "517e348cfcf0",
+    "29cc5fc633fb",
+    "aff753cfd029",
+    "18d83ed099e9",
+    "38d40928f0c0"
+   ]
+  },
+  {
+   "id": "PL COD 0111__o32",
+   "code": "PL COD 0111",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "เลย"
+   ],
+   "photos": [
+    "d8a7a3a130bf",
+    "517e348cfcf0",
+    "29cc5fc633fb",
+    "aff753cfd029",
+    "18d83ed099e9",
+    "38d40928f0c0"
+   ],
+   "venue": "Loei Palace Hotel"
+  },
+  {
+   "id": "PL ENG 0104__day1",
+   "code": "PL ENG 0104",
+   "dur": "day1",
+   "variant": "day1",
+   "area": [],
+   "photos": [
+    "96c1f1925cd5",
+    "b90309fee870",
+    "72bbf20e7775",
+    "da49d7d20f24",
+    "22d294a401b5",
+    "e989823ac185"
+   ]
+  },
+  {
+   "id": "PL ENG 0104__day2",
+   "code": "PL ENG 0104",
+   "dur": "day2",
+   "variant": "day2",
+   "area": [],
+   "photos": [
+    "3f90346d64df",
+    "f129159c4984",
+    "778c6c6e692b",
+    "c47a437144d3",
+    "b9bcd27ad543",
+    "d8d124f6ffbc"
+   ]
+  },
+  {
+   "id": "PL ENG 0104__o21",
+   "code": "PL ENG 0104",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "3f90346d64df",
+    "f129159c4984",
+    "778c6c6e692b",
+    "c47a437144d3",
+    "b9bcd27ad543",
+    "d8d124f6ffbc"
+   ]
+  },
+  {
+   "id": "PL ENG 0104__o32",
+   "code": "PL ENG 0104",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [],
+   "photos": [
+    "3f90346d64df",
+    "f129159c4984",
+    "778c6c6e692b",
+    "c47a437144d3",
+    "b9bcd27ad543",
+    "d8d124f6ffbc"
+   ]
+  },
+  {
+   "id": "PL ENV 0106__day",
+   "code": "PL ENV 0106",
+   "dur": "day1",
+   "variant": "day",
+   "area": [
+    "ระยอง"
+   ],
+   "photos": [
+    "d0cdec79af83",
+    "8c366b71d89a",
+    "9aef58f2f354",
+    "d080fb9cd2fd",
+    "1bbc9d711ca9",
+    "29150383085e"
+   ]
+  },
+  {
+   "id": "PL ENV 0106__o21",
+   "code": "PL ENV 0106",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [
+    "ระยอง"
+   ],
+   "photos": [
+    "d0cdec79af83",
+    "8c366b71d89a",
+    "9aef58f2f354",
+    "d080fb9cd2fd",
+    "1bbc9d711ca9",
+    "29150383085e"
+   ]
+  },
+  {
+   "id": "PL ENV 0106__o32",
+   "code": "PL ENV 0106",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "กาญจนบุรี"
+   ],
+   "photos": [
+    "d0cdec79af83",
+    "8c366b71d89a",
+    "9aef58f2f354",
+    "d080fb9cd2fd",
+    "1bbc9d711ca9",
+    "29150383085e"
+   ]
+  },
+  {
+   "id": "PL FOR 0110__day1",
+   "code": "PL FOR 0110",
+   "dur": "day1",
+   "variant": "day1",
+   "area": [
+    "นครราชสีมา"
+   ],
+   "photos": [
+    "253d48bd3729",
+    "c116b7e24491",
+    "1affee77bc80",
+    "642c3fcfcd04",
+    "1f779318f528",
+    "1a71107817df"
+   ]
+  },
+  {
+   "id": "PL FOR 0110__o21",
+   "code": "PL FOR 0110",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [
+    "นครราชสีมา"
+   ],
+   "photos": [
+    "253d48bd3729",
+    "c116b7e24491",
+    "1affee77bc80",
+    "642c3fcfcd04",
+    "1f779318f528",
+    "1a71107817df"
+   ],
+   "venue": "Fountain Tree Resort"
+  },
+  {
+   "id": "PL FOR 0110__o32",
+   "code": "PL FOR 0110",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "นครราชสีมา"
+   ],
+   "photos": [
+    "253d48bd3729",
+    "c116b7e24491",
+    "1affee77bc80",
+    "642c3fcfcd04",
+    "1f779318f528",
+    "1a71107817df"
+   ],
+   "venue": "Fountain Tree Resort"
+  },
+  {
+   "id": "PL GEO 0112__day",
+   "code": "PL GEO 0112",
+   "dur": "day1",
+   "variant": "day",
+   "area": [
+    "กาญจนบุรี"
+   ],
+   "photos": [
+    "965e735d39b8",
+    "1754fb348bec",
+    "732fc920fa4b",
+    "65df9d16e200",
+    "ddb4d8514bd9",
+    "6af5ebc5bebb",
+    "b9af4126e0c5",
+    "dc38fe8a7fcb"
+   ]
+  },
+  {
+   "id": "PL GEO 0112__o21",
+   "code": "PL GEO 0112",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [
+    "กาญจนบุรี"
+   ],
+   "photos": [
+    "965e735d39b8",
+    "1754fb348bec",
+    "732fc920fa4b",
+    "65df9d16e200",
+    "ddb4d8514bd9",
+    "6af5ebc5bebb",
+    "b9af4126e0c5",
+    "dc38fe8a7fcb"
+   ]
+  },
+  {
+   "id": "PL GEO 0112__o32",
+   "code": "PL GEO 0112",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "กาญจนบุรี"
+   ],
+   "photos": [
+    "965e735d39b8",
+    "1754fb348bec",
+    "732fc920fa4b",
+    "65df9d16e200",
+    "ddb4d8514bd9",
+    "6af5ebc5bebb",
+    "b9af4126e0c5",
+    "dc38fe8a7fcb"
+   ]
+  },
+  {
+   "id": "PL ITD 0113__day",
+   "code": "PL ITD 0113",
+   "dur": "day2",
+   "variant": "day",
+   "area": [],
+   "photos": [
+    "26691a78ecc5",
+    "0ed8da4e3ba9",
+    "e96cbf74e72d",
+    "1ac7d9579b49",
+    "25706adaf491",
+    "acfd0f9cacf2"
+   ]
+  },
+  {
+   "id": "PL ITD 0113__o21",
+   "code": "PL ITD 0113",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "26691a78ecc5",
+    "0ed8da4e3ba9",
+    "e96cbf74e72d",
+    "1ac7d9579b49",
+    "25706adaf491",
+    "acfd0f9cacf2"
+   ]
+  },
+  {
+   "id": "PL ITD 0113__o32",
+   "code": "PL ITD 0113",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [],
+   "photos": [
+    "26691a78ecc5",
+    "0ed8da4e3ba9",
+    "e96cbf74e72d",
+    "1ac7d9579b49",
+    "25706adaf491",
+    "acfd0f9cacf2"
+   ]
+  },
+  {
+   "id": "PL LEA 0102__day2",
+   "code": "PL LEA 0102",
+   "dur": "day2",
+   "variant": "day2",
+   "area": [],
+   "photos": [
+    "eb011ebf01fb",
+    "773182ef4ad5",
+    "b9fbf081b2fe",
+    "580781c864a9",
+    "d5c592c8f9d7",
+    "3f3b7609642f",
+    "0b981f074243",
+    "7ee3cac431e9"
+   ]
+  },
+  {
+   "id": "PL LEA 0102__o21",
+   "code": "PL LEA 0102",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [
+    "เลย"
+   ],
+   "photos": [
+    "eb011ebf01fb",
+    "773182ef4ad5",
+    "b9fbf081b2fe",
+    "580781c864a9",
+    "d5c592c8f9d7",
+    "3f3b7609642f",
+    "0b981f074243",
+    "7ee3cac431e9"
+   ]
+  },
+  {
+   "id": "PL LEA 0102__o32",
+   "code": "PL LEA 0102",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "เพชรบูรณ์"
+   ],
+   "photos": [
+    "eb011ebf01fb",
+    "773182ef4ad5",
+    "b9fbf081b2fe",
+    "580781c864a9",
+    "d5c592c8f9d7",
+    "3f3b7609642f",
+    "0b981f074243",
+    "7ee3cac431e9"
+   ]
+  },
+  {
+   "id": "PL MAT 0107__day1",
+   "code": "PL MAT 0107",
+   "dur": "day1",
+   "variant": "day1",
+   "area": [],
+   "photos": [
+    "b8a45d57ea24",
+    "ec48552a30f8",
+    "d1dde4e22197",
+    "6ac926f0bb49",
+    "326f7c7a0208",
+    "9d9b84d4e04d",
+    "228d4e688743",
+    "9169e2edfd9b"
+   ]
+  },
+  {
+   "id": "PL MAT 0107__o21",
+   "code": "PL MAT 0107",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "b8a45d57ea24",
+    "ec48552a30f8",
+    "d1dde4e22197",
+    "6ac926f0bb49",
+    "326f7c7a0208",
+    "9d9b84d4e04d",
+    "228d4e688743",
+    "9169e2edfd9b"
+   ]
+  },
+  {
+   "id": "PL MAT 0107__o32",
+   "code": "PL MAT 0107",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [],
+   "photos": [
+    "b8a45d57ea24",
+    "ec48552a30f8",
+    "d1dde4e22197",
+    "6ac926f0bb49",
+    "326f7c7a0208",
+    "9d9b84d4e04d",
+    "228d4e688743",
+    "9169e2edfd9b"
+   ]
+  },
+  {
+   "id": "PL PRE 0105__day",
+   "code": "PL PRE 0105",
+   "dur": "day1",
+   "variant": "day",
+   "area": [],
+   "photos": [
+    "c45a19778244",
+    "6bb735c58b25",
+    "04ab1b860bdb",
+    "e56dc4a0c350",
+    "12244a5ae7c1",
+    "253fca09a7b9",
+    "fa26eefe9d36",
+    "f9dd6b6de028"
+   ]
+  },
+  {
+   "id": "PL PRE 0105__o21",
+   "code": "PL PRE 0105",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [
+    "ระยอง"
+   ],
+   "photos": [
+    "c45a19778244",
+    "6bb735c58b25",
+    "04ab1b860bdb",
+    "e56dc4a0c350",
+    "12244a5ae7c1",
+    "253fca09a7b9",
+    "fa26eefe9d36",
+    "f9dd6b6de028"
+   ],
+   "venue": "BCP Hotel Rayong"
+  },
+  {
+   "id": "PL PRE 0105__o32",
+   "code": "PL PRE 0105",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "ระยอง"
+   ],
+   "photos": [
+    "c45a19778244",
+    "6bb735c58b25",
+    "04ab1b860bdb",
+    "e56dc4a0c350",
+    "12244a5ae7c1",
+    "253fca09a7b9",
+    "fa26eefe9d36",
+    "f9dd6b6de028"
+   ],
+   "venue": "BCP Hotel Rayong"
+  },
+  {
+   "id": "PL SEA 0103__day",
+   "code": "PL SEA 0103",
+   "dur": "day1",
+   "variant": "day",
+   "area": [],
+   "photos": [
+    "6960a23e33c0",
+    "0eb9f2ab6a5c",
+    "3458fab9e471",
+    "ee5c6c5fb0f2",
+    "12921da6119b",
+    "5e17bf80f755",
+    "a2581805bef2",
+    "78c62ce22ae0"
+   ]
+  },
+  {
+   "id": "PL SEA 0103__o21",
+   "code": "PL SEA 0103",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "6960a23e33c0",
+    "0eb9f2ab6a5c",
+    "3458fab9e471",
+    "ee5c6c5fb0f2",
+    "12921da6119b",
+    "5e17bf80f755",
+    "a2581805bef2",
+    "78c62ce22ae0"
+   ]
+  },
+  {
+   "id": "PL SEA 0103__o21sea",
+   "code": "PL SEA 0103",
+   "dur": "o21",
+   "variant": "o21sea",
+   "area": [
+    "ชลบุรี"
+   ],
+   "photos": [
+    "ca4f5862bf76",
+    "2b46ff6f187b",
+    "a9e533a5989c",
+    "ea729d0d7cb2",
+    "d695a159a21b",
+    "4650dc53d867",
+    "393ad3c78059",
+    "bae526e4ae80"
+   ],
+   "venue": "Bella Villa Cabana Pattaya"
+  },
+  {
+   "id": "PL SEA 0103__o32",
+   "code": "PL SEA 0103",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "ชลบุรี"
+   ],
+   "photos": [
+    "ca4f5862bf76",
+    "2b46ff6f187b",
+    "5f0fda2036cf",
+    "a9e533a5989c",
+    "a82ba8b3a3ff",
+    "07deaae5c2d0"
+   ],
+   "venue": "Kasalong Resort and Spa"
+  },
+  {
+   "id": "PL STM 0101__day1",
+   "code": "PL STM 0101",
+   "dur": "day1",
+   "variant": "day1",
+   "area": [],
+   "photos": [
+    "f2f248e8afaa",
+    "8008b4787f9a",
+    "9093f5667353",
+    "624c1d6f8e2a",
+    "0ebcd4908500",
+    "6cda34e60dda",
+    "c346e7bfd955"
+   ]
+  },
+  {
+   "id": "PL STM 0101__day2",
+   "code": "PL STM 0101",
+   "dur": "day2",
+   "variant": "day2",
+   "area": [],
+   "photos": [
+    "f2f248e8afaa",
+    "8008b4787f9a",
+    "9093f5667353",
+    "624c1d6f8e2a",
+    "0ebcd4908500",
+    "6cda34e60dda",
+    "c346e7bfd955"
+   ]
+  },
+  {
+   "id": "PL STM 0101__o21",
+   "code": "PL STM 0101",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "f2f248e8afaa",
+    "8008b4787f9a",
+    "9093f5667353",
+    "624c1d6f8e2a",
+    "0ebcd4908500",
+    "6cda34e60dda",
+    "c346e7bfd955"
+   ],
+   "venue": "โรงแรมจันทรา รีสอร์ท"
+  },
+  {
+   "id": "PL STM 0101__o32",
+   "code": "PL STM 0101",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [
+    "นครศรีธรรมราช"
+   ],
+   "photos": [
+    "f2f248e8afaa",
+    "8008b4787f9a",
+    "9093f5667353",
+    "624c1d6f8e2a",
+    "0ebcd4908500",
+    "6cda34e60dda",
+    "c346e7bfd955"
+   ]
+  },
+  {
+   "id": "PL TI 0116__day",
+   "code": "PL TI 0116",
+   "dur": "day1",
+   "variant": "day",
+   "area": [],
+   "photos": [
+    "c7bad3b3e039",
+    "d9983a1d9631",
+    "fdd6f216298c",
+    "f586984bfa27",
+    "a194760a436c",
+    "518a4e13ea95"
+   ]
+  },
+  {
+   "id": "PL TI 0116__o21",
+   "code": "PL TI 0116",
+   "dur": "o21",
+   "variant": "o21",
+   "area": [],
+   "photos": [
+    "518a4e13ea95",
+    "c7bad3b3e039",
+    "d9983a1d9631",
+    "fdd6f216298c",
+    "f586984bfa27",
+    "a194760a436c"
+   ]
+  },
+  {
+   "id": "PL TI 0116__o32",
+   "code": "PL TI 0116",
+   "dur": "o32",
+   "variant": "o32",
+   "area": [],
+   "photos": [
+    "518a4e13ea95",
+    "c7bad3b3e039",
+    "d9983a1d9631",
+    "fdd6f216298c",
+    "f586984bfa27",
+    "a194760a436c"
+   ]
+  }
+ ]
+}
