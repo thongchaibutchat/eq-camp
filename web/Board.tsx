@@ -2,7 +2,8 @@
 // ข้อมูลจากศูนย์กลางทีมแบบสด (คำสั่ง board คำสั่งเดียว · ทะเบียนส่งเฉพาะแถวใหม่) — อัปเดตเองเมื่อมีคนสร้างไฟล์/บันทึกงาน/เปลี่ยนสถานะ
 import React, { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Users, ExternalLink, AlertTriangle, ChevronRight } from 'lucide-react';
-import { hubReady, hubCall, onArea, onHubState, HubState, IN_CLAUDE, LIVE_WEB } from './hub';
+import { hubReady, hubCall, onArea, onHubState, HubState, IN_CLAUDE, LIVE_WEB, hubMe } from './hub';
+import TeamAdmin, { ClaimAdmin } from './TeamAdmin';
 import { loadLocal, loadTeamEvents, mergeTeam, teamFrom, readTeam, dedupe } from './registry';
 import type { LogEv } from './registry';
 import { loadTeamJobs, refreshTeamJobs, ago } from './jobs';
@@ -10,16 +11,19 @@ import type { TeamJob } from './jobs';
 import { normStatus, SALE_STATUS } from '../src/nsr-core';
 import type { SaleStatus } from '../src/nsr-core';
 import { teamBoard, monthLabel } from './board-data';
+import type { TeamMember } from './board-data';
 
-const LS_ST = 'eqcamp.board.status.v1';
+const LS_ST = 'eqcamp.board.status.v1', LS_TEAM = 'eqcamp.board.team.v1';
+const loadTeam = (): TeamMember[] => { try { const a = JSON.parse(localStorage.getItem(LS_TEAM) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 const loadSt = (): SaleStatus[] => { try { const a = JSON.parse(localStorage.getItem(LS_ST) || '[]'); return Array.isArray(a) ? a.map(normStatus).filter(Boolean) as SaleStatus[] : []; } catch { return []; } };
 const baht = (n: number) => n.toLocaleString('th-TH', { maximumFractionDigits: 0 });
 const short = (n: number) => n >= 1e6 ? (n / 1e6).toLocaleString('th-TH', { maximumFractionDigits: 2 }) + ' ล้าน' : baht(n);
 
-export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild }: { onConnect: () => void; onOpenJob: (id: string) => void; onOpenNsr: (tab: string) => void; onBuild: () => void }) {
+export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild, flash }: { onConnect: () => void; onOpenJob: (id: string) => void; onOpenNsr: (tab: string) => void; onBuild: () => void; flash: (t: string, warn?: boolean) => void }) {
   const [events, setEvents] = useState<LogEv[]>(() => loadTeamEvents());
   const [jobs, setJobs] = useState<TeamJob[]>(() => loadTeamJobs());
   const [st, setSt] = useState<SaleStatus[]>(() => loadSt());
+  const [team, setTeam] = useState<TeamMember[]>(() => loadTeam());
   const [load, setLoad] = useState<'idle' | 'loading' | 'ok' | 'err'>(hubReady() ? 'loading' : 'idle');
   const [err, setErr] = useState('');
   const [at, setAt] = useState<Date | null>(null);
@@ -41,15 +45,16 @@ export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild }: { on
       }
       const ev = j._legacy ? j.events : mergeTeam(j);
       const ss = (j.status || []).map(normStatus).filter(Boolean) as SaleStatus[];
-      setEvents(ev); setJobs(j.jobs || []); setSt(ss);
-      try { localStorage.setItem('eqcamp.jobs.team.v1', JSON.stringify(j.jobs || [])); localStorage.setItem(LS_ST, JSON.stringify(ss)); } catch { /* quota */ }
+      setEvents(ev); setJobs(j.jobs || []); setSt(ss); if (Array.isArray(j.team)) setTeam(j.team);
+      try { localStorage.setItem('eqcamp.jobs.team.v1', JSON.stringify(j.jobs || [])); localStorage.setItem(LS_ST, JSON.stringify(ss)); if (Array.isArray(j.team)) localStorage.setItem(LS_TEAM, JSON.stringify(j.team)); } catch { /* quota */ }
       setLoad('ok'); setErr(''); setAt(new Date());
     } catch (e: any) { setLoad('err'); setErr(e?.message || 'โหลดข้อมูลทีมไม่สำเร็จ'); }
   };
   useEffect(() => { refresh(); const u = onArea(['log', 'job', 'st'], () => refresh()); const u2 = onHubState(setHs); const t = window.setInterval(() => setNow(x => x + 1), 30000); return () => { u(); u2(); window.clearInterval(t); }; }, []);
 
   const all = useMemo(() => dedupe([...events, ...loadLocal()]), [events]);
-  const B = useMemo(() => teamBoard({ events: all, jobs, statuses: st, month: month || undefined }), [all, jobs, st, month]);
+  const B = useMemo(() => teamBoard({ events: all, jobs, statuses: st, month: month || undefined, team }), [all, jobs, st, month, team]);
+  const me = hs?.me || hubMe(); const isAdmin = me?.role === 'admin';
   const courses = allTime ? B.byCourseAll : B.byCourse;
   const maxP = Math.max(1, ...B.byPerson.map(p => p.programs));
   const maxC = Math.max(1, ...courses.map(c => c.programs));
@@ -81,6 +86,12 @@ export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild }: { on
             : <button onClick={onConnect} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium">เชื่อมต่อทีม</button>}
         </div>
       )}
+      {connected && me?.shared && (
+        <div className="rounded-xl border border-amber-300 bg-white px-4 py-3 text-[13.5px] space-y-2">
+          <div className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />เครื่องนี้ใช้ “ลิงก์รวม” — ระบบยังไม่รู้ว่าคุณคือใคร ขอลิงก์ส่วนตัวจากแอดมินทีม</div>
+          {me.claimable && <ClaimAdmin flash={flash} onDone={refresh} />}
+        </div>
+      )}
       {connected && load === 'err' && (
         <div role="alert" className="rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-[13.5px] flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />{err}{hs?.status === 'offline' ? ' (ออฟไลน์)' : ''} — ระบบจะลองใหม่เอง</div>
       )}
@@ -105,7 +116,8 @@ export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild }: { on
                     <span className="tabular-nums shrink-0"><b className="font-semibold text-brand-navy">{p.programs}</b> โปรแกรม · {p.files} ไฟล์</span>
                   </div>
                   <div className="mt-1 h-2 rounded-full bg-paper overflow-hidden"><div className="h-full rounded-full bg-brand-navy" style={{ width: `${(p.programs / maxP) * 100}%` }} /></div>
-                  <div className="mt-0.5 text-[12.5px] text-sub truncate">{p.schools.slice(0, 3).join(' · ')}{p.schools.length > 3 ? ` และอีก ${p.schools.length - 3}` : ''}{p.value ? ` · ${short(p.value)} บาท` : ''} · ล่าสุด {ago(p.last)}</div>
+                  <div className="mt-0.5 text-[12.5px] text-sub truncate">{p.files ? <>{p.schools.slice(0, 3).join(' · ')}{p.schools.length > 3 ? ` และอีก ${p.schools.length - 3}` : ''}{p.value ? ` · ${short(p.value)} บาท` : ''} · ล่าสุด {ago(p.last)}</> : <>ยังไม่มีงานเดือนนี้{p.lastSeen ? ` · เปิดระบบล่าสุด ${ago(p.lastSeen)}` : ''}</>}</div>
+                  {(p.device || (isAdmin && p.email)) && <div className="text-[12px] text-sub truncate">{[p.device, isAdmin ? p.email : ''].filter(Boolean).join(' · ')}</div>}
                 </li>
               ))}
             </ol>
@@ -138,7 +150,7 @@ export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild }: { on
                     <span className="w-8 h-8 shrink-0 rounded-full bg-paper border border-brand-mist grid place-items-center text-[13px] font-semibold text-brand-navy" aria-hidden>{f.who.slice(0, 1)}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px]"><b className="font-medium">{f.who}</b> {f.what}</span>
-                      <span className="block text-[12.5px] text-sub truncate">{[f.school, f.course].filter(Boolean).join(' · ') || '—'} · {ago(f.ts)}</span>
+                      <span className="block text-[12.5px] text-sub truncate">{[f.school, f.course].filter(Boolean).join(' · ') || '—'} · {ago(f.ts)}{f.device ? ` · ${f.device.split(' · ').slice(0, 2).join(' · ')}` : ''}</span>
                     </span>
                     {f.jobId && <ChevronRight className="w-4 h-4 text-sub mt-2 shrink-0" />}
                   </button>
@@ -173,6 +185,7 @@ export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild }: { on
           ) : <p className="mt-1 text-[13.5px] text-sub">ไม่มีงานค้างติดตาม</p>}
         </Card>
 
+        {connected && isAdmin && <div className="lg:col-span-2"><TeamAdmin flash={flash} /></div>}
         <Card title="งานที่กำลังทำ (7 วันล่าสุด)" className="lg:col-span-2">
           {B.activeJobs.length ? (
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">

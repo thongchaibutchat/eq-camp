@@ -42,7 +42,8 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
   const [key, setKey] = useState(setupKey || hubKey() || (installed ? '' : newHubKey()));
   const [copied, setCopied] = useState('');
   const code = hubAppsScript(key);
-  const badKey = s.code === 'key';
+  const badKey = s.code === 'key' || s.code === 'revoked';
+  const me = s.me || null, personal = !!me && !me.shared;
   const connected = hubReady() && !badKey;
   const base = /github\.io$/.test(location.hostname) || /^https?:\/\/localhost/.test(location.origin) ? location.origin + location.pathname : WEB_BASE;
   const invite = connected ? teamLink(base) : '';
@@ -67,21 +68,31 @@ export default function TeamConnect({ onClose, flash, setupKey }: { onClose: () 
           <button onClick={onClose} aria-label="ปิด" className="tap p-1.5 rounded-lg hover:bg-paper text-sub"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-4 text-[14px]">
-          {badKey && <div className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3"><div className="flex items-center gap-2 font-semibold"><AlertTriangle className="w-4 h-4 text-amber-700" />รหัสทีมในเครื่องนี้ไม่ตรงกับศูนย์กลาง</div><div className="text-[13px] mt-1">วางลิงก์เชิญล่าสุดจากกลุ่มทีมด้านล่าง (หรือแตะลิงก์เชิญ) — ระบบจะแทนค่าที่ผิดให้เอง</div></div>}
+          {badKey && <div className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3"><div className="flex items-center gap-2 font-semibold"><AlertTriangle className="w-4 h-4 text-amber-700" />{s.code === 'revoked' ? 'แอดมินปิดสิทธิ์ของลิงก์นี้แล้ว' : 'ลิงก์ในเครื่องนี้ใช้ไม่ได้แล้ว'}</div><div className="text-[13px] mt-1">ขอลิงก์ส่วนตัวจากแอดมินทีม แล้วแตะลิงก์นั้น หรือวางลงช่องด้านล่าง — งานที่ทำค้างในเครื่องนี้ยังอยู่และจะส่งขึ้นทีมเมื่อเชื่อมใหม่</div></div>}
           {connected && (
             <div className={`rounded-xl border px-3.5 py-3 ${s.status === 'live' ? 'border-emerald-200 bg-emerald-50' : 'border-amber-300 bg-amber-50'}`}>
               <div className="flex items-center gap-2 font-semibold">{s.status === 'live' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertTriangle className="w-4 h-4 text-amber-700" />}{s.status === 'live' ? 'เชื่อมต่อแล้ว · ซิงก์ทุก 5 วินาที' : s.status === 'connecting' ? 'กำลังเชื่อมต่อ…' : s.msg || 'เชื่อมต่อไม่ได้'}</div>
               {s.pending > 0 && <div className="text-[13px] mt-1">รอส่งขึ้นทีม {s.pending} รายการ <button onClick={() => flush()} className="underline ml-1">ส่งตอนนี้</button></div>}
             </div>
           )}
-          <label className="block text-[13px] text-sub">ชื่อของคุณ (แสดงในงานของทีม/ทะเบียน)
+          {connected && personal && (
+            <div className="rounded-xl border border-brand-mist px-3.5 py-3">
+              <div className="text-[13px] text-sub">ลิงก์ส่วนตัวของ</div>
+              <div className="text-[16px] font-semibold">{me!.nick}{me!.role === 'admin' && <span className="ml-2 align-middle text-[12px] font-medium px-2 py-0.5 rounded-full bg-brand-navy text-white">แอดมิน</span>}</div>
+              {me!.email && <div className="text-[13px] text-sub">{me!.email}</div>}
+              <div className="text-[12.5px] text-sub mt-1">ทุกงานที่ทำจากเครื่องนี้บันทึกในชื่อคุณอัตโนมัติ</div>
+            </div>
+          )}
+          {connected && me?.shared && <div className="rounded-xl border border-amber-300 px-3.5 py-2.5 text-[13.5px] flex gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />ตอนนี้ใช้ “ลิงก์รวม” — ระบบไม่รู้ว่าคุณคือใคร ขอลิงก์ส่วนตัวจากแอดมินทีม</div>}
+          {!personal && <label className="block text-[13px] text-sub">ชื่อของคุณ (แสดงในงานของทีม/ทะเบียน)
             <input value={name} onChange={e => setName(e.target.value)} onBlur={() => setUserName(name)} placeholder="เช่น พริ้มเพรา" maxLength={40} className="mt-1 w-full px-3 py-2.5 rounded-lg border border-brand-mist text-[15px] text-brand-ink" />
-          </label>
+          </label>}
 
           {connected ? (
             <div className="space-y-2">
-              <div className="font-semibold">ลิงก์เชิญเข้าทีม</div>
-              <p className="text-[13px] text-sub">ส่งให้คนในทีมทาง LINE/อีเมล — เปิดจากมือถือหรือแอปไหนก็เชื่อมต่อทันที (ลิงก์นี้เปิดดูต้นทุนได้ ส่งเฉพาะคนในทีม)</p>
+              <div className="font-semibold">{personal ? 'ลิงก์ส่วนตัวของคุณ' : 'ลิงก์เชิญเข้าทีม'}</div>
+              {personal && <p className="text-[13px] text-sub">ใช้เปิดบนมือถือ/คอมอีกเครื่อง<b className="font-semibold text-brand-ink">ของคุณเอง</b>เท่านั้น — ห้ามส่งให้คนอื่น ทุกอย่างที่ทำผ่านลิงก์นี้จะเป็นชื่อคุณ{me!.role === 'admin' ? ' · ออกลิงก์ให้คนอื่นที่ ภาพรวมทีม → จัดการทีม' : ''}</p>}
+              {!personal && <p className="text-[13px] text-sub">ส่งให้คนในทีมทาง LINE/อีเมล — เปิดจากมือถือหรือแอปไหนก็เชื่อมต่อทันที (ลิงก์นี้เปิดดูต้นทุนได้ ส่งเฉพาะคนในทีม)</p>}
               <div className="flex gap-2">
                 <input readOnly value={invite} aria-label="ลิงก์เชิญ" onFocus={e => e.currentTarget.select()} className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-brand-mist text-[12.5px] font-mono bg-paper" />
                 <button onClick={share} className="tap px-3 py-2 rounded-lg bg-brand-navy text-white font-medium flex items-center gap-1.5"><Share2 className="w-4 h-4" />ส่ง</button>

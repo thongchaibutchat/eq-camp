@@ -26,3 +26,33 @@ export async function copyText(t: string): Promise<boolean> {
 export const IS_MOBILE = IS_IOS || IS_ANDROID || (typeof window !== 'undefined' && !!window.matchMedia && window.matchMedia('(pointer: coarse)').matches && window.innerWidth < 1024);
 // แชร์ไฟล์ผ่านเมนูของเครื่อง (iOS: "บันทึกไปยังไฟล์", LINE, อีเมล · Android: Drive/LINE/ไฟล์)
 export const canShareFiles = (files: File[]) => { try { return !!(navigator as any).canShare && (navigator as any).canShare({ files }); } catch { return false; } };
+
+// ── ชื่อเครื่องที่ใช้ (บันทึกในประวัติการใช้งานของทีม) ──
+// iPhone: Safari ไม่บอกรุ่นตรง ๆ → เดาจากขนาดจอ (จุด CSS × ความละเอียด) — รุ่นที่จอเท่ากันจะแสดงรวมกัน
+// Android Chrome: ขอรุ่นจริงจาก User-Agent Client Hints · คอม: ระบบ + เบราว์เซอร์
+const IPHONES: [number, number, number, string][] = [
+  [440, 956, 3, 'iPhone 16 Pro Max / 17 Pro Max'], [402, 874, 3, 'iPhone 16 Pro / 17 / 17 Pro'], [420, 912, 3, 'iPhone Air'],
+  [430, 932, 3, 'iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus'], [393, 852, 3, 'iPhone 14 Pro / 15 / 15 Pro / 16'],
+  [428, 926, 3, 'iPhone 12 Pro Max / 13 Pro Max / 14 Plus'], [390, 844, 3, 'iPhone 12 / 13 / 14 / 16e'], [375, 812, 3, 'iPhone X / XS / 11 Pro / 12 mini / 13 mini'],
+  [414, 896, 3, 'iPhone XS Max / 11 Pro Max'], [414, 896, 2, 'iPhone XR / 11'], [414, 736, 3, 'iPhone 6–8 Plus'], [375, 667, 2, 'iPhone 6–8 / SE (รุ่น 2–3)'], [320, 568, 2, 'iPhone SE (รุ่นแรก)']
+];
+export function iphoneModel(w: number, h: number, dpr: number): string {
+  const a = Math.min(w, h), b = Math.max(w, h);
+  const hit = IPHONES.find(([x, y, d]) => x === a && y === b && d === Math.round(dpr));
+  return hit ? hit[3] : 'iPhone';
+}
+const browserOf = (u: string) => IN_APP ? IN_APP : /EdgA?\//.test(u) ? 'Edge' : /CriOS|Chrome\//.test(u) && !/OPR\//.test(u) ? 'Chrome' : /FxiOS|Firefox\//.test(u) ? 'Firefox' : /Safari\//.test(u) ? 'Safari' : 'เบราว์เซอร์';
+let devLabel = '';
+export function deviceLabel(): string {
+  if (devLabel) return devLabel;
+  try {
+    const u = ua, br = browserOf(u);
+    if (/iPhone/.test(u)) { const v = (u.match(/OS (\d+)[_.](\d+)/) || []); devLabel = `${iphoneModel(screen.width, screen.height, devicePixelRatio)} · ${br}${v[1] ? ` · iOS ${v[1]}.${v[2]}` : ''}`; }
+    else if (IS_IOS) devLabel = `iPad · ${br}`;
+    else if (IS_ANDROID) { const v = (u.match(/Android (\d+)/) || [])[1]; devLabel = `Android${v ? ' ' + v : ''} · ${br}`; }
+    else devLabel = `${/Windows/.test(u) ? 'Windows' : /Mac OS X/.test(u) ? 'Mac' : /CrOS/.test(u) ? 'Chromebook' : /Linux/.test(u) ? 'Linux' : 'คอมพิวเตอร์'} · ${br}`;
+  } catch { devLabel = 'ไม่ทราบเครื่อง'; }
+  // Android Chrome: รุ่นจริง (เช่น SM-S928B) ได้ทีหลังแบบไม่บล็อก
+  try { const uad = (navigator as any).userAgentData; if (IS_ANDROID && uad?.getHighEntropyValues) uad.getHighEntropyValues(['model', 'platformVersion']).then((h: any) => { if (h?.model) devLabel = `Android ${String(h.platformVersion || '').split('.')[0] || ''} · ${h.model} · ${browserOf(ua)}`.replace('Android  ·', 'Android ·'); }).catch(() => { /* */ }); } catch { /* */ }
+  return devLabel;
+}

@@ -16,9 +16,10 @@ export const monthOf = (iso: string) => { const t = Date.parse(iso); if (!Number
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 export const monthLabel = (ym: string) => { const [y, m] = ym.split('-').map(Number); return y && m ? `${TH_M[m - 1]} ${y + 543}` : ym; };
 
-export interface PersonRow { name: string; programs: number; files: number; pdf: number; schools: string[]; value: number; last: string }
+export interface TeamMember { id: string; nick: string; role?: string; active?: boolean; email?: string; lastSeen?: string; device?: string }
+export interface PersonRow { name: string; programs: number; files: number; pdf: number; schools: string[]; value: number; last: string; id?: string; email?: string; device?: string; lastSeen?: string; role?: string; member?: boolean }
 export interface CourseRow { course: string; programs: number; students: number }
-export interface FeedRow { ts: string; who: string; what: string; school: string; course: string; jobId: string; programId: string }
+export interface FeedRow { ts: string; who: string; what: string; school: string; course: string; jobId: string; programId: string; device: string; email: string }
 export interface BoardStats {
   month: string; months: string[];
   programs: number; schools: number; students: number; value: number; files: number; pdf: number; people: number;
@@ -29,7 +30,7 @@ export interface BoardStats {
   activeJobs: (TeamJob & { who: string })[];
 }
 
-export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?: SaleStatus[]; month?: string; now?: Date }): BoardStats {
+export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?: SaleStatus[]; month?: string; now?: Date; team?: TeamMember[] }): BoardStats {
   const now = input.now || new Date();
   const month = input.month || monthOf(now.toISOString());
   const evs = dedupeEv(input.events).filter(e => monthOf(e.ts));
@@ -44,10 +45,16 @@ export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?:
   const progMonth = new Set(inMonth.map(progKey));
   const prevPrograms = new Set(evs.filter(e => monthOf(e.ts) === prevYm).map(progKey)).size;
 
+  // สมาชิกทีม (จากศูนย์กลาง): ทุกคนขึ้นบอร์ดแม้ยังไม่มีงานเดือนนี้ · จับคู่เหตุการณ์ด้วยรหัสสมาชิก > อีเมล > ชื่อเล่น
+  const team = (input.team || []).filter(m => m && m.id && m.id !== 'shared' && m.active !== false);
+  const memberOf = (e: LogEv) => team.find(m => (e.mid && e.mid === m.id) || (e.email && m.email && e.email.toLowerCase() === m.email.toLowerCase()) || whoOf(e) === m.nick);
   const people = new Map<string, PersonRow & { _p: Set<string>; _s: Set<string> }>();
+  const mk = (name: string, m?: TeamMember) => ({ name, programs: 0, files: 0, pdf: 0, schools: [], value: 0, last: '', id: m?.id, email: m?.email, device: m?.device, lastSeen: m?.lastSeen, role: m?.role, member: !!m, _p: new Set<string>(), _s: new Set<string>() });
+  for (const m of team) people.set('m:' + m.id, mk(m.nick, m));
   for (const e of inMonth) {
-    const w = whoOf(e); let p = people.get(w);
-    if (!p) { p = { name: w, programs: 0, files: 0, pdf: 0, schools: [], value: 0, last: '', _p: new Set(), _s: new Set() }; people.set(w, p); }
+    const m = memberOf(e), pk = m ? 'm:' + m.id : 'n:' + whoOf(e); let p = people.get(pk);
+    if (!p) { p = mk(whoOf(e)); people.set(pk, p); }
+    if (e.device && (!p.device || !p.member)) p.device = e.device;
     p.files++; if (e.action === 'pdf') p.pdf++;
     if (e.ts > p.last) p.last = e.ts;
     const k = progKey(e);
@@ -55,7 +62,7 @@ export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?:
     if (e.school) p._s.add(e.school);
   }
   const byPerson = [...people.values()].map(({ _p, _s, ...r }) => ({ ...r, programs: _p.size, schools: [..._s] }))
-    .sort((a, b) => b.programs - a.programs || b.files - a.files || (a.last < b.last ? 1 : -1));
+    .sort((a, b) => b.programs - a.programs || b.files - a.files || Number(!!b.member) - Number(!!a.member) || ((a.last || a.lastSeen || '') < (b.last || b.lastSeen || '') ? 1 : -1));
 
   const courseRows = (keys: Iterable<string>) => {
     const m = new Map<string, CourseRow>();
@@ -66,7 +73,7 @@ export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?:
   const schools = new Set(progs.map(p => normSchool(p.school)).filter(Boolean)).size;
 
   const feed: FeedRow[] = [...evs].sort((a, b) => (a.ts < b.ts ? 1 : -1)).slice(0, 40).map(e => ({
-    ts: e.ts, who: whoOf(e), what: e.action === 'pdf' ? 'บันทึก PDF โปรแกรมค่าย' : `สร้าง ${DOC_NAME[e.docKind] || 'เอกสาร'}`,
+    ts: e.ts, who: (memberOf(e)?.nick) || whoOf(e), device: String(e.device || ''), email: String(e.email || ''), what: e.action === 'pdf' ? 'บันทึก PDF โปรแกรมค่าย' : `สร้าง ${DOC_NAME[e.docKind] || 'เอกสาร'}`,
     school: e.school || '', course: e.course || '', jobId: e.jobId || '', programId: e.programId || ''
   }));
 
@@ -87,7 +94,7 @@ export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?:
   return {
     month, months,
     programs: progMonth.size, schools, students: progs.reduce((s, p) => s + n0(p.students), 0), value: progs.reduce((s, p) => s + n0(p.students) * n0(p.specialPrice), 0),
-    files: inMonth.length, pdf: inMonth.filter(e => e.action === 'pdf').length, people: byPerson.length, prevPrograms,
+    files: inMonth.length, pdf: inMonth.filter(e => e.action === 'pdf').length, people: byPerson.filter(p => p.files > 0).length, prevPrograms,
     byPerson, byCourse: courseRows(progMonth), byCourseAll: courseRows(latest.keys()),
     feed, sales: { quoted: cnt.quoted || 0, hold: cnt.hold || 0, won: cnt.won || 0, lost: cnt.lost || 0, wonMonth, wonValueMonth, closeRate, follow }, activeJobs
   };

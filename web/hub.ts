@@ -7,7 +7,8 @@
 // ความปลอดภัย: ทุกคำสั่งต้องมี "รหัสทีม" · ไม่ฝังที่อยู่/รหัสใน bundle สาธารณะ · เข้าร่วมทีมด้วยลิงก์เชิญ (#/join/…)
 // ออฟไลน์: คำสั่งเขียนเข้าคิวในเครื่อง แล้วส่งเองเมื่อกลับมาออนไลน์
 
-export interface HubState { status: 'off' | 'connecting' | 'live' | 'offline' | 'error' | 'blocked'; code?: string; msg?: string; lastOk?: number; rev?: string; pending: number }
+export interface HubMe { id: string; nick: string; role: 'admin' | 'member'; email?: string; shared?: boolean; legacy?: boolean; claimable?: boolean }
+export interface HubState { status: 'off' | 'connecting' | 'live' | 'offline' | 'error' | 'blocked'; code?: string; msg?: string; lastOk?: number; rev?: string; pending: number; me?: HubMe | null }
 type Listener = (rev: string, changed: boolean) => void;
 
 const LS = { url: 'eqcamp.hub.url', key: 'eqcamp.hub.key', name: 'eqcamp.hub.name', dev: 'eqcamp.hub.device', q: 'eqcamp.hub.queue.v1' };
@@ -32,7 +33,7 @@ export const hubReady = () => URL_RX.test(hubUrl()) && !!hubKey();
 export const userName = () => ls.get(LS.name).trim();
 export const setUserName = (n: string) => { ls.set(LS.name, n.trim().slice(0, 40)); };
 export const deviceId = () => { let d = ls.get(LS.dev); if (!d) { d = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); ls.set(LS.dev, d); } return d; };
-export function setHub(url: string, key: string) { ls.set(LS.url, url.trim()); ls.set(LS.key, key.trim()); state = { ...state, status: hubReady() ? 'connecting' : 'off', msg: '', code: undefined }; emitState(); kick(); }
+export function setHub(url: string, key: string) { ls.set(LS.url, url.trim()); ls.set(LS.key, key.trim()); try { localStorage.removeItem('eqcamp.hub.me'); } catch { /* */ } state = { ...state, status: hubReady() ? 'connecting' : 'off', msg: '', code: undefined, me: null }; emitState(); kick(); }
 export function clearHub() { ls.set(LS.url, ''); ls.set(LS.key, ''); state = { status: 'off', pending: queue().length }; emitState(); }
 
 // ── ลิงก์เชิญ: เปิดลิงก์นี้บนเครื่อง/แอปไหนก็เข้าร่วมทีมได้ทันที (ที่อยู่+รหัส อยู่หลัง # → ไม่ถูกส่งถึงเซิร์ฟเวอร์เว็บ) ──
@@ -65,6 +66,7 @@ export function acceptInvite(text: string): boolean {
 export const teamLink = (base?: string) => `${base || (location.origin + location.pathname)}${inviteHash()}`;
 
 // ── เรียกเซิร์ฟเวอร์ ──
+import { deviceLabel } from './platform';
 export class HubError extends Error { code: string; data?: any; constructor(code: string, msg: string, data?: any) { super(msg); this.code = code; this.data = data; } }
 export const IN_CLAUDE = typeof window !== 'undefined' && !!(window as any).claude;
 // claude.ai ห้ามหน้าเว็บเรียกเว็บอื่น (fetch ไป Google ถูกบล็อกเสมอ) → ข้อมูลทีมแบบสดใช้ได้เฉพาะเวอร์ชันเว็บนี้
@@ -88,7 +90,7 @@ async function hubCallOnce<T = any>(op: string, body: Record<string, any>, timeo
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
   let r: Response;
   try {
-    r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, op, key, dev: deviceId(), by: userName() }), signal: ctl.signal, cache: 'no-store' });
+    r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, op, key, dev: deviceId(), dl: deviceLabel(), by: userName() }), signal: ctl.signal, cache: 'no-store' });
   } catch (e: any) {
     clearTimeout(t);
     if (e?.name === 'AbortError') throw new HubError('timeout', 'ชีตตอบช้าเกินไป');
@@ -104,9 +106,11 @@ async function hubCallOnce<T = any>(op: string, body: Record<string, any>, timeo
   }
   if (j.ok === false) {
     const c = j.error || 'server';
-    const msg: Record<string, string> = { key: 'รหัสทีมในเครื่องนี้ไม่ตรงกับศูนย์กลาง — เปิดลิงก์เชิญจากกลุ่มทีมอีกครั้ง', exists: 'มีแท็บชื่อนี้แล้ว', missing: 'ไม่พบรายการนี้แล้ว', op: 'ศูนย์กลางทีมเป็นรุ่นเก่า — คัดลอกโค้ดใหม่แล้ว Deploy อีกครั้ง', conflict: 'มีคนแก้ระหว่างนี้', busy: 'ศูนย์กลางทีมมีคนใช้พร้อมกันมาก — ลองใหม่อีกครั้ง' };
+    if (j.error === 'rate') throw new HubError('busy', 'ส่งคำสั่งถี่เกินไป — ระบบจะลองใหม่เอง');
+    const msg: Record<string, string> = { key: 'ลิงก์ในเครื่องนี้ใช้ไม่ได้แล้ว (ลิงก์ผิด หรือแอดมินปิดลิงก์รวม/ออกลิงก์ใหม่) — ขอลิงก์ส่วนตัวจากแอดมิน', revoked: 'แอดมินปิดสิทธิ์ของลิงก์นี้แล้ว — ติดต่อแอดมินทีม', forbidden: 'ทำได้เฉพาะแอดมินทีม', exists: 'มีแท็บชื่อนี้แล้ว', missing: 'ไม่พบรายการนี้แล้ว', op: 'ศูนย์กลางทีมเป็นรุ่นเก่า — คัดลอกโค้ดใหม่แล้ว Deploy อีกครั้ง', conflict: 'มีคนแก้ระหว่างนี้', busy: 'ศูนย์กลางทีมมีคนใช้พร้อมกันมาก — ลองใหม่อีกครั้ง' };
     throw new HubError(c, msg[c] || j.message || 'ศูนย์กลางทีมตอบกลับไม่สำเร็จ', j);
   }
+  if (j.me && typeof j.me === 'object') noteMe(j.me);
   noteOk(j.rev, j.areas, op);
   return j as T;
 }
@@ -134,6 +138,7 @@ export async function flush() {
       try { const res = await hubCall(it.op, it.body); saveQ(queue().filter(x => x.id !== it.id)); bc?.postMessage({ t: 'changed' }); qEmit(it.op, it.body, res, null); }
       catch (e: any) {
         if (['net', 'offline', 'timeout', 'blocked', 'off', 'busy'].includes(e?.code)) break;  // ชั่วคราว → ลองใหม่ภายหลัง (ไม่นับเป็นผิด ไม่ทิ้งข้อมูล)
+        if (e?.code === 'revoked' || e?.code === 'key') break;                                  // สิทธิ์ถูกปิด: เก็บคิวไว้ (ไม่ทิ้งงาน) จนกว่าจะได้ลิงก์ใหม่
         if (e?.code === 'conflict') { saveQ(queue().filter(x => x.id !== it.id)); qEmit(it.op, it.body, null, e); continue; }   // มีคนบันทึกฉบับใหม่กว่า → ไม่ทับ แจ้งผู้ใช้เลือกเอง
         it.tries++; const rest = queue().filter(x => x.id !== it.id);
         saveQ(it.tries >= 3 ? rest : [it, ...rest]);                                           // ผิดถาวร 3 ครั้ง → ทิ้ง (ไม่ค้างคิว)
@@ -161,6 +166,8 @@ export const onRev = (f: Listener) => { revSubs.add(f); start(); return () => { 
 export const onArea = (areas: Area[], fn: (changed: Area[]) => void) => { const sub = { areas, fn }; areaSubs.add(sub); start(); return () => { areaSubs.delete(sub); }; };
 export const REFRESH_JITTER_MS = 2500;
 let lastRev = '', lastAreas: Record<string, string> | null = null;
+function noteMe(me: HubMe) { const prev = JSON.stringify(state.me || null), nx = JSON.stringify(me); if (prev !== nx) { state = { ...state, me }; try { localStorage.setItem('eqcamp.hub.me', nx); } catch { /* */ } emitState(); } }
+export const hubMe = (): HubMe | null => state.me || (() => { try { return JSON.parse(localStorage.getItem('eqcamp.hub.me') || 'null'); } catch { return null; } })();
 function noteOk(rev?: string, areas?: Record<string, string>, op?: string) {
   state = { ...state, status: 'live', msg: '', code: undefined, lastOk: Date.now() };
   const revChanged = !!rev && rev !== lastRev, had = !!lastRev;
@@ -202,7 +209,7 @@ async function tick() {
     fails++;
     state = { ...state, status: e?.code === 'offline' ? 'offline' : e?.code === 'blocked' ? 'blocked' : 'error', code: e?.code, msg: e?.message };
     emitState();
-    if (e?.code === 'key' || e?.code === 'blocked') return;                                 // ไม่วนถามซ้ำเมื่อผิดถาวร
+    if (e?.code === 'key' || e?.code === 'blocked' || e?.code === 'revoked') return;                                 // ไม่วนถามซ้ำเมื่อผิดถาวร
   }
   schedule(fails ? Math.min(30000, POLL_MS * (1 + fails)) * (0.8 + Math.random() * 0.4) : pollGap());
 }
@@ -224,13 +231,17 @@ export const notifyLocalChange = () => { bc?.postMessage({ t: 'changed' }); };
 
 // ── โค้ดฝั่งเซิร์ฟเวอร์ (Apps Script ผูกกับชีต NSR) ──
 // sheetId ว่าง = สคริปต์ผูกกับชีต (วางใน ส่วนขยาย → Apps Script) · มี sheetId = สคริปต์เดี่ยวในไดรฟ์ (สร้างไฟล์ให้ได้เลย)
-export const hubAppsScript = (key: string, sheetId = '') => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
-// Execute as: Me · Who has access: Anyone — ทุกคำสั่งต้องมีรหัสทีมด้านล่าง
+// สมาชิกตั้งต้น (ใส่เฉพาะในไฟล์สคริปต์ส่วนตัวของเจ้าของ — ห้ามใส่อีเมลจริงใน repo/bundle สาธารณะ)
+export interface HubSeed { id: string; nick: string; name?: string; email?: string; role?: 'admin' | 'member' }
+export const hubAppsScript = (key: string, sheetId = '', opt: { owner?: string; seed?: HubSeed[] } = {}) => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
+// Execute as: Me · Who has access: Anyone — ทุกคำสั่งต้องมีรหัส (ลิงก์ส่วนตัวของแต่ละคน หรือลิงก์รวมเดิมจนกว่าแอดมินปิด)
 // เก็บ: NSR = ชีตนี้ · ทะเบียน/งานของทีม = สเปรดชีต "EQ Camp — ข้อมูลกลางทีม" ที่สคริปต์สร้างให้ในไดรฟ์ของคุณ (ไม่แชร์สาธารณะ)
 // ไม่ลบแท็บ ไม่แทรก/ลบแถวในแท็บ NSR ไม่ทับสูตรที่ไม่ได้แก้
-const TEAM_KEY = '${key}';
+const TEAM_KEY = '${key}';     // ลิงก์รวมเดิม — ใช้ได้จนกว่าแอดมินกด "ปิดลิงก์รวม"
 const NSR_ID = '${sheetId}';   // ว่าง = ใช้ชีตที่สคริปต์ผูกอยู่
-const VERSION = 8;
+const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ: อยู่ในไฟล์นี้เท่านั้น ใช้รับสิทธิ์แอดมินครั้งแรก/กู้สิทธิ์
+const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
+const VERSION = 9;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -249,12 +260,22 @@ function doGet() { return out_({ ok: true, app: 'EQ Camp Hub', version: VERSION 
 function setup() { nsr_().getName(); hub_(); ensureTrigger_(); return 'ok'; }
 function doPost(e) {
   var req; try { req = JSON.parse(e.postData.contents); } catch (x) { return out_({ ok: false, error: 'bad' }); }
-  if (!req || req.key !== TEAM_KEY) return out_({ ok: false, error: 'key' });
-  // rev = ทุกเครื่องถามทุก 5–20 วิ → ทางด่วน: อ่านค่าเลขรุ่นอย่างเดียว ไม่เปิดชีต (รองรับคนใช้พร้อมกันมาก)
-  if (req.op === 'rev') { try { return out_({ ok: true, version: VERSION, rev: rev_(), areas: areas_() }); } catch (x) { return out_({ ok: false, error: 'busy' }); } }
+  if (!req || typeof req !== 'object') return out_({ ok: false, error: 'bad' });
+  ST_MEMO = null; COLS_OK = {};   // ค่าในหน่วยความจำต่อคำสั่ง (เครื่องจำลอง/อินสแตนซ์ที่ถูกใช้ซ้ำ ต้องเริ่มใหม่)
   try {
+    var S = st_(), who = auth_(req, S.mem);
+    if (!who) { keyFail_(req); return out_({ ok: false, error: 'key' }); }
+    if (who.revoked) { keyFail_(req, who); return out_({ ok: false, error: 'revoked' }); }
+    // ตัวตนมาจากศูนย์กลางเท่านั้น (ไม่เชื่อชื่อที่เครื่องส่งมา) + เครื่องที่ใช้
+    req.dev = String(req.dev || '').slice(0, 40); req.dl = String(req.dl || '').slice(0, 80);
+    req.who = who; req.by = who.shared ? (String(req.by || '').slice(0, 40) ? String(req.by).slice(0, 40) + ' (ลิงก์รวม)' : 'ลิงก์รวม') : who.nick;
+    seen_(who, req);
+    // rev = ทุกเครื่องถามทุก 5–20 วิ → ทางด่วน: อ่านจากแคชอย่างเดียว ไม่เปิดชีต ไม่อ่าน Properties (โควตารายวัน)
+    if (req.op === 'rev') return out_({ ok: true, version: VERSION, rev: S.revs.rev, areas: S.revs.areas, me: me_(who, S.mem) });
+    if (!rate_(who, req)) return out_({ ok: false, error: 'rate' });
+    if (ADMIN_OPS[req.op] && who.role !== 'admin') { audit_(req, 'ปฏิเสธ', req.op, 'ไม่ใช่แอดมิน'); return out_({ ok: false, error: 'forbidden' }); }
     var r = route_(req) || { ok: false, error: 'op' };
-    if (r.ok !== false) { r.rev = rev_(); r.areas = areas_(); }
+    if (r.ok !== false) { var R = st_().revs; r.rev = R.rev; r.areas = R.areas; r.me = me_(who, st_().mem); }
     return out_(r);
   } catch (err) {
     var m = String(err);   // ล็อกรอนาน/โควตาชั่วคราว → busy (เครื่องลองใหม่เอง ไม่เสียข้อมูล)
@@ -267,8 +288,19 @@ function route_(q) {
     case 'jobs': return { ok: true, jobs: jobs_().map(function (j) { delete j.snap; return j; }).filter(function (j) { return !q.since || j.savedAt > q.since; }) };
     case 'job.get': { var jj = jobs_(true).filter(function (j) { return j.id === q.id; })[0]; return jj ? { ok: true, job: jj } : { ok: false, error: 'missing' }; }
     case 'status.list': return { ok: true, status: statuses_() };
-    // บอร์ดทีม: ทะเบียน + งาน + สถานะการขาย ในคำสั่งเดียว
-    case 'board': { var b = events_(q.from); b.jobs = jobs_().map(function (j) { delete j.snap; return j; }); b.status = statuses_(); return b; }
+    // บอร์ดทีม: ทะเบียน + งาน + สถานะการขาย + สมาชิก ในคำสั่งเดียว
+    case 'board': { var b = events_(q.from); b.jobs = jobs_().filter(function (j) { return !j.deleted; }).map(function (j) { delete j.snap; return j; }); b.status = statuses_(); b.team = team_(q.who); return b; }
+    case 'me': return { ok: true };
+    // ── แอดมิน ──
+    case 'admin.claim': return claim_(q);
+    case 'members.list': return { ok: true, members: team_(q.who, true), legacy: !!st_().mem.legacy };
+    case 'members.save': return saveMember_(q);
+    case 'members.key': return newKey_(q);
+    case 'legacy.set': return setLegacy_(q);
+    case 'audit': return audit_list_(q);
+    case 'jobs.trash': return trash_();
+    case 'job.versions': return versions_(q.id);
+    case 'job.restore': return restore_(q);
   }
   var ss = nsr_();
   try { ensureTrigger_(); } catch (x) {}
@@ -288,9 +320,10 @@ function route_(q) {
   try {
     switch (q.op) {
       case 'nsr.create': {
+        var bad = gridBad_(q); if (bad) { audit_(q, 'ปฏิเสธ', 'nsr.create', bad); return { ok: false, error: 'bad', message: bad }; }
         if (ss.getSheetByName(q.title)) return { ok: false, error: 'exists' };
         var rows = q.rows || [], w = 1; rows.forEach(function (r) { w = Math.max(w, r.length); });
-        var vals = rows.map(function (r) { var a = r.slice(); while (a.length < w) a.push(''); return a; });
+        var vals = rows.map(function (r) { var a = r.map(function (v) { return cellIn_(v, false); }); while (a.length < w) a.push(''); return a; });
         var sh = ss.insertSheet(String(q.title).slice(0, 99), Math.min(Number(q.index) || ss.getSheets().length, ss.getSheets().length));
         sh.getRange(1, 1, vals.length, w).setValues(vals);
         var f = q.fmt || {};
@@ -299,30 +332,34 @@ function route_(q) {
         if (f.staffCols) sh.getRange(3, 9, Math.max(f.staffCols[1] - 2, 1), 5).setNumberFormat('#,##0');
         (f.pctCells || []).forEach(function (p) { sh.getRange(p[0], p[1]).setNumberFormat('0.00%'); });
         sh.setColumnWidth(2, 320); sh.setColumnWidth(8, 200);
-        touch_(sh.getSheetId()); bump_('nsr');
+        touch_(sh.getSheetId()); bump_('nsr'); audit_(q, 'สร้างแท็บ NSR', sh.getName(), vals.length + ' แถว');
         return { ok: true, sheetId: sh.getSheetId(), title: sh.getName() };
       }
       case 'nsr.edit': {
+        var bad2 = editsBad_(q.edits); if (bad2) { audit_(q, 'ปฏิเสธ', 'nsr.edit ' + q.title, bad2); return { ok: false, error: 'bad', message: bad2 }; }
         var s2 = ss.getSheetByName(q.title); if (!s2) return { ok: false, error: 'missing' };
         var conflicts = [];
         (q.edits || []).forEach(function (x) { var cur = s2.getRange(x.r, x.c).getDisplayValue(); if (!same_(cur, x.was)) conflicts.push({ r: x.r, c: x.c, now: cur }); });
         if (conflicts.length && !q.force) return { ok: false, error: 'conflict', conflicts: conflicts };
-        (q.edits || []).forEach(function (x) { s2.getRange(x.r, x.c).setValue(x.v); });
+        var was = (q.edits || []).map(function (x) { return [x.r, x.c, s2.getRange(x.r, x.c).getDisplayValue(), x.v]; });
+        (q.edits || []).forEach(function (x) { s2.getRange(x.r, x.c).setValue(cellIn_(x.v, true)); });
         touch_(s2.getSheetId()); bump_('nsr');
+        audit_(q, 'แก้ NSR', s2.getName(), JSON.stringify(was.map(function (w) { return String.fromCharCode(64 + w[1]) + w[0] + ': ' + w[2] + ' → ' + w[3]; })).slice(0, 4000));   // ค่าเดิม→ค่าใหม่ (แอดมินย้อนได้)
         return { ok: true };
       }
-      case 'log': { var ev = q.ev || {}; if (!ev.eid) return { ok: false, error: 'bad' };
-        var lg = tab_('Log', LOG_COLS); if (seen_(lg, ev.eid)) return { ok: true, dup: true };
+      case 'log': { var ev = stampEv_(q.ev || {}, q, true); if (!ev.eid) return { ok: false, error: 'bad' };
+        var lg = tab_('Log', LOG_COLS); if (seenEid_(lg, ev.eid)) return { ok: true, dup: true };
         lg.appendRow(LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); })); bump_('log'); return { ok: true }; }
       case 'log.many': { var lg2 = tab_('Log', LOG_COLS), have = {}, n2 = lg2.getLastRow(); if (n2 > 1) lg2.getRange(2, 2, n2 - 1, 1).getValues().forEach(function (r) { have[r[0]] = 1; });
-        var add = (q.events || []).slice(0, 500).filter(function (ev) { return ev && ev.eid && !have[ev.eid]; }).map(function (ev) { return LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); }); });
+        var add = (q.events || []).slice(0, 500).filter(function (ev) { return ev && ev.eid && !have[ev.eid]; }).map(function (ev) { ev = stampEv_(ev, q, false); return LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); }); });
         if (add.length) { lg2.getRange(lg2.getLastRow() + 1, 1, add.length, LOG_COLS.length).setValues(add); bump_('log'); } return { ok: true, added: add.length }; }
-      case 'job.put': return putJob_(q.job || {}, q.base, q.dev, q.by);
-      case 'job.del': return delJob_(q.id);
-      case 'nsr.migrateOT': return migrateOT_(ss);
+      case 'job.put': return putJob_(q.job || {}, q.base, q.dev, q.by, q);
+      case 'job.del': return delJob_(q.id, q);
+      case 'nsr.migrateOT': audit_(q, 'เติมช่องค่าล่วงเวลา', 'NSR', ''); return migrateOT_(ss);
       case 'status.set': { var st = q.st || {}; if (st.sheetId === undefined || st.sheetId === null || st.sheetId === '' || !st.status) return { ok: false, error: 'bad' };
         var ssh = tab_('Status', ST_COLS), sn = ssh.getLastRow(), sids = sn > 1 ? ssh.getRange(2, 1, sn - 1, 1).getValues().map(function (r) { return String(r[0]); }) : [];
         st.at = new Date().toISOString(); st.by = q.by || ''; st.dev = q.dev || '';
+        audit_(q, 'สถานะการขาย', String(st.title || st.sheetId), String(st.status) + (st.reason ? ' · ' + st.reason : ''));
         var srow = ST_COLS.map(function (c) { return st[c] === undefined || st[c] === null ? '' : String(st[c]).slice(0, 500); });
         var si = sids.indexOf(String(st.sheetId)); if (si >= 0) ssh.getRange(si + 2, 1, 1, srow.length).setValues([srow]); else ssh.appendRow(srow);
         tab_('StatusLog', ST_COLS).appendRow(srow); bump_('st'); return { ok: true, at: st.at }; }
@@ -331,21 +368,150 @@ function route_(q) {
 }
 // ── rev: เลขรุ่น = เวลาที่เขียนผ่านเว็บล่าสุด + เวลาที่มีคนแก้ชีตเองล่าสุด (onEdit) ──
 function props_() { return PropertiesService.getScriptProperties(); }
-function rev_() { var p = props_(); return (p.getProperty('rev') || '0') + '.' + (p.getProperty('edit') || '0'); }
-// แยกเลขรุ่นตามส่วน (nsr/log/job/st) → เครื่องอื่นโหลดใหม่เฉพาะส่วนที่เปลี่ยน ไม่ใช่ทุกอย่างพร้อมกัน
-function bump_(area) { var now = String(Date.now()), p = props_(); p.setProperty('rev', now); if (area) p.setProperty('r.' + area, now); }
-function areas_() { var p = props_(), e = Number(p.getProperty('edit') || 0), n = Number(p.getProperty('r.nsr') || 0);
-  return { nsr: String(Math.max(e, n)), log: p.getProperty('r.log') || '0', job: p.getProperty('r.job') || '0', st: p.getProperty('r.st') || '0' }; }
+// ── เลขรุ่น (rev + แยกส่วน nsr/log/job/st) เก็บใน Properties แต่ "อ่าน" จากแคช → rev ที่ทุกเครื่องถามบ่อยไม่กินโควตา Properties รายวัน ──
+function revsFrom_(all) { var e = Number(all.edit || 0);
+  return { rev: (all.rev || '0') + '.' + (all.edit || '0'), areas: { nsr: String(Math.max(e, Number(all['r.nsr'] || 0))), log: all['r.log'] || '0', job: all['r.job'] || '0', st: all['r.st'] || '0' } }; }
+function rev_() { return st_().revs.rev; }
+function areas_() { return st_().revs.areas; }
+function bump_(area) { var now = String(Date.now()), p = props_(); p.setProperty('rev', now); if (area) p.setProperty('r.' + area, now); dropCache_(['revs']); ST_MEMO = null; }
+function touch_(sheetId) { props_().setProperty('t:' + sheetId, String(Date.now())); }
+function changed_(since) { var all = props_().getProperties(), out = []; for (var k in all) if (k.indexOf('t:') === 0 && Number(all[k]) > since) out.push(Number(k.slice(2))); return out; }
+// คนแก้ในชีตเอง → ทุกเครื่องรู้ (simple trigger ทำงานเองไม่ต้องตั้งค่า)
+function onEdit(e) { try { var now = String(Date.now()); var p = PropertiesService.getScriptProperties(); p.setProperty('edit', now); if (e && e.range) p.setProperty('t:' + e.range.getSheet().getSheetId(), now); dropCache_(['revs']); } catch (x) {} }
+function dropCache_(ks) { try { CacheService.getScriptCache().removeAll(ks); } catch (x) {} }
 // ทะเบียน: เพิ่มต่อท้ายอย่างเดียว → ขอเฉพาะแถวใหม่ (from = จำนวนที่เครื่องมีแล้ว)
 function events_(from) { var sh = tab_('Log', LOG_COLS), n = Math.max(sh.getLastRow() - 1, 0), f = Math.max(0, Math.min(Number(from) || 0, n)), hd = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), LOG_COLS.length)).getValues()[0];
   var lv = n - f > 0 ? sh.getRange(f + 2, 1, n - f, hd.length).getValues() : [];
   return { ok: true, n: n, from: f, events: lv.map(function (r) { var o = {}; hd.forEach(function (h, i) { o[h] = r[i] instanceof Date ? r[i].toISOString() : r[i]; }); return o; }) }; }
-function touch_(sheetId) { props_().setProperty('t:' + sheetId, String(Date.now())); }
-function changed_(since) { var all = props_().getProperties(), out = []; for (var k in all) if (k.indexOf('t:') === 0 && Number(all[k]) > since) out.push(Number(k.slice(2))); return out; }
-// คนแก้ในชีตเอง → ทุกเครื่องรู้ (simple trigger ทำงานเองไม่ต้องตั้งค่า)
-function onEdit(e) { try { var now = String(Date.now()); var p = PropertiesService.getScriptProperties(); p.setProperty('edit', now); if (e && e.range) p.setProperty('t:' + e.range.getSheet().getSheetId(), now); } catch (x) {} }
+// สถานะรวม (เลขรุ่น + สมาชิก) — อ่านแคชคำสั่งเดียว · แคชหาย = อ่าน Properties ครั้งเดียวแล้วเติมแคช
+var ST_MEMO = null;
+function st_() {
+  if (ST_MEMO) return ST_MEMO;
+  var c = CacheService.getScriptCache(), g = {}; try { g = c.getAll(['revs', 'mem']) || {}; } catch (x) {}
+  var revs = null, mem = null; try { revs = g.revs ? JSON.parse(g.revs) : null; mem = g.mem ? JSON.parse(g.mem) : null; } catch (x) {}
+  if (!revs || !mem) { var all = props_().getProperties(); revs = revsFrom_(all); mem = memFrom_(all.members); try { c.putAll({ revs: JSON.stringify(revs), mem: JSON.stringify(mem) }, 21600); } catch (x) {} }
+  ST_MEMO = { revs: revs, mem: mem }; return ST_MEMO;
+}
+function memFrom_(raw) { var m = null; try { m = raw ? JSON.parse(raw) : null; } catch (x) { m = null; }
+  if (!m || !m.list) m = { legacy: true, list: MEMBERS_SEED.map(function (x) { return { id: x.id, nick: x.nick, name: x.name || '', email: x.email || '', role: x.role || 'member', kh: '', active: true }; }) };
+  return m; }
+function saveMem_(m) { props_().setProperty('members', JSON.stringify(m)); dropCache_(['mem']); ST_MEMO = null; }
+// ── ตัวตน: ลิงก์ส่วนตัว = รหัสเฉพาะคน (เก็บแค่ค่าแฮช ไม่เก็บรหัสจริง) · ลิงก์รวมเดิม = ใช้ได้เฉพาะตอนยังไม่ปิด ──
+var ADMIN_OPS = { 'members.list': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'audit': 1, 'jobs.trash': 1, 'job.versions': 1, 'job.restore': 1, 'nsr.migrateOT': 1 };
+function hash_(k) { var b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'eqhub|' + k, Utilities.Charset.UTF_8);
+  return b.map(function (x) { return ((x + 256) % 256).toString(16).replace(/^(.)$/, '0$1'); }).join(''); }
+function auth_(req, mem) {
+  var k = String(req.key || ''); if (k.length < 8 || k.length > 80) return null;
+  if (k === TEAM_KEY) return mem.legacy ? { id: 'shared', nick: 'ลิงก์รวม', role: 'member', shared: true, email: '' } : null;
+  var h = hash_(k);
+  for (var i = 0; i < mem.list.length; i++) { var m = mem.list[i]; if (m.kh && m.kh === h) return m.active ? m : { revoked: true, id: m.id, nick: m.nick }; }
+  return null;
+}
+function me_(who, mem) { return { id: who.id, nick: who.nick, role: who.role, email: who.email || '', shared: !!who.shared, legacy: !!mem.legacy, claimable: !!OWNER_CODE }; }
+function newSecret_() { return 'eq-' + (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '').slice(0, 26).toLowerCase(); }
+// ขอสิทธิ์แอดมินครั้งแรก/กู้สิทธิ์: ต้องมีรหัสเจ้าของ (อยู่ในไฟล์สคริปต์ที่เจ้าของวางเองเท่านั้น)
+function claim_(q) {
+  if (!OWNER_CODE || String(q.owner || '') !== OWNER_CODE) { audit_(q, 'ปฏิเสธ', 'admin.claim', 'รหัสเจ้าของไม่ถูก'); return { ok: false, error: 'forbidden' }; }
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return { ok: false, error: 'busy' };
+  try {
+    var m = memFrom_(props_().getProperty('members')), a = null;
+    for (var i = 0; i < m.list.length; i++) if (m.list[i].role === 'admin') { a = m.list[i]; break; }
+    if (!a) { a = { id: 'admin', nick: 'แอดมิน', name: '', email: '', role: 'admin', kh: '', active: true }; m.list.unshift(a); }
+    var key = newSecret_(); a.kh = hash_(key); a.active = true; saveMem_(m);
+    audit_(q, 'รับสิทธิ์แอดมิน', a.nick, 'ด้วยรหัสเจ้าของ');
+    return { ok: true, key: key, member: pub_(a, true) };
+  } finally { lock.releaseLock(); }
+}
+function pub_(m, full) { var dv = devs_()[m.id] || {}, list = Object.keys(dv).map(function (d) { var x = dv[d]; return { dev: d, label: x.l || '', first: x.f || '', last: x.s || '' }; }).sort(function (a, b) { return a.last < b.last ? 1 : -1; });
+  var o = { id: m.id, nick: m.nick, role: m.role, active: m.active !== false, lastSeen: list.length ? list[0].last : '', device: list.length ? list[0].label : '' };
+  if (full) { o.name = m.name || ''; o.email = m.email || ''; o.hasKey = !!m.kh; o.devices = list; }
+  return o; }
+// ทุกคนเห็นชื่อเล่น/บทบาท/ใช้ล่าสุด · อีเมลและรายการเครื่อง = แอดมินเท่านั้น
+function team_(who, full) { var m = st_().mem, adm = who && who.role === 'admin'; var out = m.list.map(function (x) { return pub_(x, adm && (full || true)); });
+  if (m.legacy && devs_().shared) out.push(pub_({ id: 'shared', nick: 'ลิงก์รวม (ไม่ระบุตัว)', role: 'member', active: true }, adm)); return out; }
+function saveMember_(q) {
+  var x = q.member || {}, nick = String(x.nick || '').trim().slice(0, 30); if (!nick) return { ok: false, error: 'bad', message: 'ต้องมีชื่อเล่น' };
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return { ok: false, error: 'busy' };
+  try {
+    var m = memFrom_(props_().getProperty('members')), cur = null;
+    for (var i = 0; i < m.list.length; i++) if (m.list[i].id === x.id) cur = m.list[i];
+    if (!cur) { if (m.list.length >= 30) return { ok: false, error: 'bad', message: 'สมาชิกเต็ม' }; cur = { id: 'm' + Date.now().toString(36), kh: '', active: true }; m.list.push(cur); }
+    var before = JSON.stringify({ nick: cur.nick, email: cur.email, role: cur.role, active: cur.active });
+    cur.nick = nick; cur.name = String(x.name || '').slice(0, 60); cur.email = String(x.email || '').trim().toLowerCase().slice(0, 80);
+    cur.role = x.role === 'admin' ? 'admin' : 'member'; cur.active = x.active !== false;
+    if (!m.list.some(function (y) { return y.role === 'admin' && y.active !== false && y.kh; })) return { ok: false, error: 'bad', message: 'ต้องเหลือแอดมินที่ใช้งานได้อย่างน้อย 1 คน' };
+    saveMem_(m); audit_(q, 'แก้สมาชิก', nick, before + ' → ' + JSON.stringify({ nick: cur.nick, email: cur.email, role: cur.role, active: cur.active }));
+    return { ok: true, member: pub_(cur, true) };
+  } finally { lock.releaseLock(); }
+}
+// ออกลิงก์ส่วนตัวใหม่ (ลิงก์เดิมของคนนั้นใช้ไม่ได้ทันที) — รหัสแสดงครั้งเดียว
+function newKey_(q) {
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(20000)) return { ok: false, error: 'busy' };
+  try {
+    var m = memFrom_(props_().getProperty('members')), cur = null;
+    for (var i = 0; i < m.list.length; i++) if (m.list[i].id === q.id) cur = m.list[i];
+    if (!cur) return { ok: false, error: 'missing' };
+    var key = newSecret_(); cur.kh = hash_(key); cur.active = true; saveMem_(m);
+    audit_(q, 'ออกลิงก์ส่วนตัวใหม่', cur.nick, 'ลิงก์เดิมของคนนี้ใช้ไม่ได้แล้ว');
+    return { ok: true, key: key, member: pub_(cur, true) };
+  } finally { lock.releaseLock(); }
+}
+function setLegacy_(q) {
+  var m = memFrom_(props_().getProperty('members'));
+  if (!q.on && !m.list.some(function (y) { return y.role === 'admin' && y.active !== false && y.kh; })) return { ok: false, error: 'bad', message: 'ต้องมีแอดมินที่มีลิงก์ส่วนตัวก่อนปิดลิงก์รวม' };
+  m.legacy = !!q.on; saveMem_(m); audit_(q, m.legacy ? 'เปิดลิงก์รวม' : 'ปิดลิงก์รวม', 'ทีม', ''); return { ok: true, legacy: m.legacy };
+}
+// เครื่องที่ใช้ของแต่ละคน: บันทึกเครื่องใหม่ทันที (+ บันทึกเหตุการณ์ "เครื่องใหม่") · เวลาใช้ล่าสุดอัปเดตทุก ~10 นาที (ประหยัดโควตา)
+function devs_() { var c = CacheService.getScriptCache(), r = null; try { r = c.get('devs'); } catch (x) {}
+  if (!r) { r = props_().getProperty('devices') || '{}'; try { c.put('devs', r, 21600); } catch (x) {} }
+  try { return JSON.parse(r) || {}; } catch (x) { return {}; } }
+function seen_(who, req) {
+  if (!req.dev) return; var c = CacheService.getScriptCache(), ck = 'sd:' + who.id + ':' + req.dev;
+  try { if (c.get(ck)) return; } catch (x) {}
+  var all = devs_(), mine = all[who.id] || {}, now = new Date().toISOString(), isNew = !mine[req.dev];
+  mine[req.dev] = { l: req.dl || (mine[req.dev] && mine[req.dev].l) || '', f: (mine[req.dev] && mine[req.dev].f) || now, s: now };
+  var ks = Object.keys(mine).sort(function (a, b) { return mine[a].s < mine[b].s ? 1 : -1; }); ks.slice(8).forEach(function (k) { delete mine[k]; });
+  all[who.id] = mine; var j = JSON.stringify(all); if (j.length < 8500) { props_().setProperty('devices', j); try { c.put('devs', j, 21600); } catch (x) {} }
+  try { c.put(ck, '1', 600); } catch (x) {}
+  if (isNew) audit_(req, 'เครื่องใหม่', who.nick, req.dl || req.dev);
+}
+// รหัสผิด/ถูกปิด: นับในแคช · บันทึกลงประวัติไม่เกิน 1 ครั้ง/10 นาที/เครื่อง (กันถูกยิงจนชีตเต็ม)
+function keyFail_(req, who) { try { var c = CacheService.getScriptCache(), k = 'kf:' + String(req.dev || 'x').slice(0, 40); if (c.get(k)) return; c.put(k, '1', 600);
+  audit_({ who: who ? { nick: who.nick, role: '' } : { nick: '?', role: '' }, dev: String(req.dev || '').slice(0, 40), dl: String(req.dl || '').slice(0, 80) }, who ? 'ลิงก์ถูกปิดแต่ยังพยายามใช้' : 'รหัสไม่ถูกต้อง', String(req.op || '').slice(0, 30), ''); } catch (x) {} }
+// จำกัดความถี่ต่อคน/เครื่อง (กันสคริปต์ยิงถล่ม): เขียน ≤ 40/นาที · อ่าน ≤ 150/นาที
+var WRITE_OPS = { 'nsr.create': 1, 'nsr.edit': 1, 'log': 1, 'log.many': 1, 'job.put': 1, 'job.del': 1, 'status.set': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'job.restore': 1, 'admin.claim': 1, 'nsr.migrateOT': 1 };
+function rate_(who, req) { try { var c = CacheService.getScriptCache(), w = WRITE_OPS[req.op] ? 'w' : 'r', k = 'rl:' + w + ':' + who.id + ':' + req.dev + ':' + Math.floor(Date.now() / 60000), n = Number(c.get(k) || 0) + 1;
+  c.put(k, String(n), 120); return n <= (w === 'w' ? 40 : 150); } catch (x) { return true; } }
+// ── บันทึกการใช้งาน (ใคร · อีเมล · เครื่อง · ทำอะไร · กับอะไร) — แอดมินเท่านั้นที่อ่านได้ ──
+var AUDIT_COLS = ['ts', 'who', 'email', 'role', 'device', 'dev', 'action', 'target', 'detail'];
+function audit_(q, action, target, detail) { try { var w = q.who || {}, sh = tab_('Audit', AUDIT_COLS);
+  sh.appendRow([new Date().toISOString(), String(w.nick || q.by || ''), String(w.email || ''), String(w.role || ''), String(q.dl || ''), String(q.dev || ''), action, String(target || '').slice(0, 200), String(detail || '').slice(0, 4000)]);
+  var n = sh.getLastRow(); if (n > 6000) sh.deleteRows(2, 1000); } catch (x) {} }
+function audit_list_(q) { var sh = tab_('Audit', AUDIT_COLS), n = sh.getLastRow() - 1, k = Math.min(Math.max(Number(q.limit) || 300, 1), 1000); if (n < 1) return { ok: true, rows: [] };
+  var v = sh.getRange(Math.max(2, n + 2 - k), 1, Math.min(k, n), AUDIT_COLS.length).getValues().reverse();
+  return { ok: true, rows: v.map(function (r) { var o = {}; AUDIT_COLS.forEach(function (c, i) { o[c] = r[i] instanceof Date ? r[i].toISOString() : String(r[i]); }); return o; }) }; }
+// ทะเบียน: ชื่อ/อีเมล/เครื่องมาจากศูนย์กลาง (ลิงก์ส่วนตัว) — ลิงก์รวมใช้ชื่อที่พิมพ์ + "(ลิงก์รวม)"
+function stampEv_(ev, q, force) { ev = ev || {}; var w = q.who || {};
+  if (!w.shared) { if (force || !ev.byName) ev.byName = w.nick; ev.email = w.email || ''; ev.mid = w.id || ''; }
+  else { ev.byName = String(ev.byName || '').slice(0, 40) ? String(ev.byName).slice(0, 40) + ' (ลิงก์รวม)' : 'ลิงก์รวม'; ev.email = ''; ev.mid = 'shared'; }
+  if (force || !ev.device) ev.device = q.dl || ev.device || ''; return ev; }
+// ── ตรวจข้อมูลที่จะเขียนลงชีต NSR (กันใส่สูตรแปลก/เขียนนอกตาราง) ──
+var FN_OK = /\\b(SUM|MAX|MIN|IFERROR|ROUND|ROUNDUP|ROUNDDOWN|AVERAGE|IF|CEILING|FLOOR|ABS)\\s*\\(/gi;
+function formulaOk_(f) { var t = String(f).slice(1).replace(FN_OK, '(').replace(/\\$?[A-Z]{1,3}\\$?\\d{1,4}/gi, ''); return /^[0-9+\\-*\\/().,:%\\s<>=]*$/.test(t); }
+function gridBad_(q) { var rows = q.rows; if (!q.title || String(q.title).length > 99) return 'ชื่อแท็บไม่ถูกต้อง'; if (!Array.isArray(rows) || rows.length > 120) return 'จำนวนแถวเกิน';
+  for (var i = 0; i < rows.length; i++) { if (!Array.isArray(rows[i]) || rows[i].length > 20) return 'จำนวนคอลัมน์เกิน';
+    for (var j = 0; j < rows[i].length; j++) { var v = rows[i][j]; if (typeof v === 'string' && v.length > 2000) return 'ข้อความยาวเกิน'; if (typeof v === 'string' && v.charAt(0) === '=' && !formulaOk_(v)) return 'สูตรไม่อนุญาต: ' + v.slice(0, 60); } }
+  return ''; }
+function editsBad_(ed) { if (!Array.isArray(ed) || ed.length > 80) return 'จำนวนช่องที่แก้เกิน';
+  for (var i = 0; i < ed.length; i++) { var x = ed[i]; if (!x || !(x.r >= 1 && x.r <= 80) || !(x.c >= 1 && x.c <= 20)) return 'ตำแหน่งช่องอยู่นอกตาราง NSR';
+    if (typeof x.v === 'string' && x.v.length > 2000) return 'ข้อความยาวเกิน'; if (x.v !== null && typeof x.v === 'object') return 'ค่าไม่ถูกต้อง'; }
+  return ''; }
+// ข้อความที่ขึ้นต้นด้วย = + @ (ไม่ใช่สูตรที่อนุญาต/ตัวเลข) → ใส่เครื่องหมาย ' นำ ให้ชีตเก็บเป็นข้อความ (กันฝังสูตร)
+function cellIn_(v, editMode) { if (typeof v !== 'string') return v; var c = v.charAt(0);
+  if (c === '=' && !editMode && formulaOk_(v)) return v;
+  if (c === '=' || c === '+' || c === '@' || (c === '-' && !/^-?\\d+(\\.\\d+)?$/.test(v))) return "'" + v; return v; }
 // ── สเปรดชีตข้อมูลกลางทีม (สร้างครั้งแรกอัตโนมัติ) ──
-var LOG_COLS = ['ts','eid','programId','jobId','action','docKind','docCode','school','courseCode','course','dayThemes','addons','partyTheme','durationMode','days','nights','dates','venue','province','region','students','teachers','normalPrice','specialPrice','source','by','byName'];
+var LOG_COLS = ['ts','eid','programId','jobId','action','docKind','docCode','school','courseCode','course','dayThemes','addons','partyTheme','durationMode','days','nights','dates','venue','province','region','students','teachers','normalPrice','specialPrice','source','by','byName','email','device','mid'];
 var JOB_COLS = ['id','savedAt','name','course','school','dates','duration','docCode','files','lastFileAt','by','dev','deleted','size'];
 function hub_() {
   var p = props_(), id = p.getProperty('HUB_ID'), ss = null;
@@ -353,8 +519,14 @@ function hub_() {
   if (!ss) { ss = SpreadsheetApp.create('EQ Camp — ข้อมูลกลางทีม (ห้ามแชร์สาธารณะ)'); p.setProperty('HUB_ID', ss.getId()); }
   return ss;
 }
-function tab_(name, cols) { var ss = hub_(), sh = ss.getSheetByName(name); if (!sh) { sh = ss.insertSheet(name); sh.appendRow(cols); sh.setFrozenRows(1); var d = ss.getSheetByName('Sheet1') || ss.getSheetByName('ชีต1') || ss.getSheetByName('แผ่น1'); if (d && ss.getSheets().length > 1) ss.deleteSheet(d); } return sh; }
-function seen_(sh, eid) { var n = sh.getLastRow(); if (n < 2) return false; var v = sh.getRange(Math.max(2, n - 300), 2, Math.min(300, n - 1), 1).getValues(); for (var i = 0; i < v.length; i++) if (v[i][0] === eid) return true; return false; }
+function tab_(name, cols) { var ss = hub_(), sh = ss.getSheetByName(name); if (sh) { ensureCols_(sh, cols); return sh; } if (!sh) { sh = ss.insertSheet(name); sh.appendRow(cols); sh.setFrozenRows(1); var d = ss.getSheetByName('Sheet1') || ss.getSheetByName('ชีต1') || ss.getSheetByName('แผ่น1'); if (d && ss.getSheets().length > 1) ss.deleteSheet(d); } return sh; }
+// แท็บเดิมจากรุ่นก่อน: เติมหัวคอลัมน์ใหม่ต่อท้าย (ไม่ย้าย/ไม่ลบคอลัมน์เดิม) — ตรวจครั้งเดียวต่อการเรียก
+var COLS_OK = {};
+function ensureCols_(sh, cols) { var k = sh.getName(); if (COLS_OK[k]) return; COLS_OK[k] = 1; var n = Math.max(sh.getLastColumn(), 1), hd = sh.getRange(1, 1, 1, n).getValues()[0];
+  if (k === 'Jobs') return;   // Jobs: คอลัมน์ท้ายเป็นเนื้องาน ห้ามเติมหัว
+  var miss = cols.filter(function (c) { return hd.indexOf(c) < 0; }); if (!miss.length) return; var at = hd.filter(function (h) { return h !== ''; }).length;
+  sh.getRange(1, at + 1, 1, miss.length).setValues([miss]); }
+function seenEid_(sh, eid) { var n = sh.getLastRow(); if (n < 2) return false; var v = sh.getRange(Math.max(2, n - 300), 2, Math.min(300, n - 1), 1).getValues(); for (var i = 0; i < v.length; i++) if (v[i][0] === eid) return true; return false; }
 // งาน: ข้อมูลงาน (JSON) แบ่งเก็บหลายช่อง ช่องละไม่เกิน 45,000 ตัวอักษร (เพดานชีต 50,000)
 function jobs_(withSnap) {
   var sh = tab_('Jobs', JOB_COLS), last = sh.getLastRow();   // รายการงานอ่านเฉพาะคอลัมน์ข้อมูลงาน (ไม่ดึงเนื้องานก้อนใหญ่) → เร็วแม้หลายคนเปิดพร้อมกัน
@@ -365,20 +537,49 @@ function jobs_(withSnap) {
     if (withSnap) { var s = r.slice(JOB_COLS.length).join(''); try { o.snap = s ? JSON.parse(s) : null; } catch (x) { o.snap = null; } }
     return o; });
 }
-function putJob_(j, base, dev, by) {
-  if (!j.id || !j.snap) return { ok: false, error: 'bad' };
+function putJob_(j, base, dev, by, q) {
+  if (!j.id || !j.snap || String(j.id).length > 40) return { ok: false, error: 'bad' };
+  if (JSON.stringify(j.snap).length > 600000) return { ok: false, error: 'bad', message: 'งานใหญ่เกิน' };
   var sh = tab_('Jobs', JOB_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; });
   var at = ids.indexOf(j.id) + 1, now = new Date().toISOString();
   if (at > 1 && base) { var cur = sh.getRange(at, 2).getValue(); cur = cur instanceof Date ? cur.toISOString() : String(cur); var cdev = sh.getRange(at, 12).getValue();
     if (cur > base && cdev !== dev) return { ok: false, error: 'conflict', savedAt: cur, by: sh.getRange(at, 11).getValue() }; }
   var s = JSON.stringify(j.snap), parts = []; for (var i = 0; i < s.length; i += 45000) parts.push(s.slice(i, i + 45000));
   var row = [j.id, now, j.name || '', j.course || '', j.school || '', j.dates || '', j.duration || '', j.docCode || '', Number(j.files) || 0, j.lastFileAt || '', by || '', dev || '', false, s.length].concat(parts);
-  if (at > 1) { sh.getRange(at, 1, 1, Math.max(sh.getLastColumn(), row.length)).clearContent(); sh.getRange(at, 1, 1, row.length).setValues([row]); }
+  if (at > 1) { hist_(sh, at, q, 'ก่อนบันทึกทับ'); sh.getRange(at, 1, 1, Math.max(sh.getLastColumn(), row.length)).clearContent(); sh.getRange(at, 1, 1, row.length).setValues([row]); }
   else sh.appendRow(row);
   bump_('job'); return { ok: true, savedAt: now };
 }
-function delJob_(id) { var sh = tab_('Jobs', JOB_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; }), at = ids.indexOf(id) + 1;
-  if (at > 1) { sh.getRange(at, 13).setValue(true); sh.getRange(at, 2).setValue(new Date().toISOString()); bump_('job'); } return { ok: true }; }
+function delJob_(id, q) { var sh = tab_('Jobs', JOB_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; }), at = ids.indexOf(id) + 1;
+  if (at > 1) { hist_(sh, at, q, 'ก่อนลบ'); sh.getRange(at, 13).setValue(true); sh.getRange(at, 2).setValue(new Date().toISOString()); bump_('job'); audit_(q || {}, 'ลบงาน', String(sh.getRange(at, 3).getValue()), id); } return { ok: true }; }
+// ── ประวัติงาน: เก็บฉบับเดิมทุกครั้งก่อนบันทึกทับ/ลบ → แอดมินกู้คืนได้ (ไม่มีงานหายถาวรจากหน้าเว็บ) ──
+var HIST_HEAD = ['ts', 'why', 'who', 'dev'];
+function hist_(sh, at, q, why) { try { var n = Math.max(sh.getLastColumn(), JOB_COLS.length), row = sh.getRange(at, 1, 1, n).getValues()[0].map(function (v) { return v instanceof Date ? v.toISOString() : v; });
+  while (row.length && row[row.length - 1] === '') row.pop();
+  var h = tab_('JobHist', HIST_HEAD.concat(JOB_COLS)); h.appendRow([new Date().toISOString(), why, String((q && q.who && q.who.nick) || (q && q.by) || ''), String((q && q.dev) || '')].concat(row));
+  var m = h.getLastRow(); if (m > 3000) h.deleteRows(2, 500); } catch (x) {} }
+function histRows_(id) { var h = tab_('JobHist', HIST_HEAD.concat(JOB_COLS)), n = h.getLastRow(); if (n < 2) return [];
+  var w = Math.max(h.getLastColumn(), HIST_HEAD.length + JOB_COLS.length), v = h.getRange(2, 1, n - 1, w).getValues(), out = [];
+  for (var i = v.length - 1; i >= 0; i--) if (!id || v[i][4] === id) out.push({ row: i + 2, r: v[i] }); return out; }
+function trash_() { var del = jobs_().filter(function (j) { return j.deleted; }).map(function (j) { delete j.snap; return j; });
+  var recent = histRows_('').slice(0, 60).map(function (x) { var r = x.r; return { ts: String(r[0]), why: r[1], who: r[2], id: r[4], name: r[6], school: r[8], savedAt: r[5] instanceof Date ? r[5].toISOString() : String(r[5]) }; });
+  return { ok: true, deleted: del, recent: recent }; }
+function versions_(id) { return { ok: true, versions: histRows_(String(id || '')).slice(0, 30).map(function (x) { var r = x.r; return { at: String(r[0]), why: r[1], who: r[2], savedAt: r[5] instanceof Date ? r[5].toISOString() : String(r[5]), name: r[6], by: r[14], size: r[17] }; }) }; }
+function restore_(q) {
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(25000)) return { ok: false, error: 'busy' };
+  try {
+    var sh = tab_('Jobs', JOB_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; }), at = ids.indexOf(q.id) + 1;
+    var row = null;
+    if (q.at) { var hv = histRows_(String(q.id)).filter(function (x) { return String(x.r[0]) === String(q.at); })[0]; if (!hv) return { ok: false, error: 'missing' }; row = hv.r.slice(HIST_HEAD.length); while (row.length && row[row.length - 1] === '') row.pop(); }
+    if (at < 2 && !row) return { ok: false, error: 'missing' };
+    if (at > 1) hist_(sh, at, q, 'ก่อนกู้คืน');
+    var now = new Date().toISOString();
+    if (row) { row[1] = now; row[12] = false; if (at > 1) { sh.getRange(at, 1, 1, Math.max(sh.getLastColumn(), row.length)).clearContent(); sh.getRange(at, 1, 1, row.length).setValues([row]); } else sh.appendRow(row); }
+    else { sh.getRange(at, 13).setValue(false); sh.getRange(at, 2).setValue(now); }
+    bump_('job'); audit_(q, 'กู้คืนงาน', String(row ? row[2] : sh.getRange(at, 3).getValue()), q.at ? 'ฉบับ ' + q.at : 'ยกเลิกการลบ');
+    return { ok: true, savedAt: now };
+  } finally { lock.releaseLock(); }
+}
 function num_(s) { var t = String(s == null ? '' : s).replace(/[฿,\\s]/g, ''); return /^-?\\d+(\\.\\d+)?%?$/.test(t) ? parseFloat(t) / (t.slice(-1) === '%' ? 100 : 1) : null; }
 function same_(a, b) { var x = num_(a), y = num_(b); if (x !== null && y !== null) return Math.abs(x - y) < 0.5; return String(a || '').replace(/\\s/g, '') === String(b || '').replace(/\\s/g, ''); }
 // ── สถานะการขายต่อแท็บ NSR (เก็บในสเปรดชีตข้อมูลกลาง: Status = ล่าสุด · StatusLog = ประวัติทุกครั้ง) ──
