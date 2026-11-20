@@ -2,14 +2,16 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import DataHub from './DataHub';
 import Home from './Home';
 import Nsr from './Nsr';
+import Board from './Board';
+import SmeMovePanel from './SmeMove';
 import type { NsrPrefill } from './Nsr';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv } from './registry';
 import TeamConnect, { HubPill } from './TeamConnect';
 import SearchPalette from './Search';
-import { hubReady, onRev, acceptInvite, isInviteHash, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
+import { hubReady, onRev, onArea, acceptInvite, isInviteHash, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
 import type { LogEv } from './registry';
-import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete } from './jobs';
+import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete, keepMine, onJobConflict } from './jobs';
 import type { Job, TeamJob } from './jobs';
 import { Packer } from 'docx';
 import {
@@ -70,14 +72,14 @@ export default function App() {
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
   // หน้า: home (หน้าแรก/แคตตาล็อก) · build (สร้างเอกสาร) · hub (คลังข้อมูล) — ผูกกับ #ลิงก์ ให้ปุ่มย้อนกลับ/บุ๊กมาร์กทำงานทุกเบราว์เซอร์
-  type View = 'home' | 'build' | 'hub' | 'nsr';
-  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') || h.startsWith('#/job/') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : 'home'; };
+  type View = 'home' | 'build' | 'hub' | 'nsr' | 'board';
+  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') || h.startsWith('#/job/') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : h.startsWith('#/team') ? 'board' : 'home'; };
   const hashArg = (pre: string) => { try { const h = location.hash; return h.startsWith(pre) ? decodeURIComponent(h.slice(pre.length)) : ''; } catch { return ''; } };
   const [view, setViewState] = useState<View>(fromHash);
   const [hubInit, setHubInit] = useState<{ key: number; sec?: any; course?: string; q?: string }>({ key: 0 });
   const setView = (v: View, sub = '') => {
     setViewState(v); if (v === 'nsr') setNsrTab(sub);
-    const h = (v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : '#/') + (sub ? '/' + encodeURIComponent(sub) : '');
+    const h = (v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : v === 'board' ? '#/team' : '#/') + (sub ? '/' + encodeURIComponent(sub) : '');
     try { if (location.hash !== h) history.pushState(null, '', h); } catch { /* sandbox */ }
     try { window.scrollTo(0, 0); } catch { /* ignore */ }
   };
@@ -142,12 +144,24 @@ export default function App() {
   };
   const jobIdRef = useRef(jobId); jobIdRef.current = jobId;
   const jobsRef = useRef(jobs); jobsRef.current = jobs;
-  useEffect(() => onRev(async () => {
-    const l = await refreshTeamJobs(); if (!l) return;
-    setTeamJobs(l);
-    const cur = l.find(t => t.id === jobIdRef.current), loc = jobsRef.current.find(j => j.id === jobIdRef.current);
-    if (cur && !cur.deleted && cur.dev && cur.dev !== deviceId() && loc && cur.savedAt > loc.savedAt) setRemoteJob(cur);
-  }), []);
+  useEffect(() => {
+    // งานของทีม: โหลดครั้งแรกเมื่อเชื่อมต่อ แล้วโหลดใหม่เฉพาะเมื่อ "ส่วนงาน" เปลี่ยน (ไม่โหลดทุกครั้งที่ใครบันทึกอะไรก็ได้)
+    const load = async () => {
+      const l = await refreshTeamJobs(); if (!l) return;
+      setTeamJobs(l);
+      const cur = l.find(t => t.id === jobIdRef.current), loc = jobsRef.current.find(j => j.id === jobIdRef.current);
+      if (cur && !cur.deleted && cur.dev && cur.dev !== deviceId() && loc && cur.savedAt > loc.savedAt) setRemoteJob(cur);
+    };
+    const u1 = onRev((_r, had) => { if (!had) load(); });
+    const u2 = onArea(['job'], load);
+    // บันทึกไม่ผ่านเพราะมีคนบันทึกฉบับใหม่กว่า → ไม่ทับ ให้ผู้ใช้เลือก (โหลดฉบับล่าสุด / ทำต่อฉบับนี้)
+    const u3 = onJobConflict((id, info) => {
+      if (id !== jobIdRef.current) return;
+      const loc = jobsRef.current.find(j => j.id === id);
+      setRemoteJob({ id, savedAt: info.savedAt || new Date().toISOString(), by: info.by || '', name: loc?.name || '', dev: 'other' } as TeamJob);
+    });
+    return () => { u1(); u2(); u3(); };
+  }, []);
   // เชื่อมต่อทีมครั้งแรกบนเครื่องนี้ → ส่งงานที่ทำไว้ทั้งหมด + ทะเบียนเดิมเข้าศูนย์กลาง (ครั้งเดียวต่อศูนย์กลาง)
   useEffect(() => onHubState(st => {
     if (st.status !== 'live') return;
@@ -746,12 +760,12 @@ export default function App() {
     { id: 'images', label: `ภาพ (${camp.actImgs.length + camp.venueImgs.length})` }
   ] as const;
   const AUX = TABS.filter(t => t.id === 'db' || t.id === 'stats');
-  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }, { id: 'nsr', label: 'คำนวณ NSR' }] as const;
+  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }, { id: 'nsr', label: 'คำนวณ NSR' }, { id: 'board', label: 'ภาพรวมทีม' }] as const;
   const navOn = (id: string) => id === view;
   const goNav = (id: string) => {
     if (id === 'catalog') { setView('home'); window.setTimeout(() => { try { document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); } catch { /* ignore */ } }, 60); return; }
     if (id === 'hub') setHubInit(h => ({ key: h.key + 1 }));
-    setView(id as 'home' | 'build' | 'hub' | 'nsr');
+    setView(id as View);
   };
   const stepIdx = STEPS.findIndex(s => s.id === tab);
 
@@ -841,7 +855,7 @@ export default function App() {
         <div role="status" className="fixed z-40 top-20 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-24px))] rounded-xl border border-amber-300 bg-white shadow-lift px-4 py-3 text-[14px] flex flex-wrap items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" /><span className="flex-1 min-w-[12rem]">งานนี้ถูกแก้จากเครื่องอื่น{remoteJob.by ? ` (${remoteJob.by})` : ''} {ago(remoteJob.savedAt)}</span>
           <button onClick={() => openTeamJob(remoteJob)} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium">โหลดฉบับล่าสุด</button>
-          <button onClick={() => setRemoteJob(null)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist text-[13.5px]">ทำต่อฉบับนี้</button>
+          <button onClick={() => { const loc = jobs.find(j => j.id === remoteJob.id); if (loc) keepMine({ ...loc, by: userName() } as any, remoteJob.savedAt); setRemoteJob(null); }} className="tap px-3 py-1.5 rounded-lg border border-brand-mist text-[13.5px]">ทำต่อฉบับนี้</button>
         </div>
       )}
 
@@ -885,7 +899,10 @@ export default function App() {
           </div>
         )}
 
-        {view === 'nsr' ? (
+        {view === 'board' ? (
+          <Board onConnect={() => setConnectOpen(true)} onBuild={() => { setTab('brief'); setView('build'); }} onOpenNsr={t => setView('nsr', t)}
+            onOpenJob={id => { const j = jobs.find(x => x.id === id); if (j) openJob(j); else openTeamJob((teamJobs.find(x => x.id === id) || { id }) as TeamJob); setTab('header'); setView('build'); }} />
+        ) : view === 'nsr' ? (
           <Nsr flash={(t, w) => flash(t, !w)} prefill={nsrPrefill} onConnect={() => setConnectOpen(true)} openTab={nsrTab} />
         ) : view === 'hub' ? (
           <DataHub key={hubInit.key} initialSec={hubInit.sec} initialQ={hubInit.q} venues={allVenues} currentCourse={hubInit.course || camp.courseCode} currentVenue={camp.venue}
@@ -1284,6 +1301,7 @@ export default function App() {
                     <Field label="ผู้เสนอราคา"><input value={camp.contactName} onChange={e => set({ contactName: e.target.value })} className={inp} /></Field>
                   </div>
                   <Field label="บันทึกซัพพลายเออร์ (เฉพาะเอกสารภายใน)"><input value={camp.supplierNote} onChange={e => set({ supplierNote: e.target.value })} className={inp} /></Field>
+                  <SmeMovePanel camp={camp} />
                 </div>
               )}
 
@@ -1489,7 +1507,7 @@ function StatsPanel({ useCap, saveText, onConnect, onOpenJob }: { useCap: (n: st
   const [tick, setTick] = useState(0);
   const [q, setQ] = useState('');
   // เรียลไทม์: มีคนสร้างไฟล์ที่เครื่องอื่น → รายการขึ้นเองภายใน ~5 วิ
-  useEffect(() => onRev((_r, changed) => { if (changed) setTick(t => t + 1); }), []);
+  useEffect(() => onArea(['log'], () => setTick(t => t + 1)), []);
   useEffect(() => {
     let alive = true; setLocal(loadLocal());
     if (hubReady()) { readTeam().then(r => { if (alive) setTeam(prev => r.ok ? { state: 'ok', events: r.events } : prev.state === 'ok' ? prev : { state: 'err', events: [], msg: r.msg }); }); }

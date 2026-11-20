@@ -30,11 +30,11 @@ const NSR = SS('NSRID', 'NSR'); NSR._sheets[0] = Sheet(NSR, 'ตารางค�
 const t1 = NSR.insertSheet('stem@ทดสอบ'); t1.getRange(1, 1, 3, 5).setValues([['x', 'ชื่องานที่จัด', '', '', ''], ['รายละเอียดงาน', 'STEM', 'โคราช', 80, 6], ['', '', '', '', '']]);
 const files = { NSRID: NSR }; let created = 0;
 const NID = (code.match(/const NSR_ID = '([^']*)'/) || [])[1]; if (NID) files[NID] = NSR;
-const props = {}; const triggers = []; const cache = {};
+const props = {}; const triggers = []; const cache = {}; let lockFree = true, opens = 0;
 const env = {
-  SpreadsheetApp: { getActiveSpreadsheet: () => NSR, openById: id => { if (!files[id]) throw new Error('nf'); return files[id]; }, create: n => { const id = 'HUB' + (++created); files[id] = SS(id, n); return files[id]; } },
+  SpreadsheetApp: { getActiveSpreadsheet: () => { opens++; return NSR; }, openById: id => { if (!files[id]) throw new Error('nf'); if (files[id] === NSR) opens++; return files[id]; }, create: n => { const id = 'HUB' + (++created); files[id] = SS(id, n); return files[id]; } },
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => (k in props ? props[k] : null), setProperty: (k, v) => { props[k] = String(v); }, getProperties: () => ({ ...props }) }) },
-  LockService: { getScriptLock: () => ({ waitLock() {}, tryLock() { return true; }, releaseLock() {} }) },
+  LockService: { getScriptLock: () => ({ waitLock() { if (!lockFree) throw new Error('Lock timeout: another process was holding the lock for too long.'); }, tryLock() { return lockFree; }, releaseLock() {} }) },
   ContentService: { createTextOutput: s => ({ s, setMimeType() { return this; } }), MimeType: { JSON: 'json' } },
   CacheService: { getScriptCache: () => ({ getAll: ks => { const o = {}; for (const k of ks) if (k in cache) o[k] = cache[k]; return o; }, putAll: (o) => { Object.assign(cache, o); }, get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
   ScriptApp: { getProjectTriggers: () => triggers, deleteTrigger: t => triggers.splice(triggers.indexOf(t), 1), newTrigger: h => ({ forSpreadsheet: id => ({ onEdit: () => ({ create: () => { triggers.push({ getHandlerFunction: () => h, id }); } }) }), timeBased: () => ({ everyHours: n => ({ create: () => { triggers.push({ getHandlerFunction: () => h, every: n }); } }) }) }) }
@@ -120,6 +120,19 @@ ok('migrateOT: busy N:O tab refused', m1.bad.some(b => /busy@ทดสอบ/.te
 ok('migrateOT: touches tab (cache rebuild) + rev bump', Number(props['t:' + ot.getSheetId()]) > 0);
 const m2 = call('nsr.migrateOT'); ok('migrateOT: second run skips (idempotent)', m2.skip >= 1 && G[2][12] === '=(sum(J3*I3*K3)+L3)+O3', JSON.stringify(m2));
 const rd15 = call('nsr.read', { tabs: ['ot@ทดสอบ'] }); ok('nsr.read returns 15 columns (A..O)', rd15.tabs[0].values[0].length === 15);
+// ── v8: หลายคนพร้อมกัน ──
+const o0 = opens; const rv = call('rev'); ok('rev fast path: no spreadsheet opened + areas', opens === o0 && rv.areas && ['nsr', 'log', 'job', 'st'].every(k => k in rv.areas), JSON.stringify(rv));
+const ar0 = call('rev').areas; call('log', { ev: { eid: 'e9', school: 'รร.ค' } }); const ar1 = call('rev').areas;
+ok('log bumps only log area', ar1.log !== ar0.log && ar1.job === ar0.job && ar1.nsr === ar0.nsr && ar1.st === ar0.st, JSON.stringify([ar0, ar1]));
+const en = call('events'); const ef = call('events', { from: en.n - 1 });
+ok('events incremental (from) returns only new rows', en.n >= 4 && ef.events.length === 1 && ef.events[0].eid === 'e9' && ef.n === en.n, JSON.stringify(ef).slice(0, 200));
+ok('events from > n clamps', call('events', { from: 9999 }).events.length === 0);
+const bd = call('board'); ok('board = events + jobs + status in one call', bd.ok && bd.events.length === en.n && Array.isArray(bd.jobs) && Array.isArray(bd.status) && bd.areas, JSON.stringify(bd).slice(0, 200));
+const o1 = opens; call('board'); call('jobs'); call('events'); ok('team reads do not open NSR sheet', opens === o1);
+lockFree = false;
+ok('write while lock held → busy (retryable)', call('log', { ev: { eid: 'e10' } }).error === 'busy');
+ok('reads still work while lock held', call('events').ok && call('jobs').ok && call('rev').ok);
+lockFree = true; ok('write after lock frees', call('log', { ev: { eid: 'e10' } }).ok);
 ok('doGet', JSON.parse(fn.doGet().s).ok);
 ok('unknown op', call('zzz').error === 'op');
 process.exitCode = fail ? 1 : 0;

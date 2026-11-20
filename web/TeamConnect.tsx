@@ -21,7 +21,7 @@ export function HubPill({ onClick }: { onClick: () => void }) {
       className="tap flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[13px] font-medium whitespace-nowrap">
       <span className="w-2 h-2 rounded-full bg-emerald-500" /><span className="hidden sm:inline">เปิดแบบเรียลไทม์</span><span className="sm:hidden">สด</span>
     </a>);
-  const label = s.status === 'live' ? (ago != null && ago < 12 ? 'ทีม · สด' : `ทีม · ${ago}s`) : s.status === 'connecting' ? 'กำลังเชื่อม…' : s.status === 'off' ? 'เชื่อมต่อทีม' : s.status === 'offline' ? 'ออฟไลน์' : 'ทีม · มีปัญหา';
+  const label = s.status === 'live' ? (ago != null && ago < 35 ? 'ทีม · สด' : `ทีม · ${ago}s`) : s.status === 'connecting' ? 'กำลังเชื่อม…' : s.status === 'off' ? 'เชื่อมต่อทีม' : s.status === 'offline' ? 'ออฟไลน์' : 'ทีม · มีปัญหา';
   return (
     <button onClick={onClick} title={s.msg || (s.status === 'live' ? 'ข้อมูลทีมซิงก์อยู่ (ตรวจทุก 5 วินาที)' : 'ตั้งค่าเชื่อมต่อทีม')}
       className="tap flex items-center gap-1.5 px-2.5 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[13px] font-medium whitespace-nowrap" aria-label={`สถานะทีม: ${label}${s.pending ? ` รอส่ง ${s.pending}` : ''}`}>

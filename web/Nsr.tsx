@@ -6,7 +6,7 @@ import {
   approvalSteps, approvalNeed, SELF_MIN_TOTAL, staffOT, OT_RATE, SALE_STATUS, LOST_REASONS, SaleStatus, SaleStatusId, normStatus, salesSummary, needsFollow, saleValue
 } from '../src/nsr-core';
 import { Conn, TabInfo, TabData, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
-import { hubReady, onRev, onHubState, HubState, enqueue, userName, IN_CLAUDE, LIVE_WEB } from './hub';
+import { hubReady, onRev, onArea, onHubState, HubState, enqueue, userName, IN_CLAUDE, LIVE_WEB } from './hub';
 import { normQ } from './Search';
 import { draftFromBrief, draftFromCamp, aiPrompt, applyAi, NsrDraft, DraftField } from '../src/nsr-brief';
 import type { Camp } from '../src/eqcamp-core';
@@ -174,7 +174,7 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
       } catch { /* ชั่วคราว — รอบถัดไปลองใหม่ */ }
       finally { busyR = false; }
     };
-    const unsub = conn.kind === 'script' ? onRev((_r, changed) => { if (changed) refresh(); else setLastSync(new Date()); }) : (() => { const id = window.setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 15000); return () => window.clearInterval(id); })();
+    const unsub = conn.kind === 'script' ? (() => { const a = onArea(['nsr', 'st'], () => refresh()); const b = onRev(() => setLastSync(new Date())); return () => { a(); b(); }; })() : (() => { const id = window.setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 15000); return () => window.clearInterval(id); })();
     const id2 = window.setInterval(() => { if (document.visibilityState !== 'hidden' && (conn.all || Date.now() - lastList > 30000)) refresh(); }, conn.all ? 60000 : 30000);   // จับการเปลี่ยนชื่อแท็บ (ไม่มีสัญญาณแก้ชีต)
     return () => { alive = false; unsub(); window.clearInterval(id2); };
   }, [conn, connState]);
