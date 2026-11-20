@@ -900,7 +900,7 @@ export default function App() {
         )}
 
         {view === 'board' ? (
-          <Board onConnect={() => setConnectOpen(true)} onBuild={() => { setTab('brief'); setView('build'); }} onOpenNsr={t => setView('nsr', t)}
+          <Board flash={(t, w) => flash(t, !w)} onConnect={() => setConnectOpen(true)} onBuild={() => { setTab('brief'); setView('build'); }} onOpenNsr={t => setView('nsr', t)}
             onOpenJob={id => { const j = jobs.find(x => x.id === id); if (j) openJob(j); else openTeamJob((teamJobs.find(x => x.id === id) || { id }) as TeamJob); setTab('header'); setView('build'); }} />
         ) : view === 'nsr' ? (
           <Nsr flash={(t, w) => flash(t, !w)} prefill={nsrPrefill} onConnect={() => setConnectOpen(true)} openTab={nsrTab} />
@@ -1301,7 +1301,7 @@ export default function App() {
                     <Field label="ผู้เสนอราคา"><input value={camp.contactName} onChange={e => set({ contactName: e.target.value })} className={inp} /></Field>
                   </div>
                   <Field label="บันทึกซัพพลายเออร์ (เฉพาะเอกสารภายใน)"><input value={camp.supplierNote} onChange={e => set({ supplierNote: e.target.value })} className={inp} /></Field>
-                  <SmeMovePanel camp={camp} />
+                  <SmeMovePanel camp={camp} onChange={qc => set({ quoteCustomer: qc })} />
                 </div>
               )}
 

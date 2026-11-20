@@ -56,6 +56,8 @@ export interface Camp {
   dayExtends?: DayExtend[];
   /** ช่วงเวลาที่เพิ่มเอง */
   rowAdds?: RowAdd[];
+  // ข้อมูลลูกค้าสำหรับใบเสนอราคาในโปรแกรมบัญชี (SME Move) — ไม่ใช้ในเอกสาร Word · ว่าง = ให้กรอกเอง (ห้ามเดา)
+  quoteCustomer?: { address?: string; taxId?: string; branch?: string; contact?: string; phone?: string; email?: string; vat?: 'include' | 'exclude' | 'none'; smeNo?: string };
   activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
   extraActivities: Activity[]; // กิจกรรมที่ผู้ใช้เพิ่มเอง (custom) — ผูกกับวิชาปัจจุบัน
   /** กิจกรรมเสริม (Add-on) จากหลักสูตรอื่น (อังกฤษ/จีน/คณิต) แทรกลงกำหนดการค่ายหลัก */

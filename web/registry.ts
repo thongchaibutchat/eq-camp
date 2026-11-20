@@ -8,12 +8,13 @@
 import type { Camp, DocKind } from '../src/eqcamp-core';
 import { withAddonPrice, courseLabel, dayCourseOf } from '../src/eqcamp-core';
 import { hubReady, hubCall, enqueue } from './hub';
+import { deviceLabel } from './platform';
 
 export interface LogEv {
   eid: string; ts: string; action: string; docKind: string; programId: string; jobId?: string;
   docCode: string; school: string; courseCode: string; course: string; dayThemes: string; addons: string; partyTheme: string;
   durationMode: string; days: number; nights: number; dates: string; venue: string; province: string; region: string;
-  students: number; teachers: number; normalPrice: number; specialPrice: number; source: string; by?: string; byName?: string;
+  students: number; teachers: number; normalPrice: number; specialPrice: number; source: string; by?: string; byName?: string; email?: string; device?: string; mid?: string;
 }
 export interface ProgRow {
   programId: string; jobId?: string; first: string; last: string; docCode: string; school: string; course: string; courseCode: string;
@@ -44,7 +45,7 @@ export function makeEvent(action: string, c0: Camp, dk: DocKind | undefined, sou
     dayThemes: themes, addons: (c.addons || []).map(a => courseLabel(a.code)).join(' + '), partyTheme: c.partyTheme || '',
     durationMode: c.durationMode || '', days: c.days || 0, nights: c.nights || 0, dates: c.dates || '', venue: c.venue || '', province: c.province || '', region: String(c.region || ''),
     students: c.students || 0, teachers: c.teachers || 0, normalPrice: c.normalPrice || 0, specialPrice: c.specialPrice || 0,
-    source, by: who?.by || '', byName: who?.byName || ''
+    source, by: who?.by || '', byName: who?.byName || '', device: deviceLabel()
   };
 }
 

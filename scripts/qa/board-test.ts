@@ -48,5 +48,12 @@ ok('pick previous month', o.month === '2026-10' && o.programs === 1 && o.byPerso
 const e0 = teamBoard({ events: [], now });
 ok('empty data safe', e0.programs === 0 && e0.byPerson.length === 0 && e0.sales.closeRate === null && e0.months[0] === '2026-11');
 ok('bad rows ignored', teamBoard({ events: [null as any, { eid: 'x' } as any, E({ ts: 'not-a-date' })], now }).files === 0);
+const team = [{ id: 'panda', nick: 'แพนด้า', role: 'admin', email: 'p@x' }, { id: 'tata', nick: 'ตาต้า', email: 't@x', device: 'iPhone 16 Pro / 17 / 17 Pro · Safari' }, { id: 'king', nick: 'พี่กิ่ง' }, { id: 'nok', nick: 'พี่นก', active: false }];
+const tb = teamBoard({ now, team, events: [E({ ts: '2026-11-05T03:00:00Z', programId: 'X1', mid: 'tata', byName: 'ตาต้า', email: 't@x', device: 'iPhone 16 Pro / 17 / 17 Pro · Safari', school: 'รร.ต' }), E({ ts: '2026-11-06T03:00:00Z', programId: 'X2', email: 'P@X', byName: 'ชื่ออื่น', school: 'รร.พ' })] });
+ok('team: active members listed even with zero work', ['แพนด้า', 'ตาต้า', 'พี่กิ่ง'].every(n => tb.byPerson.some(p => p.name === n)) && !tb.byPerson.some(p => p.name === 'พี่นก'), tb.byPerson.map(p => p.name));
+ok('team: event matched by email (case-insensitive) to member', tb.byPerson.find(p => p.name === 'แพนด้า')!.programs === 1 && !tb.byPerson.some(p => p.name === 'ชื่ออื่น'));
+ok('team: device carried', tb.byPerson.find(p => p.name === 'ตาต้า')!.device!.includes('iPhone') && tb.feed.some(f => f.device.includes('iPhone')));
+ok('team: people count = members who worked', tb.people === 2, tb.people);
+ok('feed uses member nick', tb.feed.some(f => f.who === 'แพนด้า'));
 console.log(fail ? `${fail} FAIL` : 'board: all pass');
 process.exit(fail ? 1 : 0);
