@@ -314,3 +314,9 @@ branch → commit → PR เข้า main; ก่อนเริ่ม `git pul
 - ยังไม่มีหน้า review "ยืนยันก่อนออกไฟล์" เต็มรูปแบบ (เป็นแถบสรุป applied/missing + soft warning)
 - 03_งานค่ายจริง_EXPORT_JSON ใน Drive ใช้ schema "รุ่น4" (ของทีม) ยังไม่ reconcile กับ schema.json (_v2 ของ repo)
 - re-seed: ดึง MASTER ใหม่ → รัน generator สร้าง src/eqcamp-data.ts (ดู หมายเหตุใน eqcamp-data.ts)
+
+## ชุดข้อมูลกิจกรรม/ภาพ/ที่พัก สำหรับทีมหลังบ้าน (21 พ.ย. 2569)
+- `data/activity-catalog/` = แหล่งรวมจากไฟล์จริงทุกหลักสูตร: 46 โปรแกรม (= ไฟล์ Drive 46, `drive-manifest.tsv`) · 1,382 แถว (หลัก 389 · รอง 331 · ย่อย 188 · โลจิสติกส์ 470 · ไม่มีชื่อ 4) · กิจกรรมไม่ซ้ำ 392 (ในกำหนดการ 281 · เฉพาะหน้าปก 60 · ไม่เคยใช้ 51) · ภาพ 218 แยกเซสชัน (`photo-tags.tsv` ติดด้วยตาทีละรูป: ใช้ได้ 192 · ตรวจสิทธิ์ 25 · ห้ามใช้ 1 = #9 ea4e98f68d97 ลายน้ำ TheTripPacker ยังถูกฝังใน AST o21/o32) · ที่พัก 19 (มีภาพ 7) · สถานที่ทัศนศึกษา 8 · ประเด็นให้ทีมยืนยัน 42
+- รายชื่อจาก Drive ที่ไม่อยู่ในเว็บ (`drive-activity-lists.json`, ถอดตามต้นฉบับ) + โปรแกรมที่เว็บยังไม่มี ENG&CHI Day Camp 2 วัน (`missing-programs.json`, รหัสเอกสารต้นฉบับ PL0110 ชนกับ FOR — ให้ทีมยืนยัน)
+- สร้างใหม่: `python3 scripts/catalog/build-catalog.py data/activity-catalog/source-dump.json` → `out/` แล้ว `python3 scripts/catalog/verify-catalog.py` (12 ข้อต้อง PASS) · `scripts/catalog/build-xlsx.py` = สมุดงานเดียว
+- ชีตสำหรับประชุม (Claude Sheets): https://claude.ai/artifact/UFZRL2tJv2bjXm8f1ww1J9 · แพ็กเกจ zip (ภาพแยกโฟลเดอร์ ที่พัก/จังหวัด/ชื่อ และ กิจกรรม/หลักสูตร/เซสชัน) ส่งให้ผู้ใช้แล้ว
