@@ -43,7 +43,8 @@ function makeStore(fixture, opt = {}) {
   const touch = id => { touched.set(id, Date.now()); };
   const T0 = Date.now(); const built = new Set(); const statuses = new Map(); const statusLog = [];
   const tsOf = id => touched.get(id) || T0;
-  const bump = () => { rev = Date.now(); };
+  const areas = { nsr: '0', log: '0', job: '0', st: '0' };
+  const bump = (a) => { rev = Date.now(); if (a) areas[a] = String(rev); };
   const same = (a, b) => { const n = s => { const t = String(s ?? '').replace(/[฿,\s]/g, ''); return /^-?\d+(\.\d+)?%?$/.test(t) ? parseFloat(t) / (t.endsWith('%') ? 100 : 1) : null; }; const x = n(a), y = n(b); if (x !== null && y !== null) return Math.abs(x - y) < 0.5; return String(a || '').trim() === String(b || '').trim(); };
   const route = req => {
     switch (req.op) {
@@ -62,13 +63,13 @@ function makeStore(fixture, opt = {}) {
         return { ok: true, at, tabs: out, left, built: nb, url: 'https://docs.google.com/spreadsheets/d/TESTSHEET0000000000000000/edit', status: [...statuses.values()] };
       }
       case 'status.list': if (opt.legacy) break; return { ok: true, status: [...statuses.values()] };
-      case 'status.set': { if (opt.legacy) break; const st = req.st || {}; if (st.sheetId == null || !st.status) return { ok: false, error: 'bad' }; const row = { ...st, by: req.by || '', at: new Date().toISOString() }; statuses.set(String(st.sheetId), row); statusLog.push(row); bump(); return { ok: true, at: row.at }; }
+      case 'status.set': { if (opt.legacy) break; const st = req.st || {}; if (st.sheetId == null || !st.status) return { ok: false, error: 'bad' }; const row = { ...st, by: req.by || '', at: new Date().toISOString() }; statuses.set(String(st.sheetId), row); statusLog.push(row); bump('st'); return { ok: true, at: row.at }; }
       case 'nsr.changes': return { ok: true, ids: [...touched.entries()].filter(([, ts]) => ts > (Number(req.since) || 0)).map(([id]) => id) };
       case 'nsr.create': {
         if (tabs.some(t => t.title === req.title)) return { ok: false, error: 'exists' };
         const rows = req.rows; const w = Math.max(15, ...rows.map(r => r.length));
         const t = { title: req.title, sheetId: 50000 + tabs.length, values: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? '' : String(v ?? ''); })), formulas: rows.map(r => Array.from({ length: w }, (_, i) => { const v = r[i]; return typeof v === 'string' && v.startsWith('=') ? v : ''; })) };
-        evalTab(t); tabs.splice(Math.min(req.index || 1, tabs.length), 0, t); touch(t.sheetId); bump();
+        evalTab(t); tabs.splice(Math.min(req.index || 1, tabs.length), 0, t); touch(t.sheetId); bump('nsr');
         return { ok: true, sheetId: t.sheetId, title: t.title };
       }
       case 'nsr.edit': {
@@ -76,22 +77,23 @@ function makeStore(fixture, opt = {}) {
         const conflicts = (req.edits || []).filter(x => !same(t.values[x.r - 1][x.c - 1], x.was)).map(x => ({ r: x.r, c: x.c, now: t.values[x.r - 1][x.c - 1] }));
         if (conflicts.length && !req.force) return { ok: false, error: 'conflict', conflicts };
         for (const x of req.edits) { t.values[x.r - 1][x.c - 1] = String(x.v); t.formulas[x.r - 1][x.c - 1] = ''; }
-        evalTab(t); touch(t.sheetId); bump(); return { ok: true };
+        evalTab(t); touch(t.sheetId); bump('nsr'); return { ok: true };
       }
-      case 'log': { if (!req.ev || !req.ev.eid) return { ok: false, error: 'bad' }; if (!events.some(e => e.eid === req.ev.eid)) { events.push(req.ev); bump(); } return { ok: true }; }
-      case 'log.many': { let added = 0; for (const ev of req.events || []) if (ev && ev.eid && !events.some(e => e.eid === ev.eid)) { events.push(ev); added++; } if (added) bump(); return { ok: true, added }; }
-      case 'events': return { ok: true, events };
+      case 'log': { if (!req.ev || !req.ev.eid) return { ok: false, error: 'bad' }; if (!events.some(e => e.eid === req.ev.eid)) { events.push(req.ev); bump('log'); } return { ok: true }; }
+      case 'log.many': { let added = 0; for (const ev of req.events || []) if (ev && ev.eid && !events.some(e => e.eid === ev.eid)) { events.push(ev); added++; } if (added) bump('log'); return { ok: true, added }; }
+      case 'events': { if (opt.legacy) return { ok: true, events }; const f = Math.max(0, Math.min(Number(req.from) || 0, events.length)); return { ok: true, n: events.length, from: f, events: events.slice(f) }; }
+      case 'board': { if (opt.legacy) break; const f = Math.max(0, Math.min(Number(req.from) || 0, events.length)); return { ok: true, n: events.length, from: f, events: events.slice(f), jobs: [...jobs.values()].map(({ snap, ...m }) => m), status: [...statuses.values()] }; }
       case 'jobs': return { ok: true, jobs: [...jobs.values()].map(({ snap, ...m }) => m) };
       case 'job.get': { const j = jobs.get(req.id); return j ? { ok: true, job: j } : { ok: false, error: 'missing' }; }
-      case 'job.put': { const j = req.job || {}; if (!j.id || !j.snap) return { ok: false, error: 'bad' }; const now = new Date(Date.now() + 1).toISOString(); jobs.set(j.id, { ...j, savedAt: now, by: req.by || '', dev: req.dev || '', deleted: false }); bump(); return { ok: true, savedAt: now }; }
-      case 'job.del': { const j = jobs.get(req.id); if (j) { j.deleted = true; j.savedAt = new Date().toISOString(); bump(); } return { ok: true }; }
+      case 'job.put': { const j = req.job || {}; if (!j.id || !j.snap) return { ok: false, error: 'bad' }; { const cur = jobs.get(j.id); if (cur && req.base && cur.savedAt > req.base && cur.dev !== (req.dev || '')) return { ok: false, error: 'conflict', savedAt: cur.savedAt, by: cur.by }; } const now = new Date(Date.now() + 1).toISOString(); jobs.set(j.id, { ...j, savedAt: now, by: req.by || '', dev: req.dev || '', deleted: false }); bump('job'); return { ok: true, savedAt: now }; }
+      case 'job.del': { const j = jobs.get(req.id); if (j) { j.deleted = true; j.savedAt = new Date().toISOString(); bump('job'); } return { ok: true }; }
     }
     return { ok: false, error: 'op' };
   };
   const handle = req => {
     log.push(req);
     if (req.key !== 'nsr-testkey') return { ok: false, error: 'key' };
-    const r = route(req); if (r.ok !== false) r.rev = rev + '.' + edit; return r;
+    const r = route(req); if (r.ok !== false) { r.rev = rev + '.' + edit; if (!opt.legacy) r.areas = { ...areas, nsr: String(Math.max(Number(areas.nsr), edit)) }; } return r;
   };
   // แก้ค่าในชีตแทน "คนอื่น" (จำลอง onEdit)
   const poke = (title, r, c, v) => { const t = tabs.find(x => x.title === title); t.values[r - 1][c - 1] = String(v); t.formulas[r - 1][c - 1] = ''; evalTab(t); edit = Date.now(); touch(t.sheetId); };

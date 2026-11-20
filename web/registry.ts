@@ -57,10 +57,20 @@ export async function record(ev: LogEv): Promise<void> {
   saveLocal([ev, ...loadLocal()]);
   if (hubReady()) enqueue('log', { ev }, 'log:' + ev.eid);
 }
+// ทะเบียนทีมแบบเพิ่มทีละส่วน: ศูนย์กลางรุ่น 8 ส่งเฉพาะแถวใหม่ (from = จำนวนที่เครื่องมีแล้ว) · รุ่นเก่าส่งทั้งหมด = แทนทั้งชุด
+const LS_TEAM_N = 'eqcamp.registry.team.n';
+export const teamFrom = () => (loadTeamEvents().length ? Number(ls.get(LS_TEAM_N)) || 0 : 0);
+export function mergeTeam(j: any): LogEv[] {
+  const got: LogEv[] = (j?.events || []).filter((e: any) => e && e.eid);
+  const inc = typeof j?.n === 'number' && Number(j.from) > 0;
+  const list = inc ? dedupe([...loadTeamEvents(), ...got]) : got;
+  ls.set(LS_TEAM, JSON.stringify(list.slice(-5000))); ls.set(LS_TEAM_N, typeof j?.n === 'number' ? String(j.n) : '');
+  return list;
+}
 // อ่านทั้งทีมจากศูนย์กลางทีม
 export async function readTeam(): Promise<{ ok: boolean; events: LogEv[]; msg?: string }> {
   if (!hubReady()) return { ok: false, events: [], msg: 'ยังไม่ได้เชื่อมต่อทีม' };
-  try { const j = await hubCall('events', {}, 30000); const events = (j.events || []).filter((e: any) => e && e.eid); ls.set(LS_TEAM, JSON.stringify(events.slice(-5000))); return { ok: true, events }; }
+  try { const j = await hubCall('events', { from: teamFrom() }, 30000); return { ok: true, events: mergeTeam(j) }; }
   catch (e: any) { return { ok: false, events: [], msg: e?.message || 'อ่านข้อมูลทีมไม่สำเร็จ' }; }
 }
 

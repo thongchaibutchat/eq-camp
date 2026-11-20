@@ -17,7 +17,7 @@ const B = 'http://localhost:8765/index.html';
   for (const [name, text, expect] of [['paste code only', K, true], ['paste short link', `https://thongchaibutchat.github.io/eq-camp/#/t/${K}`, true], ['paste %23 link', `https://thongchaibutchat.github.io/eq-camp/%23/t/${K}`, true], ['paste link with spaces/newline', `  เปิดลิงก์นี้\nhttps://thongchaibutchat.github.io/eq-camp/#/join/${full}  `, true], ['paste plain site link', 'https://thongchaibutchat.github.io/eq-camp/', false]]) {
     const p = await fresh(); await p.goto(B + '#/nsr'); await p.waitForTimeout(800);
     await p.evaluate(() => localStorage.setItem('eqcamp.hub.key', 'eq-WRONGWRONG1')); await p.reload(); await p.waitForTimeout(800);
-    await p.locator('button:has-text("ทีม")').first().click().catch(() => {});
+    await p.locator('button:has-text("ทีม")').filter({ hasNotText: 'ภาพรวม' }).first().click().catch(() => {});
     await p.waitForTimeout(400);
     const inp = p.getByLabel('วางลิงก์ทีมหรือรหัสทีม');
     if (!(await inp.count())) { ok(false, name + ' — join box not found'); await p.context().close(); continue; }

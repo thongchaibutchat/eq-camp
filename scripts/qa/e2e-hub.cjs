@@ -62,8 +62,9 @@ const URL_ = 'https://script.google.com/macros/s/TEST/exec';
   await A.pg.waitForTimeout(300);
   const st = A.pg.getByLabel(/จำนวนนักเรียน|นักเรียน/).first();
   if (await st.count()) { await st.fill('95'); }
-  await A.pg.waitForTimeout(9000);
+  await A.pg.waitForTimeout(14000);
   tb = await body(B.pg);
+  if (process.env.DBG) { console.log('jobs', JSON.stringify([...store.jobs.values()].map(j => [j.id, j.savedAt, j.dev, j.name]))); console.log('last ops', store.log.slice(-25).map(r => r.op + ':' + (r.dev || '').slice(-4)).join(' ')); console.log('B local', await B.pg.evaluate(() => localStorage.getItem('eqcamp.jobs.v1')?.slice(0, 400))); }
   ok('B: notified job changed on other device', /ถูกแก้จากเครื่องอื่น/.test(tb), (tb.match(/งานนี้[^\n]*/) || [''])[0]);
   // B ค้นหาทั้งระบบ
   await B.pg.goto(BASE + '/#/nsr'); await B.pg.waitForTimeout(2500);   // โหลดแคช NSR

@@ -69,7 +69,20 @@ export class HubError extends Error { code: string; data?: any; constructor(code
 export const IN_CLAUDE = typeof window !== 'undefined' && !!(window as any).claude;
 // claude.ai ห้ามหน้าเว็บเรียกเว็บอื่น (fetch ไป Google ถูกบล็อกเสมอ) → ข้อมูลทีมแบบสดใช้ได้เฉพาะเวอร์ชันเว็บนี้
 export const LIVE_WEB = 'https://thongchaibutchat.github.io/eq-camp/';
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+// ศูนย์กลางทีม (Apps Script) รับงานพร้อมกันได้จำกัด (~30 คำสั่งพร้อมกันต่อบัญชีเจ้าของ) → คำตอบ "ไม่ว่าง" = รอสุ่มเวลาแล้วลองใหม่เอง (คำสั่งยังไม่ถูกทำ จึงลองซ้ำได้ปลอดภัย)
+export const BUSY_RETRIES = 3;
 export async function hubCall<T = any>(op: string, body: Record<string, any> = {}, timeout = 45000): Promise<T> {
+  for (let i = 0; ; i++) {
+    try { return await hubCallOnce<T>(op, body, timeout); }
+    catch (e: any) {
+      if (e?.code !== 'busy' || i >= BUSY_RETRIES) throw e;
+      busyHits++; await sleep(Math.round((600 * 2 ** i) * (0.6 + Math.random() * 0.8)));
+    }
+  }
+}
+export let busyHits = 0;
+async function hubCallOnce<T = any>(op: string, body: Record<string, any>, timeout: number): Promise<T> {
   const url = hubUrl(), key = hubKey();
   if (!URL_RX.test(url) || !key) throw new HubError('off', 'ยังไม่ได้เชื่อมต่อทีม');
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), timeout);
@@ -82,14 +95,19 @@ export async function hubCall<T = any>(op: string, body: Record<string, any> = {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new HubError('offline', 'ไม่มีอินเทอร์เน็ต');
     throw new HubError(IN_CLAUDE ? 'blocked' : 'net', IN_CLAUDE ? 'หน้านี้บน claude.ai ต่อออกไป Google ไม่ได้ — ใช้เวอร์ชันเว็บเพื่อซิงก์ทีม' : 'เชื่อมต่อศูนย์กลางทีมไม่ได้');
   }
-  clearTimeout(t);
-  let j: any; try { j = await r.json(); } catch { throw new HubError('bad', 'ศูนย์กลางทีมตอบกลับผิดรูปแบบ (ตรวจว่า Deploy เป็น Web app แล้ว)'); }
-  if (!j || j.ok === false) {
-    const c = j?.error || 'server';
-    const msg: Record<string, string> = { key: 'รหัสทีมในเครื่องนี้ไม่ตรงกับศูนย์กลาง — เปิดลิงก์เชิญจากกลุ่มทีมอีกครั้ง', exists: 'มีแท็บชื่อนี้แล้ว', missing: 'ไม่พบรายการนี้แล้ว', op: 'ศูนย์กลางทีมเป็นรุ่นเก่า — คัดลอกโค้ดใหม่แล้ว Deploy อีกครั้ง', conflict: 'มีคนแก้ระหว่างนี้' };
-    throw new HubError(c, msg[c] || j?.message || 'ศูนย์กลางทีมตอบกลับไม่สำเร็จ', j);
+  let text = ''; try { text = await r.text(); } catch { /* ขาดกลางทาง */ } finally { clearTimeout(t); }
+  let j: any = null; try { j = JSON.parse(text); } catch { /* ไม่ใช่ JSON */ }
+  if (!j) {
+    // Google ตอบหน้า HTML (คนใช้พร้อมกันเกินโควตา/เซิร์ฟเวอร์สะดุด) → นับเป็น "ไม่ว่าง" ลองใหม่เอง
+    if (r.status === 429 || r.status >= 500 || /too many|simultaneous|invoked|try again|ลองอีกครั้ง|ไม่พร้อมใช้งาน|unavailable|Service/i.test(text)) throw new HubError('busy', 'ศูนย์กลางทีมมีคนใช้พร้อมกันมาก — กำลังลองใหม่');
+    throw new HubError('bad', 'ศูนย์กลางทีมตอบกลับผิดรูปแบบ (ตรวจว่า Deploy เป็น Web app แล้ว)');
   }
-  noteOk(j.rev);
+  if (j.ok === false) {
+    const c = j.error || 'server';
+    const msg: Record<string, string> = { key: 'รหัสทีมในเครื่องนี้ไม่ตรงกับศูนย์กลาง — เปิดลิงก์เชิญจากกลุ่มทีมอีกครั้ง', exists: 'มีแท็บชื่อนี้แล้ว', missing: 'ไม่พบรายการนี้แล้ว', op: 'ศูนย์กลางทีมเป็นรุ่นเก่า — คัดลอกโค้ดใหม่แล้ว Deploy อีกครั้ง', conflict: 'มีคนแก้ระหว่างนี้', busy: 'ศูนย์กลางทีมมีคนใช้พร้อมกันมาก — ลองใหม่อีกครั้ง' };
+    throw new HubError(c, msg[c] || j.message || 'ศูนย์กลางทีมตอบกลับไม่สำเร็จ', j);
+  }
+  noteOk(j.rev, j.areas, op);
   return j as T;
 }
 
@@ -102,6 +120,10 @@ export function enqueue(op: string, body: any, ck?: string) {
   q.push({ id: Math.random().toString(36).slice(2), op, body, ck, at: Date.now(), tries: 0 }); saveQ(q);
   if (hubReady()) setTimeout(flush, 50);
 }
+// ผลของคำสั่งในคิว (เช่น บันทึกงานสำเร็จได้เวลาใหม่ / ชนกับเครื่องอื่น) → ส่วนที่สนใจรับไปจัดการ
+const qSubs = new Map<string, Set<(body: any, res: any, err: HubError | null) => void>>();
+export const onQueued = (op: string, fn: (body: any, res: any, err: HubError | null) => void) => { if (!qSubs.has(op)) qSubs.set(op, new Set()); qSubs.get(op)!.add(fn); return () => { qSubs.get(op)!.delete(fn); }; };
+const qEmit = (op: string, body: any, res: any, err: HubError | null) => qSubs.get(op)?.forEach(f => { try { f(body, res, err); } catch { /* */ } });
 let flushing = false;
 export async function flush() {
   if (flushing || !hubReady()) return; flushing = true;
@@ -109,9 +131,10 @@ export async function flush() {
     for (;;) {
       const q = queue(); if (!q.length) break;
       const it = q[0];
-      try { await hubCall(it.op, it.body); saveQ(queue().filter(x => x.id !== it.id)); bc?.postMessage({ t: 'changed' }); }
+      try { const res = await hubCall(it.op, it.body); saveQ(queue().filter(x => x.id !== it.id)); bc?.postMessage({ t: 'changed' }); qEmit(it.op, it.body, res, null); }
       catch (e: any) {
-        if (['net', 'offline', 'timeout', 'blocked', 'off'].includes(e?.code)) break;          // ลองใหม่ภายหลัง
+        if (['net', 'offline', 'timeout', 'blocked', 'off', 'busy'].includes(e?.code)) break;  // ชั่วคราว → ลองใหม่ภายหลัง (ไม่นับเป็นผิด ไม่ทิ้งข้อมูล)
+        if (e?.code === 'conflict') { saveQ(queue().filter(x => x.id !== it.id)); qEmit(it.op, it.body, null, e); continue; }   // มีคนบันทึกฉบับใหม่กว่า → ไม่ทับ แจ้งผู้ใช้เลือกเอง
         it.tries++; const rest = queue().filter(x => x.id !== it.id);
         saveQ(it.tries >= 3 ? rest : [it, ...rest]);                                           // ผิดถาวร 3 ครั้ง → ทิ้ง (ไม่ค้างคิว)
         if (it.tries < 3) break;
@@ -120,45 +143,81 @@ export async function flush() {
   } finally { flushing = false; }
 }
 
-// ── เรียลไทม์: ถาม rev ทุก 5 วิ (ขณะเปิดหน้าอยู่) · หยุดเมื่อซ่อนหน้า · กลับมา/ออนไลน์ = เช็กทันที · แท็บอื่นในเครื่องเดียวกันรู้ทันทีผ่าน BroadcastChannel ──
+// ── เรียลไทม์ ──
+// · ถาม rev ทุก ~5 วิ ขณะมีคนใช้งานหน้าจอ · ไม่ได้แตะหน้าจอเกิน 3 นาที = ทุก ~20 วิ · ซ่อนหน้า = หยุด · สุ่มเหลื่อมเวลา ±15% (หลายเครื่องไม่ยิงพร้อมกัน)
+// · เบราว์เซอร์เดียวเปิดหลายแท็บ = ถามแท็บเดียว (ผู้นำ) แล้วบอกแท็บอื่นผ่าน localStorage
+// · ศูนย์กลางรุ่น 8 บอก "ส่วนที่เปลี่ยน" (nsr/log/job/st) → แต่ละหน้าโหลดใหม่เฉพาะส่วนที่ตัวเองใช้ และหน่วงสุ่ม 0–2.5 วิ (ไม่ถล่มศูนย์กลางพร้อมกันหลังมีคนบันทึก)
+export type Area = 'nsr' | 'log' | 'job' | 'st';
+export const AREAS: Area[] = ['nsr', 'log', 'job', 'st'];
 let state: HubState = { status: hubReady() ? 'connecting' : 'off', pending: queue().length };
 const stateSubs = new Set<(s: HubState) => void>();
 const revSubs = new Set<Listener>();
+const areaSubs = new Set<{ areas: Area[]; fn: (changed: Area[]) => void }>();
 const emitState = () => stateSubs.forEach(f => { try { f(state); } catch { /* */ } });
 export const hubState = () => state;
 export const onHubState = (f: (s: HubState) => void) => { stateSubs.add(f); f(state); return () => { stateSubs.delete(f); }; };
 export const onRev = (f: Listener) => { revSubs.add(f); start(); return () => { revSubs.delete(f); }; };
-let lastRev = '';
-function noteOk(rev?: string) {
-  const prev = state.status;
-  state = { ...state, status: 'live', msg: '', lastOk: Date.now() };
-  if (rev && rev !== lastRev) { const changed = !!lastRev; lastRev = rev; state.rev = rev; emitState(); revSubs.forEach(f => { try { f(rev, changed); } catch { /* */ } }); }
-  else if (prev !== 'live' || true) emitState();
+// เรียก fn เมื่อส่วนข้อมูลที่สนใจเปลี่ยน (เครื่องอื่นบันทึก/คนแก้ชีต) — ไม่เรียกตอนเริ่ม
+export const onArea = (areas: Area[], fn: (changed: Area[]) => void) => { const sub = { areas, fn }; areaSubs.add(sub); start(); return () => { areaSubs.delete(sub); }; };
+export const REFRESH_JITTER_MS = 2500;
+let lastRev = '', lastAreas: Record<string, string> | null = null;
+function noteOk(rev?: string, areas?: Record<string, string>, op?: string) {
+  state = { ...state, status: 'live', msg: '', code: undefined, lastOk: Date.now() };
+  const revChanged = !!rev && rev !== lastRev, had = !!lastRev;
+  let changed: Area[] = [];
+  if (areas && typeof areas === 'object') { if (lastAreas) changed = AREAS.filter(a => String(areas[a] ?? '') !== String(lastAreas![a] ?? '')); lastAreas = { ...areas }; }
+  else if (revChanged && had) changed = [...AREAS];                                   // ศูนย์กลางรุ่นเก่า: ไม่รู้ว่าส่วนไหน = ถือว่าทุกส่วน
+  if (revChanged) { lastRev = rev!; state.rev = rev; }
+  emitState();
+  if (revChanged) revSubs.forEach(f => { try { f(rev!, had); } catch { /* */ } });
+  if (changed.length && had) fireAreas(changed, op === 'rev');
+}
+const pendingAreas = new Set<Area>(); let areaT: any = null;
+function fireAreas(changed: Area[], jitter: boolean) {
+  changed.forEach(a => pendingAreas.add(a));
+  if (areaT) return;
+  areaT = setTimeout(() => { areaT = null; const ch = [...pendingAreas]; pendingAreas.clear();
+    areaSubs.forEach(s => { const hit = ch.filter(a => s.areas.includes(a)); if (hit.length) { try { s.fn(hit); } catch { /* */ } } }); }, jitter ? Math.round(Math.random() * REFRESH_JITTER_MS) : 0);
 }
 const bc: BroadcastChannel | null = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('eqcamp-hub') : null;
 if (bc) bc.onmessage = (m: MessageEvent) => { if (m.data?.t === 'changed') kick(); };
+// ผู้นำการถาม (ข้ามแท็บในเบราว์เซอร์เดียวกัน)
+const TAB_ID = Math.random().toString(36).slice(2);
+const LEAD = 'eqcamp.hub.lead', LAST = 'eqcamp.hub.last';
+const readJ = (k: string) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
+function shareRev(rev: string, areas?: Record<string, string>) { try { localStorage.setItem(LAST, JSON.stringify({ rev, areas: areas || null, at: Date.now(), by: TAB_ID })); } catch { /* */ } }
+let lastActive = Date.now();
+export const IDLE_AFTER_MS = 180000, POLL_MS = 5000, IDLE_POLL_MS = 20000;
+const pollGap = () => { const base = Date.now() - lastActive > IDLE_AFTER_MS ? IDLE_POLL_MS : POLL_MS; return Math.round(base * (0.85 + Math.random() * 0.3)); };
 let timer: any = null, started = false, fails = 0;
-export const POLL_MS = 5000;
 async function tick() {
   timer = null;
   if (!hubReady()) { state = { ...state, status: 'off' }; emitState(); return; }
   if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;   // หยุดเมื่อซ่อน — visibilitychange ปลุกใหม่
-  try { await hubCall('rev', {}, 15000); fails = 0; if (queue().length) flush(); }
+  const lead = readJ(LEAD), now = Date.now();
+  if (lead && lead.id !== TAB_ID && now - lead.at < POLL_MS * 2.5) { schedule(pollGap()); return; }   // แท็บอื่นถามให้แล้ว
+  try { localStorage.setItem(LEAD, JSON.stringify({ id: TAB_ID, at: now })); } catch { /* */ }
+  try { const j: any = await hubCall('rev', {}, 15000); fails = 0; if (j?.rev) shareRev(j.rev, j.areas); if (queue().length) flush(); }
   catch (e: any) {
     fails++;
     state = { ...state, status: e?.code === 'offline' ? 'offline' : e?.code === 'blocked' ? 'blocked' : 'error', code: e?.code, msg: e?.message };
     emitState();
     if (e?.code === 'key' || e?.code === 'blocked') return;                                 // ไม่วนถามซ้ำเมื่อผิดถาวร
   }
-  schedule(fails ? Math.min(30000, POLL_MS * (1 + fails)) : POLL_MS);
+  schedule(fails ? Math.min(30000, POLL_MS * (1 + fails)) * (0.8 + Math.random() * 0.4) : pollGap());
 }
 const schedule = (ms: number) => { if (timer) clearTimeout(timer); timer = setTimeout(tick, ms); };
-export function kick() { if (!hubReady()) return; schedule(30); }
+export function kick() { if (!hubReady()) return; schedule(30 + Math.round(Math.random() * 120)); }
 function start() {
   if (started || typeof window === 'undefined') return; started = true;
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kick(); });
-  window.addEventListener('focus', kick); window.addEventListener('online', () => { kick(); flush(); });
+  const wake = () => { const was = Date.now() - lastActive > IDLE_AFTER_MS; lastActive = Date.now(); if (was) kick(); };
+  ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.addEventListener(ev, wake, { passive: true }));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { lastActive = Date.now(); kick(); } });
+  window.addEventListener('focus', () => { lastActive = Date.now(); kick(); }); window.addEventListener('online', () => { kick(); flush(); });
   window.addEventListener('pageshow', kick);
+  // ปิด/รีโหลดแท็บผู้นำ → ปล่อยตำแหน่งทันที (แท็บอื่น/หน้าที่โหลดใหม่ถามเองได้เลย ไม่ต้องรอ)
+  window.addEventListener('pagehide', () => { try { const l = readJ(LEAD); if (l && l.id === TAB_ID) localStorage.removeItem(LEAD); } catch { /* */ } });
+  window.addEventListener('storage', (e: StorageEvent) => { if (e.key !== LAST || !e.newValue) return; try { const v = JSON.parse(e.newValue); if (v && v.by !== TAB_ID && v.rev) noteOk(v.rev, v.areas || undefined, 'rev'); } catch { /* */ } });
   kick();
 }
 export const notifyLocalChange = () => { bc?.postMessage({ t: 'changed' }); };
@@ -171,7 +230,7 @@ export const hubAppsScript = (key: string, sheetId = '') => `// EQ Camp — ศ�
 // ไม่ลบแท็บ ไม่แทรก/ลบแถวในแท็บ NSR ไม่ทับสูตรที่ไม่ได้แก้
 const TEAM_KEY = '${key}';
 const NSR_ID = '${sheetId}';   // ว่าง = ใช้ชีตที่สคริปต์ผูกอยู่
-const VERSION = 7;
+const VERSION = 8;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -191,13 +250,26 @@ function setup() { nsr_().getName(); hub_(); ensureTrigger_(); return 'ok'; }
 function doPost(e) {
   var req; try { req = JSON.parse(e.postData.contents); } catch (x) { return out_({ ok: false, error: 'bad' }); }
   if (!req || req.key !== TEAM_KEY) return out_({ ok: false, error: 'key' });
+  // rev = ทุกเครื่องถามทุก 5–20 วิ → ทางด่วน: อ่านค่าเลขรุ่นอย่างเดียว ไม่เปิดชีต (รองรับคนใช้พร้อมกันมาก)
+  if (req.op === 'rev') { try { return out_({ ok: true, version: VERSION, rev: rev_(), areas: areas_() }); } catch (x) { return out_({ ok: false, error: 'busy' }); } }
   try {
     var r = route_(req) || { ok: false, error: 'op' };
-    if (r.ok !== false) r.rev = rev_();
+    if (r.ok !== false) { r.rev = rev_(); r.areas = areas_(); }
     return out_(r);
-  } catch (err) { return out_({ ok: false, error: 'server', message: String(err) }); }
+  } catch (err) {
+    var m = String(err);   // ล็อกรอนาน/โควตาชั่วคราว → busy (เครื่องลองใหม่เอง ไม่เสียข้อมูล)
+    return out_({ ok: false, error: /lock|timeout|too many|simultaneous|invoked|rate|quota|Service|busy/i.test(m) ? 'busy' : 'server', message: m });
+  }
 }
 function route_(q) {
+  switch (q.op) {   // อ่านข้อมูลกลางทีม: ไม่ต้องเปิดชีต NSR · ไม่ต้องรอคิวล็อก
+    case 'events': return events_(q.from);
+    case 'jobs': return { ok: true, jobs: jobs_().map(function (j) { delete j.snap; return j; }).filter(function (j) { return !q.since || j.savedAt > q.since; }) };
+    case 'job.get': { var jj = jobs_(true).filter(function (j) { return j.id === q.id; })[0]; return jj ? { ok: true, job: jj } : { ok: false, error: 'missing' }; }
+    case 'status.list': return { ok: true, status: statuses_() };
+    // บอร์ดทีม: ทะเบียน + งาน + สถานะการขาย ในคำสั่งเดียว
+    case 'board': { var b = events_(q.from); b.jobs = jobs_().map(function (j) { delete j.snap; return j; }); b.status = statuses_(); return b; }
+  }
   var ss = nsr_();
   try { ensureTrigger_(); } catch (x) {}
   try { ensureWarm_(); } catch (x) {}
@@ -210,9 +282,9 @@ function route_(q) {
         return { title: t, sheetId: sh.getSheetId(), index: sh.getIndex() - 1, values: rg.getDisplayValues(), formulas: rg.getFormulas() }; }) };
     case 'nsr.changes': return { ok: true, since: Number(q.since) || 0, ids: changed_(Number(q.since) || 0) };
     case 'nsr.all': return all_(ss, q);
-    case 'status.list': return { ok: true, status: statuses_() };
   }
-  var lock = LockService.getScriptLock(); lock.waitLock(25000);
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(28000)) return { ok: false, error: 'busy' };   // คิวยาวเกิน → ให้เครื่องลองใหม่ (ไม่ค้าง ไม่ทิ้งข้อมูล)
   try {
     switch (q.op) {
       case 'nsr.create': {
@@ -227,7 +299,7 @@ function route_(q) {
         if (f.staffCols) sh.getRange(3, 9, Math.max(f.staffCols[1] - 2, 1), 5).setNumberFormat('#,##0');
         (f.pctCells || []).forEach(function (p) { sh.getRange(p[0], p[1]).setNumberFormat('0.00%'); });
         sh.setColumnWidth(2, 320); sh.setColumnWidth(8, 200);
-        touch_(sh.getSheetId()); bump_();
+        touch_(sh.getSheetId()); bump_('nsr');
         return { ok: true, sheetId: sh.getSheetId(), title: sh.getName() };
       }
       case 'nsr.edit': {
@@ -236,19 +308,15 @@ function route_(q) {
         (q.edits || []).forEach(function (x) { var cur = s2.getRange(x.r, x.c).getDisplayValue(); if (!same_(cur, x.was)) conflicts.push({ r: x.r, c: x.c, now: cur }); });
         if (conflicts.length && !q.force) return { ok: false, error: 'conflict', conflicts: conflicts };
         (q.edits || []).forEach(function (x) { s2.getRange(x.r, x.c).setValue(x.v); });
-        touch_(s2.getSheetId()); bump_();
+        touch_(s2.getSheetId()); bump_('nsr');
         return { ok: true };
       }
       case 'log': { var ev = q.ev || {}; if (!ev.eid) return { ok: false, error: 'bad' };
         var lg = tab_('Log', LOG_COLS); if (seen_(lg, ev.eid)) return { ok: true, dup: true };
-        lg.appendRow(LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); })); bump_(); return { ok: true }; }
+        lg.appendRow(LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); })); bump_('log'); return { ok: true }; }
       case 'log.many': { var lg2 = tab_('Log', LOG_COLS), have = {}, n2 = lg2.getLastRow(); if (n2 > 1) lg2.getRange(2, 2, n2 - 1, 1).getValues().forEach(function (r) { have[r[0]] = 1; });
         var add = (q.events || []).slice(0, 500).filter(function (ev) { return ev && ev.eid && !have[ev.eid]; }).map(function (ev) { return LOG_COLS.map(function (c) { return ev[c] === undefined ? '' : String(ev[c]).slice(0, 300); }); });
-        if (add.length) { lg2.getRange(lg2.getLastRow() + 1, 1, add.length, LOG_COLS.length).setValues(add); bump_(); } return { ok: true, added: add.length }; }
-      case 'events': { var lv = tab_('Log', LOG_COLS).getDataRange().getValues(); var hd = lv.shift() || [];
-        return { ok: true, events: lv.map(function (r) { var o = {}; hd.forEach(function (h, i) { o[h] = r[i] instanceof Date ? r[i].toISOString() : r[i]; }); return o; }) }; }
-      case 'jobs': return { ok: true, jobs: jobs_().map(function (j) { delete j.snap; return j; }).filter(function (j) { return !q.since || j.savedAt > q.since; }) };
-      case 'job.get': { var jj = jobs_(true).filter(function (j) { return j.id === q.id; })[0]; return jj ? { ok: true, job: jj } : { ok: false, error: 'missing' }; }
+        if (add.length) { lg2.getRange(lg2.getLastRow() + 1, 1, add.length, LOG_COLS.length).setValues(add); bump_('log'); } return { ok: true, added: add.length }; }
       case 'job.put': return putJob_(q.job || {}, q.base, q.dev, q.by);
       case 'job.del': return delJob_(q.id);
       case 'nsr.migrateOT': return migrateOT_(ss);
@@ -257,14 +325,21 @@ function route_(q) {
         st.at = new Date().toISOString(); st.by = q.by || ''; st.dev = q.dev || '';
         var srow = ST_COLS.map(function (c) { return st[c] === undefined || st[c] === null ? '' : String(st[c]).slice(0, 500); });
         var si = sids.indexOf(String(st.sheetId)); if (si >= 0) ssh.getRange(si + 2, 1, 1, srow.length).setValues([srow]); else ssh.appendRow(srow);
-        tab_('StatusLog', ST_COLS).appendRow(srow); bump_(); return { ok: true, at: st.at }; }
+        tab_('StatusLog', ST_COLS).appendRow(srow); bump_('st'); return { ok: true, at: st.at }; }
     }
   } finally { lock.releaseLock(); }
 }
 // ── rev: เลขรุ่น = เวลาที่เขียนผ่านเว็บล่าสุด + เวลาที่มีคนแก้ชีตเองล่าสุด (onEdit) ──
 function props_() { return PropertiesService.getScriptProperties(); }
 function rev_() { var p = props_(); return (p.getProperty('rev') || '0') + '.' + (p.getProperty('edit') || '0'); }
-function bump_() { props_().setProperty('rev', String(Date.now())); }
+// แยกเลขรุ่นตามส่วน (nsr/log/job/st) → เครื่องอื่นโหลดใหม่เฉพาะส่วนที่เปลี่ยน ไม่ใช่ทุกอย่างพร้อมกัน
+function bump_(area) { var now = String(Date.now()), p = props_(); p.setProperty('rev', now); if (area) p.setProperty('r.' + area, now); }
+function areas_() { var p = props_(), e = Number(p.getProperty('edit') || 0), n = Number(p.getProperty('r.nsr') || 0);
+  return { nsr: String(Math.max(e, n)), log: p.getProperty('r.log') || '0', job: p.getProperty('r.job') || '0', st: p.getProperty('r.st') || '0' }; }
+// ทะเบียน: เพิ่มต่อท้ายอย่างเดียว → ขอเฉพาะแถวใหม่ (from = จำนวนที่เครื่องมีแล้ว)
+function events_(from) { var sh = tab_('Log', LOG_COLS), n = Math.max(sh.getLastRow() - 1, 0), f = Math.max(0, Math.min(Number(from) || 0, n)), hd = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), LOG_COLS.length)).getValues()[0];
+  var lv = n - f > 0 ? sh.getRange(f + 2, 1, n - f, hd.length).getValues() : [];
+  return { ok: true, n: n, from: f, events: lv.map(function (r) { var o = {}; hd.forEach(function (h, i) { o[h] = r[i] instanceof Date ? r[i].toISOString() : r[i]; }); return o; }) }; }
 function touch_(sheetId) { props_().setProperty('t:' + sheetId, String(Date.now())); }
 function changed_(since) { var all = props_().getProperties(), out = []; for (var k in all) if (k.indexOf('t:') === 0 && Number(all[k]) > since) out.push(Number(k.slice(2))); return out; }
 // คนแก้ในชีตเอง → ทุกเครื่องรู้ (simple trigger ทำงานเองไม่ต้องตั้งค่า)
@@ -282,7 +357,9 @@ function tab_(name, cols) { var ss = hub_(), sh = ss.getSheetByName(name); if (!
 function seen_(sh, eid) { var n = sh.getLastRow(); if (n < 2) return false; var v = sh.getRange(Math.max(2, n - 300), 2, Math.min(300, n - 1), 1).getValues(); for (var i = 0; i < v.length; i++) if (v[i][0] === eid) return true; return false; }
 // งาน: ข้อมูลงาน (JSON) แบ่งเก็บหลายช่อง ช่องละไม่เกิน 45,000 ตัวอักษร (เพดานชีต 50,000)
 function jobs_(withSnap) {
-  var sh = tab_('Jobs', JOB_COLS), v = sh.getDataRange().getValues(); v.shift();
+  var sh = tab_('Jobs', JOB_COLS), last = sh.getLastRow();   // รายการงานอ่านเฉพาะคอลัมน์ข้อมูลงาน (ไม่ดึงเนื้องานก้อนใหญ่) → เร็วแม้หลายคนเปิดพร้อมกัน
+  if (last < 2) return [];
+  var v = withSnap ? sh.getDataRange().getValues() : sh.getRange(1, 1, last, JOB_COLS.length).getValues(); v.shift();
   return v.filter(function (r) { return r[0]; }).map(function (r) { var o = {}; JOB_COLS.forEach(function (c, i) { o[c] = r[i] instanceof Date ? r[i].toISOString() : r[i]; });
     o.files = Number(o.files) || 0; o.deleted = o.deleted === true || o.deleted === 'TRUE';
     if (withSnap) { var s = r.slice(JOB_COLS.length).join(''); try { o.snap = s ? JSON.parse(s) : null; } catch (x) { o.snap = null; } }
@@ -298,10 +375,10 @@ function putJob_(j, base, dev, by) {
   var row = [j.id, now, j.name || '', j.course || '', j.school || '', j.dates || '', j.duration || '', j.docCode || '', Number(j.files) || 0, j.lastFileAt || '', by || '', dev || '', false, s.length].concat(parts);
   if (at > 1) { sh.getRange(at, 1, 1, Math.max(sh.getLastColumn(), row.length)).clearContent(); sh.getRange(at, 1, 1, row.length).setValues([row]); }
   else sh.appendRow(row);
-  bump_(); return { ok: true, savedAt: now };
+  bump_('job'); return { ok: true, savedAt: now };
 }
 function delJob_(id) { var sh = tab_('Jobs', JOB_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; }), at = ids.indexOf(id) + 1;
-  if (at > 1) { sh.getRange(at, 13).setValue(true); sh.getRange(at, 2).setValue(new Date().toISOString()); bump_(); } return { ok: true }; }
+  if (at > 1) { sh.getRange(at, 13).setValue(true); sh.getRange(at, 2).setValue(new Date().toISOString()); bump_('job'); } return { ok: true }; }
 function num_(s) { var t = String(s == null ? '' : s).replace(/[฿,\\s]/g, ''); return /^-?\\d+(\\.\\d+)?%?$/.test(t) ? parseFloat(t) / (t.slice(-1) === '%' ? 100 : 1) : null; }
 function same_(a, b) { var x = num_(a), y = num_(b); if (x !== null && y !== null) return Math.abs(x - y) < 0.5; return String(a || '').replace(/\\s/g, '') === String(b || '').replace(/\\s/g, ''); }
 // ── สถานะการขายต่อแท็บ NSR (เก็บในสเปรดชีตข้อมูลกลาง: Status = ล่าสุด · StatusLog = ประวัติทุกครั้ง) ──
@@ -385,7 +462,7 @@ function migrateOT_(ss) {
     try { sh.getRange(hr + 1, 13, tr - hr + 1, 1).copyTo(sh.getRange(hr + 1, 14, tr - hr + 1, 2), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false); } catch (x) {}
     touch_(sh.getSheetId()); mark('1'); done.push(sh.getName());
   });
-  if (done.length) bump_();
+  if (done.length) bump_('nsr');
   var badAll = []; for (var k in seen) if (k.indexOf('ot:') === 0 && seen[k] === 'x') badAll.push(Number(k.slice(3)));
   return { ok: true, done: done.length, skip: skip, left: left, bad: bad, badIds: badAll };
 }
