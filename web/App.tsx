@@ -573,21 +573,28 @@ export default function App() {
       // ความคมชัด: ตัวอักษรเรนเดอร์ 3 เท่า ≈ 330 dpi (มือถือ 2.2 เท่า กันหน่วยความจำเต็ม) + เก็บเป็น PNG (ขอบตัวอักษรไม่เบลอแบบ JPEG)
       const SCALE = IS_MOBILE ? 2.2 : 3;
       const MAX_PX = 15_000_000; // iOS Safari จำกัดพื้นที่ canvas ~16.7 ล้านพิกเซล
+      // เรนเดอร์ในกรอบแยก (iframe เปล่า) ที่มีแค่ฟอนต์เอกสาร + บล็อกที่กำลังวาด — html2canvas คัดลอกทั้งเอกสารที่ element อยู่ทุกครั้ง
+      // ถ้าวาดในหน้าแอปจริง จะคัดลอกทั้งเว็บ (ฟอนต์ฝัง + ภาพพรีวิว 1600 px หลายรูป) ~10 รอบ/ไฟล์ → iPhone/Android หน่วยความจำเต็ม แท็บรีโหลด/ค้าง
+      const stage = document.createElement('iframe');
+      stage.setAttribute('aria-hidden', 'true'); stage.tabIndex = -1;
+      stage.style.cssText = 'position:fixed;left:-12000px;top:0;width:1200px;height:1600px;border:0;opacity:0;pointer-events:none;';
+      document.body.appendChild(stage);
+      const sd = stage.contentDocument!;
+      sd.open(); sd.write(`<!doctype html><html><head><meta charset="utf-8">${PDF_STYLE}</head><body style="margin:0;background:#fff"></body></html>`); sd.close();
+      try { const fs = (sd as any).fonts; await Promise.all([fs?.load?.('20px EQSarabun'), fs?.load?.('bold 20px EQSarabun')]); await fs?.ready; } catch { /* ใช้ฟอนต์สำรอง */ }
       const renderCanvas = async (inner: string) => {
-        const w = document.createElement('div'); w.className = 'eqpdf';
-        w.style.cssText = 'position:fixed;left:-10000px;top:0;z-index:-1;';
-        w.innerHTML = PDF_STYLE + inner; document.body.appendChild(w);
-        try { const fs = (document as any).fonts; await Promise.all([fs?.load?.("20px EQSarabun"), fs?.load?.("bold 20px EQSarabun")]); await fs?.ready; } catch {}
-        await new Promise(r => setTimeout(r, 120));
+        const w = sd.createElement('div'); w.className = 'eqpdf';
+        w.innerHTML = inner; sd.body.appendChild(w);
+        await new Promise(r => setTimeout(r, 60));
         // วัดความสูงจริงรวมส่วนที่ล้น (scrollHeight) + กว้างคงที่ ไม่ขึ้นกับขนาดจอ (มือถือ/คอม ได้ผลเท่ากัน)
         const hh = Math.ceil(w.scrollHeight);
         const sc = Math.min(SCALE, Math.sqrt(MAX_PX / (760 * Math.max(hh, 1))));
-        const c = await h2c(w, { scale: sc, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 760, height: Math.ceil(w.scrollHeight), windowWidth: 1200, windowHeight: Math.max(1200, Math.ceil(w.scrollHeight) + 50), scrollX: 0, scrollY: 0,
-          // (สาเหตุหลักของ "ข้อความขาดท้ายบล็อก" แก้ที่ web/index.html — ดูคอมเมนต์ img[src^="data:image/gif..."]) ที่นี่แค่รอฟอนต์ในสำเนาให้ครบ
-          onclone: async (doc: Document) => {
-            try { const f = (doc as any).fonts; await Promise.all([f.load('20px EQSarabun'), f.load('bold 20px EQSarabun')]); await f.ready; } catch { /* ignore */ }
-          } });
-        document.body.removeChild(w); return c;
+        try {
+          return await h2c(w, { scale: sc, backgroundColor: '#ffffff', useCORS: true, logging: false, width: 760, height: hh, windowWidth: 1200, windowHeight: Math.max(1200, hh + 50), scrollX: 0, scrollY: 0,
+            onclone: async (doc: Document) => {
+              try { const f = (doc as any).fonts; await Promise.all([f.load('20px EQSarabun'), f.load('bold 20px EQSarabun')]); await f.ready; } catch { /* ignore */ }
+            } });
+        } finally { sd.body.removeChild(w); }
       };
       const pdf = new jsNS.jsPDF('p', 'mm', 'a4');
       const pageW = 210, pageH = 297, M = 18; // ขอบซ้าย-ขวา 1.8 ซม. (แนวราชการ)
@@ -716,6 +723,7 @@ export default function App() {
       // หน่วยความจำไม่พอ (มือถือรุ่นเก่า) → บอกทางออกที่ทำได้จริง
       flash(/memory|allocation|canvas|quota/i.test(m) ? 'เครื่องนี้หน่วยความจำไม่พอสร้าง PDF — ปิดแท็บอื่นแล้วลองใหม่ หรือดาวน์โหลด Word แล้วเปิดในแอป Word/Google Docs เพื่อบันทึกเป็น PDF' : 'สร้าง PDF ไม่สำเร็จ: ' + m, false);
     }
+    try { document.querySelectorAll('iframe[aria-hidden="true"][style*="-12000px"]').forEach(f => f.remove()); } catch { /* */ }
     setProgress(null); setBusy(false);
   };
 
