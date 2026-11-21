@@ -6,6 +6,7 @@ const { hubAppsScript, newHubKey } = await import('../../web/hub');
 const out = process.argv[2] || '/tmp/EQ_Camp_Hub.gs'; const key = process.argv[3] || newHubKey();
 const owner = process.argv[4] || '';
 const seed = owner ? [{ id: 'panda', nick: 'แพนด้า', name: 'ทดสอบ ก', email: 'panda@test.local', role: 'admin' as const }, { id: 'tata', nick: 'ตาต้า', name: 'ทดสอบ ข', email: 'tata@test.local', role: 'member' as const }, { id: 'king', nick: 'พี่กิ่ง', name: 'ทดสอบ ค', email: 'king@test.local', role: 'member' as const }, { id: 'nok', nick: 'พี่นก', name: 'ทดสอบ ง', email: 'nok@test.local', role: 'member' as const }] : [];
-fs.writeFileSync(out, hubAppsScript(key, '', { owner, seed }));
+const config = owner ? { sme: { blue: { email: 'blue@test.local' }, orange: { email: 'orange@test.local' }, url: 'https://app.smemove.com/' } } : {};
+fs.writeFileSync(out, hubAppsScript(key, '', { owner, seed, config }));
 console.log(out, key);
 process.exit(0);

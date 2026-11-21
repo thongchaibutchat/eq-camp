@@ -1,11 +1,13 @@
 // แผง "ส่งเข้า SME Move" — ข้อมูลใบเสนอราคาเรียงตามฟอร์มของ SME Move · แตะช่องไหนก็คัดลอกช่องนั้น · คัดลอกทั้งชุด · เปิด SME Move
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Copy, Check, ExternalLink, AlertTriangle, Settings, Bot } from 'lucide-react';
 import type { Camp } from '../src/eqcamp-core';
-import { smeQuote, smeText, smeAgentPrompt, SME_URL_KEY, SME_DEFAULT, fmtMoney } from './sme-data';
+import { smeQuote, smeText, smeAgentPrompt, SME_URL_KEY, SME_DEFAULT, fmtMoney, COLOR_NAME, COLOR_DESC, accountFor } from './sme-data';
+import { teamConfig, loadTeamConfig } from './hub';
+import type { TeamConfig } from './hub';
 import { copyText } from './platform';
 
-const getUrl = () => { try { return localStorage.getItem(SME_URL_KEY) || SME_DEFAULT; } catch { return SME_DEFAULT; } };
+const getUrl = () => { try { const u = localStorage.getItem(SME_URL_KEY); return u && u !== 'https://smemove.com/' ? u : (teamConfig().sme?.url || SME_DEFAULT); } catch { return SME_DEFAULT; } };
 
 type QC = NonNullable<Camp['quoteCustomer']>;
 export default function SmeMovePanel({ camp, onChange }: { camp: Camp; onChange: (qc: QC) => void }) {
@@ -15,6 +17,10 @@ export default function SmeMovePanel({ camp, onChange }: { camp: Camp; onChange:
   const q = useMemo(() => smeQuote(camp), [camp]);
   const [done, setDone] = useState('');
   const [url, setUrl] = useState(getUrl);
+  const [cfg, setCfg] = useState<TeamConfig>(teamConfig);
+  useEffect(() => { let on = true; loadTeamConfig().then(c => { if (on) { setCfg(c); if (!localStorage.getItem(SME_URL_KEY) && c.sme?.url) setUrl(c.sme.url); } }); return () => { on = false; }; }, []);
+  const account = accountFor(q.color, cfg);
+  const pick = (vat: 'include' | 'exclude' | 'none') => onChange({ ...qc, vat } as QC);
   const [edit, setEdit] = useState(false);
   const cp = async (id: string, t: string) => { if (!t) return; if (await copyText(t)) { setDone(id); window.setTimeout(() => setDone(d => (d === id ? '' : d)), 1600); } };
   const Row = ({ id, label, value, missing, hint }: { id: string; label: string; value: string; missing?: boolean; hint?: string }) => (
@@ -38,7 +44,7 @@ export default function SmeMovePanel({ camp, onChange }: { camp: Camp; onChange:
         </div>
         <div className="flex flex-wrap gap-1.5">
           <button onClick={() => cp('all', smeText(q))} className="tap whitespace-nowrap px-3 py-2 rounded-lg border border-brand-mist hover:bg-paper text-[13.5px] font-medium flex items-center gap-1.5">{done === 'all' ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}คัดลอกทั้งชุด</button>
-          <a href={url} target="_blank" rel="noopener" className="tap whitespace-nowrap px-3 py-2 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium flex items-center gap-1.5">เปิด SME Move<ExternalLink className="w-3.5 h-3.5" /></a>
+          <a href={url} target="_blank" rel="noopener" className="tap whitespace-nowrap px-3 py-2 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium flex items-center gap-1.5">เปิด SME Move{q.color ? (q.color === 'blue' ? ' (สีฟ้า)' : ' (สีส้ม)') : ''}<ExternalLink className="w-3.5 h-3.5" /></a>
           <button onClick={() => setEdit(e => !e)} aria-label="ตั้งลิงก์ SME Move ของบริษัท" aria-expanded={edit} className="tap p-2 rounded-lg border border-brand-mist hover:bg-paper"><Settings className="w-4 h-4" /></button>
         </div>
       </div>
@@ -55,8 +61,29 @@ export default function SmeMovePanel({ camp, onChange }: { camp: Camp; onChange:
         <label className="text-[13px] text-sub">ผู้ติดต่อ<input value={qc.contact || ''} onChange={setQ('contact')} placeholder="เช่น ครูผู้ประสานงาน" className={inp} /></label>
         <label className="text-[13px] text-sub">โทร<input value={qc.phone || ''} onChange={setQ('phone')} inputMode="tel" className={inp} /></label>
         <label className="text-[13px] text-sub">อีเมลลูกค้า<input value={qc.email || ''} onChange={setQ('email')} type="email" autoCapitalize="off" className={inp} /></label>
-        <label className="text-[13px] text-sub">ประเภทภาษี<select value={qc.vat || ''} onChange={setQ('vat')} className={inp}><option value="">— เลือก —</option><option value="include">ราคารวม VAT แล้ว</option><option value="exclude">ราคายังไม่รวม VAT (บวก 7%)</option><option value="none">ไม่คิด VAT</option></select></label>
       </div>
+      <fieldset className="mt-3">
+        <legend className="text-[13.5px] font-semibold">ชนิดใบเสนอราคา</legend>
+        <div className="mt-1.5 grid sm:grid-cols-2 gap-2">
+          {(['blue', 'orange'] as const).map(c => {
+            const on = q.color === c, em = String(cfg.sme?.[c]?.email || '');
+            return (
+              <button key={c} type="button" aria-pressed={on} onClick={() => pick(c === 'orange' ? 'none' : (qc.vat === 'exclude' ? 'exclude' : 'include'))}
+                className={`tap text-left rounded-xl border-2 px-3.5 py-3 ${on ? (c === 'blue' ? 'border-sky-600 bg-sky-50' : 'border-orange-500 bg-orange-50') : 'border-brand-mist hover:bg-paper'}`}>
+                <span className="flex items-center gap-2 text-[15px] font-semibold"><span aria-hidden className={`w-3 h-3 rounded-full ${c === 'blue' ? 'bg-sky-600' : 'bg-orange-500'}`} />{COLOR_NAME[c]}</span>
+                <span className="block text-[13px] text-sub mt-0.5">{COLOR_DESC[c]} · ออกจากบัญชี SME Move {em ? <b className="font-medium text-brand-ink break-all">{em}</b> : <span className="text-amber-700">ยังไม่ได้ตั้งค่า (แอดมินตั้งที่ ภาพรวมทีม → จัดการทีม)</span>}</span>
+              </button>
+            );
+          })}
+        </div>
+        {q.color === 'blue' && (
+          <div role="radiogroup" aria-label="ราคาที่เสนอกับ VAT" className="mt-2 flex flex-wrap gap-1.5 text-[13.5px]">
+            {([['include', 'ราคานี้รวม VAT แล้ว'], ['exclude', 'ราคานี้ยังไม่รวม VAT (บวก 7%)']] as const).map(([v, l]) => (
+              <button key={v} type="button" role="radio" aria-checked={qc.vat === v} onClick={() => pick(v)} className={`tap px-3 py-1.5 rounded-full border ${qc.vat === v ? 'bg-sky-600 text-white border-sky-600' : 'border-brand-mist bg-white'}`}>{l}</button>
+            ))}
+          </div>
+        )}
+      </fieldset>
       {q.problems.length > 0 && (
         <div role="alert" className="mt-3 rounded-lg border border-amber-300 px-3 py-2 text-[13.5px] flex items-start gap-2"><AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />{q.problems.join(' · ')} — แก้ในขั้นก่อนหน้าก่อนส่ง</div>
       )}
@@ -79,13 +106,13 @@ export default function SmeMovePanel({ camp, onChange }: { camp: Camp; onChange:
       <div className="mt-4 rounded-xl border border-brand-mist p-3 space-y-2">
         <div className="text-[14.5px] font-semibold flex items-center gap-2"><Bot className="w-4 h-4 text-brand-navy" />ให้ AI สร้างใบเสนอราคาจริงใน SME Move</div>
         <ol className="list-decimal pl-5 text-[13px] text-sub space-y-0.5">
-          <li>บนคอม เปิด SME Move ใน Chrome แล้วล็อกอินเอง (AI จะไม่กรอกรหัสผ่าน)</li>
+          <li>บนคอม เปิด SME Move ใน Chrome แล้วล็อกอินเอง{account ? <> ด้วยบัญชี <b className="font-medium text-brand-ink break-all">{account}</b> ({q.color && COLOR_NAME[q.color]})</> : ''} (AI จะไม่กรอกรหัสผ่าน)</li>
           <li>กด “คัดลอกคำสั่งให้ AI” แล้ววางใน Claude ที่ควบคุม Chrome ได้ (Claude in Chrome)</li>
           <li>AI กรอกครบทุกช่อง บันทึกเป็นฉบับร่าง แล้วบอกเลขที่เอกสาร — ไม่ส่งอีเมลถึงลูกค้า</li>
           <li>ตรวจในหน้า SME Move แล้วใส่เลขที่เอกสารไว้ที่ช่องด้านล่าง</li>
         </ol>
         <div className="flex flex-wrap gap-2 items-end">
-          <button onClick={() => cp('agent', smeAgentPrompt(q, url))} disabled={q.problems.some(p => /ชื่อโรงเรียน|จำนวนนักเรียน|ราคาพิเศษ/.test(p))} className="tap px-3 py-2 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium flex items-center gap-1.5 disabled:opacity-40">{done === 'agent' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}คัดลอกคำสั่งให้ AI</button>
+          <button onClick={() => cp('agent', smeAgentPrompt(q, url, account))} disabled={q.problems.some(p => /ชื่อโรงเรียน|จำนวนนักเรียน|ราคาพิเศษ/.test(p))} className="tap px-3 py-2 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium flex items-center gap-1.5 disabled:opacity-40">{done === 'agent' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}คัดลอกคำสั่งให้ AI</button>
           <label className="text-[13px] text-sub flex-1 min-w-[10rem]">เลขที่ใบเสนอราคาใน SME Move<input value={qc.smeNo || ''} onChange={setQ('smeNo')} placeholder="เช่น QT2026110001" className={inp} /></label>
         </div>
         {q.problems.length > 0 && <p className="text-[12.5px] text-amber-700">ควรแก้ก่อนส่งให้ AI: {q.problems.join(' · ')}</p>}
