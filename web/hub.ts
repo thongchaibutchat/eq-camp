@@ -233,7 +233,9 @@ export const notifyLocalChange = () => { bc?.postMessage({ t: 'changed' }); };
 // sheetId ว่าง = สคริปต์ผูกกับชีต (วางใน ส่วนขยาย → Apps Script) · มี sheetId = สคริปต์เดี่ยวในไดรฟ์ (สร้างไฟล์ให้ได้เลย)
 // สมาชิกตั้งต้น (ใส่เฉพาะในไฟล์สคริปต์ส่วนตัวของเจ้าของ — ห้ามใส่อีเมลจริงใน repo/bundle สาธารณะ)
 export interface HubSeed { id: string; nick: string; name?: string; email?: string; role?: 'admin' | 'member' }
-export const hubAppsScript = (key: string, sheetId = '', opt: { owner?: string; seed?: HubSeed[] } = {}) => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
+// ตั้งค่าทีม (เก็บในศูนย์กลาง ไม่อยู่ในเว็บสาธารณะ) — บัญชี SME Move ของใบเสนอราคาสีฟ้า (มีภาษี) / สีส้ม (ไม่มีภาษี)
+export interface TeamConfig { sme?: { blue?: { email?: string; label?: string }; orange?: { email?: string; label?: string }; url?: string } }
+export const hubAppsScript = (key: string, sheetId = '', opt: { owner?: string; seed?: HubSeed[]; config?: TeamConfig } = {}) => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
 // Execute as: Me · Who has access: Anyone — ทุกคำสั่งต้องมีรหัส (ลิงก์ส่วนตัวของแต่ละคน หรือลิงก์รวมเดิมจนกว่าแอดมินปิด)
 // เก็บ: NSR = ชีตนี้ · ทะเบียน/งานของทีม = สเปรดชีต "EQ Camp — ข้อมูลกลางทีม" ที่สคริปต์สร้างให้ในไดรฟ์ของคุณ (ไม่แชร์สาธารณะ)
 // ไม่ลบแท็บ ไม่แทรก/ลบแถวในแท็บ NSR ไม่ทับสูตรที่ไม่ได้แก้
@@ -241,7 +243,8 @@ const TEAM_KEY = '${key}';     // ลิงก์รวมเดิม — ใ�
 const NSR_ID = '${sheetId}';   // ว่าง = ใช้ชีตที่สคริปต์ผูกอยู่
 const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ: อยู่ในไฟล์นี้เท่านั้น ใช้รับสิทธิ์แอดมินครั้งแรก/กู้สิทธิ์
 const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
-const VERSION = 9;
+const CONFIG_SEED = ${JSON.stringify(opt.config || {})};   // ค่าตั้งต้นของทีม (แอดมินแก้ได้บนเว็บ)
+const VERSION = 10;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -291,6 +294,10 @@ function route_(q) {
     // บอร์ดทีม: ทะเบียน + งาน + สถานะการขาย + สมาชิก ในคำสั่งเดียว
     case 'board': { var b = events_(q.from); b.jobs = jobs_().filter(function (j) { return !j.deleted; }).map(function (j) { delete j.snap; return j; }); b.status = statuses_(); b.team = team_(q.who); return b; }
     case 'me': return { ok: true };
+    case 'config.get': return { ok: true, config: cfg_() };
+    case 'config.set': { var nc = q.config || {}, cur = cfg_(), sm = nc.sme || {}; var clean = function (x) { x = x || {}; return { email: String(x.email || '').trim().toLowerCase().slice(0, 80), label: String(x.label || '').slice(0, 60) }; };
+      cur.sme = { blue: clean(sm.blue), orange: clean(sm.orange), url: String(sm.url || '').indexOf('https://') === 0 ? String(sm.url).slice(0, 200) : 'https://app.smemove.com/' };
+      props_().setProperty('config', JSON.stringify(cur)); dropCache_(['cfg']); audit_(q, 'ตั้งค่าทีม', 'SME Move', JSON.stringify(cur.sme)); return { ok: true, config: cur }; }
     // ── แอดมิน ──
     case 'admin.claim': return claim_(q);
     case 'members.list': return { ok: true, members: team_(q.who, true), legacy: !!st_().mem.legacy };
@@ -395,9 +402,12 @@ function st_() {
 function memFrom_(raw) { var m = null; try { m = raw ? JSON.parse(raw) : null; } catch (x) { m = null; }
   if (!m || !m.list) m = { legacy: true, list: MEMBERS_SEED.map(function (x) { return { id: x.id, nick: x.nick, name: x.name || '', email: x.email || '', role: x.role || 'member', kh: '', active: true }; }) };
   return m; }
+function cfg_() { var c = CacheService.getScriptCache(), r = null; try { r = c.get('cfg'); } catch (x) {}
+  if (!r) { r = props_().getProperty('config') || JSON.stringify(CONFIG_SEED); try { c.put('cfg', r, 21600); } catch (x) {} }
+  try { return JSON.parse(r) || {}; } catch (x) { return {}; } }
 function saveMem_(m) { props_().setProperty('members', JSON.stringify(m)); dropCache_(['mem']); ST_MEMO = null; }
 // ── ตัวตน: ลิงก์ส่วนตัว = รหัสเฉพาะคน (เก็บแค่ค่าแฮช ไม่เก็บรหัสจริง) · ลิงก์รวมเดิม = ใช้ได้เฉพาะตอนยังไม่ปิด ──
-var ADMIN_OPS = { 'members.list': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'audit': 1, 'jobs.trash': 1, 'job.versions': 1, 'job.restore': 1, 'nsr.migrateOT': 1 };
+var ADMIN_OPS = { 'config.set': 1, 'members.list': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'audit': 1, 'jobs.trash': 1, 'job.versions': 1, 'job.restore': 1, 'nsr.migrateOT': 1 };
 function hash_(k) { var b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'eqhub|' + k, Utilities.Charset.UTF_8);
   return b.map(function (x) { return ((x + 256) % 256).toString(16).replace(/^(.)$/, '0$1'); }).join(''); }
 function auth_(req, mem) {
@@ -479,7 +489,7 @@ function seen_(who, req) {
 function keyFail_(req, who) { try { var c = CacheService.getScriptCache(), k = 'kf:' + String(req.dev || 'x').slice(0, 40); if (c.get(k)) return; c.put(k, '1', 600);
   audit_({ who: who ? { nick: who.nick, role: '' } : { nick: '?', role: '' }, dev: String(req.dev || '').slice(0, 40), dl: String(req.dl || '').slice(0, 80) }, who ? 'ลิงก์ถูกปิดแต่ยังพยายามใช้' : 'รหัสไม่ถูกต้อง', String(req.op || '').slice(0, 30), ''); } catch (x) {} }
 // จำกัดความถี่ต่อคน/เครื่อง (กันสคริปต์ยิงถล่ม): เขียน ≤ 40/นาที · อ่าน ≤ 150/นาที
-var WRITE_OPS = { 'nsr.create': 1, 'nsr.edit': 1, 'log': 1, 'log.many': 1, 'job.put': 1, 'job.del': 1, 'status.set': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'job.restore': 1, 'admin.claim': 1, 'nsr.migrateOT': 1 };
+var WRITE_OPS = { 'config.set': 1, 'nsr.create': 1, 'nsr.edit': 1, 'log': 1, 'log.many': 1, 'job.put': 1, 'job.del': 1, 'status.set': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'job.restore': 1, 'admin.claim': 1, 'nsr.migrateOT': 1 };
 function rate_(who, req) { try { var c = CacheService.getScriptCache(), w = WRITE_OPS[req.op] ? 'w' : 'r', k = 'rl:' + w + ':' + who.id + ':' + req.dev + ':' + Math.floor(Date.now() / 60000), n = Number(c.get(k) || 0) + 1;
   c.put(k, String(n), 120); return n <= (w === 'w' ? 40 : 150); } catch (x) { return true; } }
 // ── บันทึกการใช้งาน (ใคร · อีเมล · เครื่อง · ทำอะไร · กับอะไร) — แอดมินเท่านั้นที่อ่านได้ ──
@@ -670,3 +680,15 @@ function migrateOT_(ss) {
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 `;
 export const newHubKey = () => 'eq-' + Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(36).padStart(2, '0')).join('').slice(0, 18);
+
+// ── ตั้งค่าทีมจากศูนย์กลาง (บัญชี SME Move ใบเสนอราคาสีฟ้า/สีส้ม) — ไม่อยู่ในเว็บสาธารณะ จำไว้ในเครื่องหลังเชื่อมต่อ ──
+const LS_CFG = 'eqcamp.team.cfg';
+export const teamConfig = (): TeamConfig => { try { return JSON.parse(localStorage.getItem(LS_CFG) || '{}') || {}; } catch { return {}; } };
+export async function loadTeamConfig(): Promise<TeamConfig> {
+  if (!hubReady()) return teamConfig();
+  try { const j: any = await hubCall('config.get', {}, 20000); const c = j.config || {}; try { localStorage.setItem(LS_CFG, JSON.stringify(c)); } catch { /* */ } return c; }
+  catch { return teamConfig(); }   // ศูนย์กลางรุ่นเก่า/ออฟไลน์ = ใช้ค่าที่จำไว้
+}
+export async function saveTeamConfig(c: TeamConfig): Promise<TeamConfig> {
+  const j: any = await hubCall('config.set', { config: c }, 20000); try { localStorage.setItem(LS_CFG, JSON.stringify(j.config || c)); } catch { /* */ } return j.config || c;
+}

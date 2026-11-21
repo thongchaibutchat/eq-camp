@@ -79,6 +79,12 @@ ok('oversized job refused', T3('job.put', { job: { id: 'J2', snap: { x: 'y'.repe
 // 10) โควตา Properties: rev ซ้ำ ๆ ไม่อ่าน Properties
 ADM('rev'); const p0 = H.pReads(); for (let i = 0; i < 200; i++) as(k2.key, 'd-tata-3')('rev'); const pr = H.pReads() - p0;
 ok(`200 polls read Properties ≤ 2 times (got ${pr})`, pr <= 2);
+// 10b) ตั้งค่าทีม (บัญชี SME Move ใบเสนอราคาสีฟ้า/สีส้ม)
+const g0 = as(k2.key, 'd-tata-3')('config.get'); ok('member reads seeded SME accounts', g0.ok && g0.config.sme.blue.email === 'blue@test.local' && g0.config.sme.orange.email === 'orange@test.local', JSON.stringify(g0));
+ok('member cannot change config', as(k2.key, 'd-tata-3')('config.set', { config: { sme: { blue: { email: 'evil@x' } } } }).error === 'forbidden');
+const cs = ADM('config.set', { config: { sme: { blue: { email: ' New.Blue@Test.Local ' }, orange: { email: 'orange@test.local' }, url: 'javascript:alert(1)' } } });
+ok('admin updates config (email normalized, unsafe url replaced)', cs.ok && cs.config.sme.blue.email === 'new.blue@test.local' && cs.config.sme.url === 'https://app.smemove.com/', JSON.stringify(cs.config));
+ok('config persists', as(k2.key, 'd-tata-3')('config.get').config.sme.blue.email === 'new.blue@test.local');
 // 11) ประวัติการใช้งาน
 const au = ADM('audit', { limit: 500 }); const acts = new Set(au.rows.map(r => r.action));
 ok('audit covers claim/key/disable/close-shared/new-device/denied/delete/restore', ['รับสิทธิ์แอดมิน', 'ออกลิงก์ส่วนตัวใหม่', 'แก้สมาชิก', 'ปิดลิงก์รวม', 'เครื่องใหม่', 'ปฏิเสธ', 'ลบงาน', 'กู้คืนงาน', 'รหัสไม่ถูกต้อง'].every(a => acts.has(a)), [...acts].join(','));

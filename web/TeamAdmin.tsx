@@ -2,7 +2,8 @@
 // สิทธิ์จริงตรวจที่ศูนย์กลาง (ไม่ใช่แค่ซ่อนปุ่ม) — สมาชิกเรียกคำสั่งแอดมินจะถูกปฏิเสธและบันทึกไว้
 import React, { useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Copy, Check, Share2, ShieldCheck, ShieldAlert, KeyRound, UserPlus, RotateCcw, AlertTriangle } from 'lucide-react';
-import { hubCall, hubUrl, setHub, HUB_URL, onArea } from './hub';
+import { hubCall, hubUrl, setHub, HUB_URL, onArea, loadTeamConfig, saveTeamConfig } from './hub';
+import type { TeamConfig } from './hub';
 import { copyText } from './platform';
 import { ago } from './jobs';
 
@@ -35,7 +36,8 @@ export function ClaimAdmin({ flash, onDone }: { flash: (t: string, warn?: boolea
 }
 
 export default function TeamAdmin({ flash }: { flash: (t: string, warn?: boolean) => void }) {
-  const [tab, setTab] = useState<'members' | 'audit' | 'restore'>('members');
+  const [tab, setTab] = useState<'members' | 'audit' | 'restore' | 'settings'>('members');
+  const [cfg, setCfg] = useState<TeamConfig>({});
   const [mem, setMem] = useState<Mem[]>([]); const [legacy, setLegacy] = useState(false);
   const [rows, setRows] = useState<AuditRow[]>([]); const [trash, setTrash] = useState<{ deleted: any[]; recent: any[] }>({ deleted: [], recent: [] });
   const [loading, setLoading] = useState(false); const [err, setErr] = useState('');
@@ -48,6 +50,7 @@ export default function TeamAdmin({ flash }: { flash: (t: string, warn?: boolean
     try {
       if (what === 'members') { const r: any = await hubCall('members.list'); setMem(r.members || []); setLegacy(!!r.legacy); }
       if (what === 'audit') { const r: any = await hubCall('audit', { limit: 400 }); setRows(r.rows || []); }
+      if (what === 'settings') { setCfg(await loadTeamConfig()); }
       if (what === 'restore') { const r: any = await hubCall('jobs.trash'); setTrash({ deleted: r.deleted || [], recent: r.recent || [] }); }
     } catch (e: any) { setErr(e?.code === 'op' ? 'ศูนย์กลางทีมยังเป็นรุ่นเก่า — อัปเดตสคริปต์เป็นรุ่น 9 ก่อน' : e?.message || 'โหลดไม่สำเร็จ'); }
     finally { setLoading(false); }
@@ -83,7 +86,7 @@ export default function TeamAdmin({ flash }: { flash: (t: string, warn?: boolean
         <button onClick={() => load(tab)} aria-label="โหลดใหม่" className="tap p-2 rounded-lg border border-brand-mist hover:bg-paper"><RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /></button>
       </div>
       <div role="tablist" className="mt-2 flex border-b border-brand-mist overflow-x-auto">
-        {([['members', 'สมาชิก & ลิงก์'], ['audit', 'ประวัติการใช้งาน'], ['restore', 'กู้คืนงาน']] as const).map(([id, l]) => (
+        {([['members', 'สมาชิก & ลิงก์'], ['audit', 'ประวัติการใช้งาน'], ['restore', 'กู้คืนงาน'], ['settings', 'บัญชี SME Move']] as const).map(([id, l]) => (
           <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`tap shrink-0 px-3 py-2 text-[14px] border-b-2 -mb-px ${tab === id ? 'border-brand-navy font-semibold' : 'border-transparent text-sub'}`}>{l}</button>
         ))}
       </div>
@@ -157,6 +160,19 @@ export default function TeamAdmin({ flash }: { flash: (t: string, warn?: boolean
               ))}
             </ul>
           ) : <p className="text-[14px] text-sub py-2">{loading ? 'กำลังโหลด…' : 'ยังไม่มีรายการ'}</p>}
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="mt-3 space-y-3">
+          <p className="text-[13.5px] text-sub">บัญชี SME Move ที่ใช้ออกใบเสนอราคาแต่ละสี — ทุกคนในทีมเห็นในหน้า "ราคา & งบ" และ AI จะตรวจว่าล็อกอินถูกบัญชีก่อนสร้าง (ไม่เก็บรหัสผ่าน)</p>
+          {(['blue', 'orange'] as const).map(c => (
+            <label key={c} className="block text-[13px] text-sub"><span className="inline-flex items-center gap-1.5"><span aria-hidden className={`w-2.5 h-2.5 rounded-full ${c === 'blue' ? 'bg-sky-600' : 'bg-orange-500'}`} />{c === 'blue' ? 'ใบเสนอราคาสีฟ้า (มีภาษี) — อีเมลบัญชี SME Move' : 'ใบเสนอราคาสีส้ม (ไม่มีภาษี) — อีเมลบัญชี SME Move'}</span>
+              <input type="email" autoCapitalize="off" value={cfg.sme?.[c]?.email || ''} onChange={e => setCfg(x => ({ ...x, sme: { ...x.sme, [c]: { ...(x.sme?.[c] || {}), email: e.target.value } } }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink" />
+            </label>
+          ))}
+          <label className="block text-[13px] text-sub">ลิงก์เข้าสู่ระบบ SME Move<input value={cfg.sme?.url || 'https://app.smemove.com/'} onChange={e => setCfg(x => ({ ...x, sme: { ...x.sme, url: e.target.value } }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-brand-mist text-[14px] text-brand-ink" /></label>
+          <button onClick={async () => { try { setCfg(await saveTeamConfig(cfg)); flash('บันทึกบัญชี SME Move ของทีมแล้ว'); } catch (e: any) { flash(e?.message || 'บันทึกไม่สำเร็จ', true); } }} className="tap px-3.5 py-2 rounded-lg bg-brand-navy text-white text-[14px] font-medium">บันทึก</button>
         </div>
       )}
 

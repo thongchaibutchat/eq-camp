@@ -44,6 +44,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await row.getByRole('button', { name: /ออกลิงก์ส่วนตัว/ }).click(); await sleep(1500);
   const tataLink = await A.pg.getByLabel('ลิงก์ส่วนตัวของ ตาต้า').inputValue();
   ok('personal link issued (#/t/eq-…)', /#\/t\/eq-[a-z0-9]{26}$/.test(tataLink), tataLink);
+  // แอดมินตั้งบัญชี SME Move ของทีม
+  await A.pg.getByRole('tab', { name: 'บัญชี SME Move' }).click(); await sleep(1200);
+  const blueIn = A.pg.getByLabel(/ใบเสนอราคาสีฟ้า/); ok('admin sees seeded SME accounts', (await blueIn.inputValue()) === 'blue@test.local');
+  await blueIn.fill('blue2@test.local'); await A.pg.getByRole('button', { name: 'บันทึก', exact: true }).click(); await sleep(1500);
+  ok('admin saved SME account', H.handle({ op: 'config.get', key: TEAM }).config.sme.blue.email === 'blue2@test.local');
+  await A.pg.getByRole('tab', { name: /สมาชิก/ }).click(); await sleep(800);
   // ── ตาต้า (iPhone) เปิดลิงก์ส่วนตัว + พยายามปลอมชื่อเป็นแพนด้า ──
   const B = await mk(devices['iPhone 13'], 'B');
   await B.ctx.addInitScript(() => { if (!sessionStorage.getItem('i')) { localStorage.setItem('eqcamp.hub.name', 'แพนด้า'); sessionStorage.setItem('i', '1'); } });
@@ -57,6 +63,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await B.pg.getByRole('button', { name: /เริ่มงานใหม่/ }).first().click(); await sleep(1500);
   await B.pg.getByRole('button', { name: /^ดาวน์โหลด/ }).first().click(); await sleep(4000);
   { const dlg = B.pg.locator('[role=dialog][aria-label="บันทึกไฟล์"]'); if (await dlg.count()) { await dlg.getByRole('button', { name: /ปิด|เสร็จ/ }).first().click().catch(() => {}); await B.pg.keyboard.press('Escape').catch(() => {}); await sleep(500); } }
+  // ตาต้าเห็นบัญชีของใบเสนอราคาสีฟ้าในขั้นราคา
+  await B.pg.getByRole('button', { name: /ราคา & งบ/ }).first().click(); await sleep(1200);
+  const sp = B.pg.locator('section[aria-label="ส่งเข้า SME Move"]');
+  ok('member sees team SME account on blue card', /blue2@test\.local/.test(await sp.innerText()));
   const ev = (H.handle({ op: 'events', key: TEAM }).events || []);
   const evAdmin = H.handle({ op: 'events', key: (await A.pg.evaluate(() => localStorage.getItem('eqcamp.hub.key'))) }).events.find(e => /ตาต้าทดสอบ/.test(e.school));
   ok('spoofed name ignored: event = ตาต้า + email + iPhone', evAdmin && evAdmin.byName === 'ตาต้า' && evAdmin.email === 'tata@test.local' && /iPhone/.test(evAdmin.device), JSON.stringify(evAdmin));
