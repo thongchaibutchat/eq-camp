@@ -93,16 +93,15 @@ export default function SmeMovePanel({ camp, onChange }: { camp: Camp; onChange:
       <ul>{q.doc.map(f => <Row key={f.key} id={f.key} label={f.label} value={f.value} missing={f.missing} hint={f.hint} />)}</ul>
       <h4 className="mt-2 text-[13.5px] font-semibold">รายการสินค้า/บริการ</h4>
       <ul>
-        <Row id="name" label="ชื่อสินค้า/บริการ" value={l.name} />
-        <Row id="detail" label="รายละเอียด" value={l.detail} />
+        <Row id="name" label="สินค้า" value={l.name} />
+        <Row id="detail" label="รายละเอียดสินค้า" value={l.detail} />
         <Row id="qty" label="จำนวน" value={l.qty ? String(l.qty) : ''} hint="ยังไม่มีจำนวนนักเรียน" missing={!l.qty} />
-        <Row id="unit" label="หน่วย" value={l.unit} />
         <Row id="price" label="ราคาต่อหน่วย" value={l.price ? fmtMoney(l.price) : ''} hint="ยังไม่มีราคา" missing={!l.price} />
         {l.discount > 0 && <Row id="disc" label="ส่วนลดต่อหน่วย" value={fmtMoney(l.discount)} />}
       </ul>
       <div className="mt-2 flex items-baseline justify-between rounded-lg bg-paper px-3 py-2 text-[14px]"><span>ยอดรวม (ก่อนตั้งค่าภาษีใน SME Move)</span><b className="tabular-nums font-semibold">{fmtMoney(q.total)} บาท</b></div>
-      <ul className="mt-1"><Row id="notes" label="หมายเหตุ / เงื่อนไข" value={q.notes} /></ul>
-      <p className="mt-2 text-[12.5px] text-sub">มีเฉพาะข้อมูลที่ลูกค้าเห็นในใบเสนอราคา{q.vatText ? ` · ${q.vatText}` : ''}</p>
+      {q.notes && <ul className="mt-1"><Row id="notes" label="หมายเหตุเอกสาร" value={q.notes} /></ul>}
+      <p className="mt-2 text-[12.5px] text-sub">ชื่อช่องตรงกับฟอร์ม SME Move · รูปแบบรายการตามใบเสนอราคาค่ายของทีม{q.vatText ? ` · ${q.vatText}` : ''}</p>
       <div className="mt-4 rounded-xl border border-brand-mist p-3 space-y-2">
         <div className="text-[14.5px] font-semibold flex items-center gap-2"><Bot className="w-4 h-4 text-brand-navy" />ให้ AI สร้างใบเสนอราคาจริงใน SME Move</div>
         <ol className="list-decimal pl-5 text-[13px] text-sub space-y-0.5">
