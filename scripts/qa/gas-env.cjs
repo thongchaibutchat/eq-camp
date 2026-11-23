@@ -1,7 +1,7 @@
 // จำลองสภาพแวดล้อม Apps Script (SpreadsheetApp/Properties/Lock/Cache/Content/ScriptApp/Utilities) แล้วรันโค้ดศูนย์กลางจริง
 // ใช้ทั้งทดสอบหน่วย (gas-mock-test.cjs) และเป็นศูนย์กลางของการทดสอบบนเว็บ (e2e-security.cjs)
 const crypto = require('crypto');
-function makeHub(code) {
+function makeHub(code, opt = {}) {
 let sid = 100;
 function Sheet(ss, name) {
   const g = []; const id = sid++;
@@ -48,8 +48,20 @@ const env = {
     computeDigest: (alg, str) => [...crypto.createHash('sha256').update(String(str), 'utf8').digest()].map(b => (b > 127 ? b - 256 : b)),
     getUuid: () => crypto.randomUUID()
   };
-  const fn = new Function(...Object.keys(env), code + '\nreturn { doPost, doGet, onEdit, setup, warmCache };')(...Object.values(env));
+  // Drive (คลังงานเก่า): opt.drive = { folders: { id: { name, updated, created, folders: [id], files: [id] } }, files: { id: { name, mime, size, updated, entries: [{ name, data }] } } }
+  const D = opt.drive || { folders: {}, files: {} }; let driveReads = 0;
+  const iter = (kind, parent, list, pos = 0) => ({ hasNext: () => pos < list.length, next: () => { driveReads++; const id = list[pos++]; return kind === 'f' ? fileObj(id) : folderObj(id); }, getContinuationToken: () => JSON.stringify([kind, parent, pos]) });
+  const folderObj = id => { const f = D.folders[id]; if (!f) throw new Error('No item with the given ID could be found'); return { getId: () => id, getName: () => f.name, getLastUpdated: () => new Date(f.updated || '2026-10-08T00:00:00Z'), getDateCreated: () => new Date(f.created || f.updated || '2026-10-01T00:00:00Z'),
+    getFiles: () => iter('f', id, f.files || []), getFolders: () => iter('d', id, f.folders || []) }; };
+  const fileObj = id => { const f = D.files[id]; if (!f) throw new Error('No item with the given ID could be found'); return { getId: () => id, getName: () => f.name, getMimeType: () => f.mime, getSize: () => f.size || 1000, getLastUpdated: () => new Date(f.updated || '2026-10-08T00:00:00Z'),
+    getBlob: () => ({ setContentType() { return this; }, _entries: f.entries || [] }) }; };
+  env.DriveApp = { getFolderById: folderObj, getFileById: id => { driveReads++; return fileObj(id); },
+    continueFolderIterator: tok => { const [k, parent, pos] = JSON.parse(tok); return iter(k, parent, D.folders[parent].folders || [], pos); } };
+  env.Utilities.unzip = blob => (blob._entries || []).map(e => ({ getName: () => e.name, getDataAsString: () => e.data }));
+  // นาฬิกาเร่ง (ทดสอบสแกนต่อจากจุดเดิม): opt.fastClock = มิลลิวินาทีที่เดินต่อการเรียก Date.now หนึ่งครั้ง
+  if (opt.fastClock) { let t = Date.parse('2026-11-23T00:00:00Z'); env.Date = class extends Date { static now() { return (t += opt.fastClock); } }; }
+  const fn = new Function(...Object.keys(env), code + '\nreturn { doPost, doGet, onEdit, setup, warmCache, pastDaily: typeof pastDaily === "function" ? pastDaily : null };')(...Object.values(env));
   const handle = req => JSON.parse(fn.doPost({ postData: { contents: JSON.stringify(req) } }).s);
-  return { fn, handle, env, props, cache, files, triggers, NSR, t1, lock: { set free(v) { lockFree = v; }, get free() { return lockFree; } }, opens: () => opens, created: () => created, pReads: () => pReads };
+  return { fn, handle, env, props, cache, files, triggers, NSR, t1, lock: { set free(v) { lockFree = v; }, get free() { return lockFree; } }, opens: () => opens, created: () => created, pReads: () => pReads, driveReads: () => driveReads, drive: D };
 }
 module.exports = { makeHub };

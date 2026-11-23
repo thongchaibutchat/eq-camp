@@ -72,6 +72,10 @@ export interface Camp {
   partyTheme?: string;
   /** ธีมรายวัน (mix หลักสูตร): ดัชนี = วัน (0 = วันที่ 1), ค่า = รหัสหลักสูตรของวันนั้น · '' / ไม่ระบุ = หลักสูตรหลัก */
   dayCourses?: string[];
+  /** โปรแกรมที่ทีมเคยส่งจริง (ดึงจากคลังงานเก่า) = แม่แบบในงาน โครงเดียวกับ TEMPLATES · ใช้เมื่อ templateId ว่างหรือ = pastTpl.id และระยะเวลา/หลักสูตรตรง */
+  pastTpl?: CourseTemplate;
+  /** ที่มาของงานเก่า (โฟลเดอร์/ไฟล์ใน Drive) — แสดงให้ตรวจ ไม่ใช้ในเอกสาร */
+  pastRef?: { folderId?: string; folderName?: string; fileId?: string; fileName?: string; docCode?: string; date?: string; confirmed?: boolean; importedAt?: string };
 }
 /** code = รหัสหลักสูตรที่เป็น Add-on · ids = กิจกรรมที่เลือก (ว่าง = อัตโนมัติ 1 ช่วง/วัน) · minutes = ความยาว/ช่วง · price = บาท/ท่านที่บวกเพิ่ม (0 = รวมในราคาเดิม) */
 export interface RowEdit { day: number; from: string; to?: string; time?: string; sub?: string[] }
@@ -655,10 +659,16 @@ export const areaMatch = (t: CourseTemplate, c: Pick<Camp, 'province' | 'venue' 
   if (t.area.some(a => hay.includes(a))) return true;
   return !!(t.venue && placeKey(c.venue).length > 3 && placeKey(c.venue).includes(placeKey(t.venue)));
 };
-const tplLabel = (t: CourseTemplate) => `${durKeyLabel(t.dur)}${t.area.length ? ` · พื้นที่${t.area.join('/')}` : ''}${t.venue ? ` · ${t.venue}` : ''}`;
+const tplLabel = (t: CourseTemplate) => t.variant === 'past' ? `งานเดิม · ${t.source.replace(/\.docx?$/i, '').slice(0, 70)}` : `${durKeyLabel(t.dur)}${t.area.length ? ` · พื้นที่${t.area.join('/')}` : ''}${t.venue ? ` · ${t.venue}` : ''}`;
 export interface TplPick { tpl: CourseTemplate; exact: boolean; areaOK: boolean | null; options: CourseTemplate[] }
 export function templateFor(c: Camp): TplPick | undefined {
-  if (!c.courseCode || c.templateId === 'engine') return undefined;
+  if (c.templateId === 'engine') return undefined;
+  // งานเก่าที่ดึงมาแก้: ใช้โปรแกรมเดิมเป็นแม่แบบ เมื่อยังไม่ได้เลือกแม่แบบอื่น + ระยะเวลา/หลักสูตรยังตรงกับงานเดิม
+  const pt = c.pastTpl;
+  if (pt && pt.days && pt.days.length && (!c.templateId || c.templateId === pt.id) && pt.dur === durKeyOf(c) && (!pt.code || pt.code === c.courseCode)) {
+    return { tpl: pt, exact: true, areaOK: null, options: [pt, ...templatesOf(c.courseCode).filter(t => t.dur === pt.dur)] };
+  }
+  if (!c.courseCode) return undefined;
   const all = templatesOf(c.courseCode); if (!all.length) return undefined;
   const key = durKeyOf(c);
   const exactList = all.filter(t => t.dur === key);
@@ -1464,7 +1474,7 @@ function composeBase(c: Camp, plan: Plan, titleExtraLines = 0) {
   autoBudget.push(...addonBudget);
   const base = { objectives, acts: mixActs(acts), integ, budget: custom.length ? custom : autoBudget, autoBudget, staff, p1, p2, dur, addonItems };
   // ===== หน้าปกตามแม่แบบจริงของทีม (ลำดับหัวข้อ/ถ้อยคำตามต้นฉบับ แทนค่าด้วยบรีฟ) =====
-  const tt = plan.tpl ? templateById(plan.tpl.id) : undefined;
+  const tt = plan.tpl ? (c.pastTpl && plan.tpl.id === c.pastTpl.id ? c.pastTpl : templateById(plan.tpl.id)) : undefined;
   if (tt) {
     const F = (x: string) => fillTpl(x, c);
     const exact = !!plan.tpl!.exact;

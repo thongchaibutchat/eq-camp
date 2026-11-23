@@ -152,8 +152,8 @@ export async function flush() {
 // · ถาม rev ทุก ~5 วิ ขณะมีคนใช้งานหน้าจอ · ไม่ได้แตะหน้าจอเกิน 3 นาที = ทุก ~20 วิ · ซ่อนหน้า = หยุด · สุ่มเหลื่อมเวลา ±15% (หลายเครื่องไม่ยิงพร้อมกัน)
 // · เบราว์เซอร์เดียวเปิดหลายแท็บ = ถามแท็บเดียว (ผู้นำ) แล้วบอกแท็บอื่นผ่าน localStorage
 // · ศูนย์กลางรุ่น 8 บอก "ส่วนที่เปลี่ยน" (nsr/log/job/st) → แต่ละหน้าโหลดใหม่เฉพาะส่วนที่ตัวเองใช้ และหน่วงสุ่ม 0–2.5 วิ (ไม่ถล่มศูนย์กลางพร้อมกันหลังมีคนบันทึก)
-export type Area = 'nsr' | 'log' | 'job' | 'st';
-export const AREAS: Area[] = ['nsr', 'log', 'job', 'st'];
+export type Area = 'nsr' | 'log' | 'job' | 'st' | 'past';
+export const AREAS: Area[] = ['nsr', 'log', 'job', 'st', 'past'];
 let state: HubState = { status: hubReady() ? 'connecting' : 'off', pending: queue().length };
 const stateSubs = new Set<(s: HubState) => void>();
 const revSubs = new Set<Listener>();
@@ -235,7 +235,7 @@ export const notifyLocalChange = () => { bc?.postMessage({ t: 'changed' }); };
 export interface HubSeed { id: string; nick: string; name?: string; email?: string; role?: 'admin' | 'member' }
 // ตั้งค่าทีม (เก็บในศูนย์กลาง ไม่อยู่ในเว็บสาธารณะ) — บัญชี SME Move ของใบเสนอราคาสีฟ้า (มีภาษี) / สีส้ม (ไม่มีภาษี)
 export interface TeamConfig { sme?: { blue?: { email?: string; label?: string }; orange?: { email?: string; label?: string }; url?: string } }
-export const hubAppsScript = (key: string, sheetId = '', opt: { owner?: string; seed?: HubSeed[]; config?: TeamConfig } = {}) => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
+export const hubAppsScript = (key: string, sheetId = '', opt: { owner?: string; seed?: HubSeed[]; config?: TeamConfig; pastFolder?: string } = {}) => `// EQ Camp — ศูนย์กลางทีม (Web app: Deploy → New deployment → Web app)
 // Execute as: Me · Who has access: Anyone — ทุกคำสั่งต้องมีรหัส (ลิงก์ส่วนตัวของแต่ละคน หรือลิงก์รวมเดิมจนกว่าแอดมินปิด)
 // เก็บ: NSR = ชีตนี้ · ทะเบียน/งานของทีม = สเปรดชีต "EQ Camp — ข้อมูลกลางทีม" ที่สคริปต์สร้างให้ในไดรฟ์ของคุณ (ไม่แชร์สาธารณะ)
 // ไม่ลบแท็บ ไม่แทรก/ลบแถวในแท็บ NSR ไม่ทับสูตรที่ไม่ได้แก้
@@ -244,7 +244,8 @@ const NSR_ID = '${sheetId}';   // ว่าง = ใช้ชีตที่ส�
 const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ: อยู่ในไฟล์นี้เท่านั้น ใช้รับสิทธิ์แอดมินครั้งแรก/กู้สิทธิ์
 const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
 const CONFIG_SEED = ${JSON.stringify(opt.config || {})};   // ค่าตั้งต้นของทีม (แอดมินแก้ได้บนเว็บ)
-const VERSION = 10;
+const PAST_FOLDER = '${opt.pastFolder || ''}';   // โฟลเดอร์งานที่เคยส่งจริง (เช่น "2569") — อ่านอย่างเดียว ไม่แก้ไฟล์ต้นฉบับ
+const VERSION = 11;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -294,6 +295,10 @@ function route_(q) {
     // บอร์ดทีม: ทะเบียน + งาน + สถานะการขาย + สมาชิก ในคำสั่งเดียว
     case 'board': { var b = events_(q.from); b.jobs = jobs_().filter(function (j) { return !j.deleted; }).map(function (j) { delete j.snap; return j; }); b.status = statuses_(); b.team = team_(q.who); return b; }
     case 'me': return { ok: true };
+    // คลังงานเก่า (อ่านอย่างเดียว): รายการโฟลเดอร์งาน + ไฟล์ · ข้อความของไฟล์ Word เฉพาะไฟล์ที่อยู่ในคลังเท่านั้น
+    case 'past.list': return { ok: true, folders: pastRows_(), scannedAt: props_().getProperty('pastAt') || '', root: PAST_FOLDER ? 1 : 0 };
+    case 'past.text': return pastText_(String(q.fileId || ''));
+    case 'past.scan': { var pl = LockService.getScriptLock(); if (!pl.tryLock(5000)) return { ok: false, error: 'busy' }; try { ensurePast_(); var rs = pastScan_(!!q.full); if (rs.ok) audit_(q, 'สแกนคลังงานเก่า', String(rs.n), 'เปลี่ยน ' + rs.changed + (rs.left ? ' (ยังไม่ครบ)' : '')); return rs; } finally { pl.releaseLock(); } }
     case 'config.get': return { ok: true, config: cfg_() };
     case 'config.set': { var nc = q.config || {}, cur = cfg_(), sm = nc.sme || {}; var clean = function (x) { x = x || {}; return { email: String(x.email || '').trim().toLowerCase().slice(0, 80), label: String(x.label || '').slice(0, 60) }; };
       cur.sme = { blue: clean(sm.blue), orange: clean(sm.orange), url: String(sm.url || '').indexOf('https://') === 0 ? String(sm.url).slice(0, 200) : 'https://app.smemove.com/' };
@@ -377,7 +382,7 @@ function route_(q) {
 function props_() { return PropertiesService.getScriptProperties(); }
 // ── เลขรุ่น (rev + แยกส่วน nsr/log/job/st) เก็บใน Properties แต่ "อ่าน" จากแคช → rev ที่ทุกเครื่องถามบ่อยไม่กินโควตา Properties รายวัน ──
 function revsFrom_(all) { var e = Number(all.edit || 0);
-  return { rev: (all.rev || '0') + '.' + (all.edit || '0'), areas: { nsr: String(Math.max(e, Number(all['r.nsr'] || 0))), log: all['r.log'] || '0', job: all['r.job'] || '0', st: all['r.st'] || '0' } }; }
+  return { rev: (all.rev || '0') + '.' + (all.edit || '0'), areas: { nsr: String(Math.max(e, Number(all['r.nsr'] || 0))), log: all['r.log'] || '0', job: all['r.job'] || '0', st: all['r.st'] || '0', past: all['r.past'] || '0' } }; }
 function rev_() { return st_().revs.rev; }
 function areas_() { return st_().revs.areas; }
 function bump_(area) { var now = String(Date.now()), p = props_(); p.setProperty('rev', now); if (area) p.setProperty('r.' + area, now); dropCache_(['revs']); ST_MEMO = null; }
@@ -407,7 +412,7 @@ function cfg_() { var c = CacheService.getScriptCache(), r = null; try { r = c.g
   try { return JSON.parse(r) || {}; } catch (x) { return {}; } }
 function saveMem_(m) { props_().setProperty('members', JSON.stringify(m)); dropCache_(['mem']); ST_MEMO = null; }
 // ── ตัวตน: ลิงก์ส่วนตัว = รหัสเฉพาะคน (เก็บแค่ค่าแฮช ไม่เก็บรหัสจริง) · ลิงก์รวมเดิม = ใช้ได้เฉพาะตอนยังไม่ปิด ──
-var ADMIN_OPS = { 'config.set': 1, 'members.list': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'audit': 1, 'jobs.trash': 1, 'job.versions': 1, 'job.restore': 1, 'nsr.migrateOT': 1 };
+var ADMIN_OPS = { 'config.set': 1, 'members.list': 1, 'members.save': 1, 'members.key': 1, 'legacy.set': 1, 'audit': 1, 'jobs.trash': 1, 'job.versions': 1, 'job.restore': 1, 'nsr.migrateOT': 1, 'past.scan': 1 };
 function hash_(k) { var b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, 'eqhub|' + k, Utilities.Charset.UTF_8);
   return b.map(function (x) { return ((x + 256) % 256).toString(16).replace(/^(.)$/, '0$1'); }).join(''); }
 function auth_(req, mem) {
@@ -676,6 +681,64 @@ function migrateOT_(ss) {
   if (done.length) bump_('nsr');
   var badAll = []; for (var k in seen) if (k.indexOf('ot:') === 0 && seen[k] === 'x') badAll.push(Number(k.slice(3)));
   return { ok: true, done: done.length, skip: skip, left: left, bad: bad, badIds: badAll };
+}
+// ── คลังงานเก่า: สแกนโฟลเดอร์งานจริง (เช่น 2569) → แท็บ Past ในข้อมูลกลางทีม · อ่านอย่างเดียว ไม่แตะไฟล์ต้นฉบับ ──
+var PAST_COLS = ['folderId', 'name', 'updated', 'files', 'scannedAt', 'created'];
+function pastRows_() { var sh = tab_('Past', PAST_COLS), n = sh.getLastRow(); if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, PAST_COLS.length).getValues().map(function (r) { var f = []; try { f = JSON.parse(r[3] || '[]'); } catch (x) {} return { id: String(r[0]), name: String(r[1]), updated: String(r[2]), files: f, scannedAt: String(r[4]), created: String(r[5] || '') }; }); }
+function pastFiles_(folder, prefix, out, depth) { var it = folder.getFiles();
+  while (it.hasNext() && out.length < 80) { var f = it.next(); out.push({ id: f.getId(), n: (prefix ? prefix + '/' : '') + f.getName(), m: f.getMimeType(), s: f.getSize(), u: f.getLastUpdated().toISOString() }); }
+  if (depth < 1) { var sub = folder.getFolders(); while (sub.hasNext() && out.length < 80) { var sf = sub.next(); pastFiles_(sf, (prefix ? prefix + '/' : '') + sf.getName(), out, depth + 1); } }
+  return out; }
+// สแกนทีละช่วง (งบ 20 วิ) ต่อจากจุดเดิมครั้งถัดไป · โฟลเดอร์ใหม่/เปลี่ยนชื่อ/แก้ไข/สแกนเกิน 3 วัน (งานอายุ ≤ 180 วัน) = อ่านรายการไฟล์ใหม่
+function pastScan_(full) {
+  if (!PAST_FOLDER) return { ok: false, error: 'nopast' };
+  var t0 = Date.now(), sh = tab_('Past', PAST_COLS), rows = pastRows_(), idx = {}; rows.forEach(function (r, i) { idx[r.id] = i; });
+  var p = props_(), tok = full ? '' : (p.getProperty('pastTok') || ''), it = null;
+  if (tok) { try { it = DriveApp.continueFolderIterator(tok); } catch (x) { it = null; } }
+  if (!it) it = DriveApp.getFolderById(PAST_FOLDER).getFolders();
+  var changed = 0, now = Date.now();
+  while (it.hasNext()) {
+    if (Date.now() - t0 > 20000) { p.setProperty('pastTok', it.getContinuationToken()); if (changed) bump_('past'); return { ok: true, left: true, changed: changed, n: Math.max(0, sh.getLastRow() - 1) }; }
+    var fo = it.next(), id = fo.getId(), up = fo.getLastUpdated().toISOString(), i = idx[id], cr = fo.getDateCreated ? fo.getDateCreated().toISOString() : '';
+    if (i !== undefined && rows[i].updated === up && rows[i].name === fo.getName() && !(now - Date.parse(rows[i].scannedAt || 0) > 3 * 864e5 && now - Date.parse(cr || up) < 180 * 864e5)) continue;
+    var row = [id, fo.getName(), up, JSON.stringify(pastFiles_(fo, '', [], 0)), new Date().toISOString(), cr];
+    if (i !== undefined) sh.getRange(i + 2, 1, 1, PAST_COLS.length).setValues([row]); else { sh.appendRow(row); idx[id] = rows.length; rows.push({ id: id, updated: up, name: fo.getName(), scannedAt: row[4] }); }
+    changed++;
+  }
+  p.setProperty('pastTok', ''); p.setProperty('pastAt', new Date().toISOString()); if (changed) bump_('past');
+  return { ok: true, left: false, changed: changed, n: Math.max(0, sh.getLastRow() - 1) };
+}
+function pastDaily() { var l = LockService.getScriptLock(); if (!l.tryLock(10000)) return; try { var r = pastScan_(false), k = 0; while (r.ok && r.left && k++ < 10) r = pastScan_(false); } finally { l.releaseLock(); } }
+function ensurePast_() { var p = props_(); if (!PAST_FOLDER || p.getProperty('pastTrig') === '1') return;
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'pastDaily') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('pastDaily').timeBased().everyHours(6).create(); p.setProperty('pastTrig', '1'); }
+// ข้อความของไฟล์ Word (ทีละย่อหน้า · แถวตาราง = ช่องคั่นแท็บ) — เฉพาะไฟล์ .docx ที่อยู่ในคลังงานเก่า
+function pastText_(fileId) {
+  var hit = null; pastRows_().some(function (r) { return r.files.some(function (f) { if (f.id === fileId) { hit = f; return true; } return false; }); });
+  if (!fileId || !hit) return { ok: false, error: 'missing' };
+  if (!(/\\.docx$/i.test(hit.n) || /wordprocessingml/.test(hit.m))) return { ok: false, error: 'type' };
+  var c = CacheService.getScriptCache(), k = 'px:' + fileId; try { var got = c.get(k); if (got) return { ok: true, text: got, name: hit.n, cached: true }; } catch (x) {}
+  var blob = DriveApp.getFileById(fileId).getBlob(); try { blob.setContentType('application/zip'); } catch (x) {}
+  var xml = ''; Utilities.unzip(blob).forEach(function (b) { if (b.getName() === 'word/document.xml') xml = b.getDataAsString('UTF-8'); });
+  if (!xml) return { ok: false, error: 'read' };
+  var text = docxText_(xml); if (text.length < 90000) { try { c.put(k, text, 21600); } catch (x) {} }
+  return { ok: true, text: text, name: hit.n };
+}
+function ent_(s) { return s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\\d+);/g, function (m, d) { return String.fromCharCode(+d); }).replace(/&amp;/g, '&'); }
+function ptext_(p) { var out = ''; p.replace(/<w:tab\\/>|<w:br\\b[^>]*\\/>|<w:t(?:\\s[^>]*)?>([\\s\\S]*?)<\\/w:t>/g, function (m, t) { out += m.indexOf('<w:tab') === 0 ? '\\t' : m.indexOf('<w:br') === 0 ? '\\n' : t; return m; }); return ent_(out); }
+function paras_(x) { var out = []; x.replace(/<w:p\\b[^>]*\\/>|<w:p\\b[^>]*>[\\s\\S]*?<\\/w:p>/g, function (m) { out.push(ptext_(m)); return m; }); return out; }
+function docxText_(xml) {
+  var body = xml.replace(/^[\\s\\S]*?<w:body>/, '').replace(/<w:sectPr\\b[\\s\\S]*$/, ''), lines = [];
+  body.split(/(<w:tbl>[\\s\\S]*?<\\/w:tbl>)/).forEach(function (part) {
+    if (part.indexOf('<w:tbl>') === 0) {
+      part.replace(/<w:tr\\b[^>]*>[\\s\\S]*?<\\/w:tr>/g, function (tr) {
+        var cells = []; tr.replace(/<w:tc>[\\s\\S]*?<\\/w:tc>/g, function (tc) { cells.push(paras_(tc).filter(function (s) { return s.trim(); })); return tc; });
+        var first = cells.map(function (c) { return c[0] || ''; }).filter(function (s) { return s.trim(); }).join('\\t'); if (first) lines.push(first);
+        cells.forEach(function (c) { c.slice(1).forEach(function (s) { lines.push(s); }); }); return tr; });
+    } else paras_(part).forEach(function (s) { lines.push(s); });
+  });
+  return lines.join('\\n').split('\\n').map(function (s) { return s.replace(/\\s+$/, ''); }).filter(function (s) { return s.trim(); }).join('\\n');
 }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 `;

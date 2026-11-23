@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search as SearchIcon, X, CornerDownLeft, BookOpen, Puzzle, Building2, FileText, Calculator, ClipboardList, Star } from 'lucide-react';
+import { Search as SearchIcon, X, CornerDownLeft, BookOpen, Puzzle, Building2, FileText, Calculator, ClipboardList, Star, FolderOpen } from 'lucide-react';
+import { readPastCache, pastJobs } from './past-data';
 import { COURSES, LIB, VENUES, NOTION_ACTIVITIES, courseLabel, actStandard } from '../src/eqcamp-core';
 import { indexRow, pctText, NsrJob } from '../src/nsr-core';
 import type { Job, TeamJob } from './jobs';
@@ -9,14 +10,14 @@ import { ago } from './jobs';
 
 /* ค้นหาทั้งระบบ (กด / หรือ Ctrl+K): หลักสูตร · กิจกรรม 267 · มาตรฐานกิจกรรม · ที่พัก · งานของทีม · ทะเบียนโปรแกรม · งาน NSR ทุกแท็บ
  * พิมพ์หลายคำได้ (ต้องพบครบทุกคำ) · เลขไทย/อารบิกเท่ากัน · ไม่สนเว้นวรรค · ↑↓ เลือก · Enter เปิด · กรองตามชนิด */
-export type Go = { t: 'course' | 'useCourse' | 'job' | 'nsr' | 'stats'; id: string } | { t: 'hub'; sec: string; q?: string };
-type Kind = 'job' | 'nsr' | 'program' | 'course' | 'activity' | 'standard' | 'venue';
+export type Go = { t: 'course' | 'useCourse' | 'job' | 'nsr' | 'stats' | 'past'; id: string } | { t: 'hub'; sec: string; q?: string };
+type Kind = 'job' | 'past' | 'nsr' | 'program' | 'course' | 'activity' | 'standard' | 'venue';
 interface Item { k: Kind; id: string; title: string; sub: string; badge?: string; tone?: string; when?: string; hay: string; tn: string; go: Go; alt?: { label: string; go: Go } }
 const KIND: Record<Kind, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
-  job: { label: 'งาน', icon: FileText }, nsr: { label: 'NSR', icon: Calculator }, program: { label: 'โปรแกรมที่สร้าง', icon: ClipboardList },
+  job: { label: 'งาน', icon: FileText }, past: { label: 'งานเก่า', icon: FolderOpen }, nsr: { label: 'NSR', icon: Calculator }, program: { label: 'โปรแกรมที่สร้าง', icon: ClipboardList },
   course: { label: 'หลักสูตร', icon: BookOpen }, activity: { label: 'กิจกรรม', icon: Puzzle }, standard: { label: 'มาตรฐานกิจกรรม', icon: Star }, venue: { label: 'ที่พัก', icon: Building2 }
 };
-const ORDER: Kind[] = ['job', 'nsr', 'program', 'course', 'activity', 'standard', 'venue'];
+const ORDER: Kind[] = ['job', 'past', 'nsr', 'program', 'course', 'activity', 'standard', 'venue'];
 const TH = '๐๑๒๓๔๕๖๗๘๙';
 export const normQ = (s: string) => String(s || '').toLowerCase().replace(/[๐-๙]/g, d => String(TH.indexOf(d))).replace(/[\s​"“”'‘’.,()\-–_/@#]+/g, '');
 const RECENT = 'eqcamp.search.recent';
@@ -29,6 +30,8 @@ function buildIndex(jobs: Job[], team: TeamJob[]): Item[] {
   const seen = new Set<string>();
   for (const j of jobs) { seen.add(j.id); const c = j.snap?.camp || {}; add({ k: 'job', id: j.id, title: j.name, sub: [j.course, j.duration, j.dates, c.docCode].filter(Boolean).join(' · '), when: j.savedAt, go: { t: 'job', id: j.id }, extra: [c.venue, c.province, c.level, j.school].join(' ') }); }
   for (const t of team) if (!t.deleted && !seen.has(t.id)) add({ k: 'job', id: t.id, title: t.name, sub: [t.course, t.duration, t.dates, t.docCode, t.by && 'โดย ' + t.by].filter(Boolean).join(' · '), badge: 'ทีม', when: t.savedAt, go: { t: 'job', id: t.id }, extra: t.school });
+  // งานเก่า (โปรแกรมที่เคยส่งจริงจากโฟลเดอร์ของปี — สำเนาล่าสุดในเครื่อง)
+  for (const j of pastJobs(readPastCache())) add({ k: 'past', id: j.id, title: j.name.replace(/^\d{6}\s*/, ''), sub: [j.dateLabel, j.courseCode ? courseLabel(j.courseCode) : '', j.duration, j.confirmed ? 'ยืนยันแล้ว' : ''].filter(Boolean).join(' · '), badge: j.kind === 'corp' ? 'องค์กร' : undefined, when: j.date, go: { t: 'past', id: (j.school || j.name).replace(/^โรงเรียน/, '') }, extra: j.search });
   // NSR ทุกแท็บ (จากข้อมูลล่าสุดที่โหลด)
   const nsr: NsrJob[] = (lsGet('eqcamp.nsr.cache.v1')?.jobs || []) as NsrJob[];
   for (const j of nsr) { try { const r = indexRow(j); add({ k: 'nsr', id: j.tab || j.id, title: j.tab || j.name, sub: [j.name !== j.tab ? j.name : '', j.province, j.participants ? `${j.participants} คน` : '', j.price ? `${j.price.toLocaleString('th-TH')} บ./ท่าน` : ''].filter(Boolean).join(' · '), badge: pctText(r.pct), tone: r.tier, go: { t: 'nsr', id: j.tab || '' } }); } catch { /* แท็บเสีย */ } }
