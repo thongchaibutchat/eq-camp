@@ -3,6 +3,9 @@ import DataHub from './DataHub';
 import Home from './Home';
 import Nsr from './Nsr';
 import Board from './Board';
+import Past from './Past';
+import { readPastCache, pastJobs } from './past-data';
+import { pastForSchool } from '../src/past-import';
 import SmeMovePanel from './SmeMove';
 import type { NsrPrefill } from './Nsr';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
@@ -72,18 +75,19 @@ export default function App() {
   const [customVenues, setCustomVenues] = useState<VenueRec[]>(() => initial?.venues ?? []);
   const [kind, setKind] = useState<DocKind>('program');
   // หน้า: home (หน้าแรก/แคตตาล็อก) · build (สร้างเอกสาร) · hub (คลังข้อมูล) — ผูกกับ #ลิงก์ ให้ปุ่มย้อนกลับ/บุ๊กมาร์กทำงานทุกเบราว์เซอร์
-  type View = 'home' | 'build' | 'hub' | 'nsr' | 'board';
-  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') || h.startsWith('#/job/') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : h.startsWith('#/team') ? 'board' : 'home'; };
+  type View = 'home' | 'build' | 'hub' | 'nsr' | 'board' | 'past';
+  const fromHash = (): View => { const h = typeof location !== 'undefined' ? location.hash : ''; return h.startsWith('#/build') || h.startsWith('#/job/') ? 'build' : h.startsWith('#/data') ? 'hub' : h.startsWith('#/nsr') ? 'nsr' : h.startsWith('#/team') ? 'board' : h.startsWith('#/past') ? 'past' : 'home'; };
   const hashArg = (pre: string) => { try { const h = location.hash; return h.startsWith(pre) ? decodeURIComponent(h.slice(pre.length)) : ''; } catch { return ''; } };
   const [view, setViewState] = useState<View>(fromHash);
   const [hubInit, setHubInit] = useState<{ key: number; sec?: any; course?: string; q?: string }>({ key: 0 });
   const setView = (v: View, sub = '') => {
-    setViewState(v); if (v === 'nsr') setNsrTab(sub);
-    const h = (v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : v === 'board' ? '#/team' : '#/') + (sub ? '/' + encodeURIComponent(sub) : '');
+    setViewState(v); if (v === 'nsr') setNsrTab(sub); if (v === 'past') setPastQ(sub);
+    const h = (v === 'build' ? '#/build' : v === 'hub' ? '#/data' : v === 'nsr' ? '#/nsr' : v === 'board' ? '#/team' : v === 'past' ? '#/past' : '#/') + (sub ? '/' + encodeURIComponent(sub) : '');
     try { if (location.hash !== h) history.pushState(null, '', h); } catch { /* sandbox */ }
     try { window.scrollTo(0, 0); } catch { /* ignore */ }
   };
   const [nsrTab, setNsrTab] = useState(() => hashArg('#/nsr/'));
+  const [pastQ, setPastQ] = useState(() => hashArg('#/past/'));
   useEffect(() => { const on = () => { setViewState(fromHash()); setNsrTab(hashArg('#/nsr/')); }; window.addEventListener('popstate', on); window.addEventListener('hashchange', on); return () => { window.removeEventListener('popstate', on); window.removeEventListener('hashchange', on); }; }, []);
   // ลิงก์เชิญเข้าทีม (#/join/…) — เปิดจากแอปไหนก็เชื่อมต่อให้ทันที แล้วถามชื่อ
   const [connectOpen, setConnectOpen] = useState(false);
@@ -760,7 +764,7 @@ export default function App() {
     { id: 'images', label: `ภาพ (${camp.actImgs.length + camp.venueImgs.length})` }
   ] as const;
   const AUX = TABS.filter(t => t.id === 'db' || t.id === 'stats');
-  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }, { id: 'nsr', label: 'คำนวณ NSR' }, { id: 'board', label: 'ภาพรวมทีม' }] as const;
+  const NAV = [{ id: 'home', label: 'หน้าแรก' }, { id: 'catalog', label: 'หลักสูตร' }, { id: 'build', label: 'สร้างเอกสาร' }, { id: 'hub', label: 'คลังข้อมูล' }, { id: 'nsr', label: 'คำนวณ NSR' }, { id: 'past', label: 'งานเก่า' }, { id: 'board', label: 'ภาพรวมทีม' }] as const;
   const navOn = (id: string) => id === view;
   const goNav = (id: string) => {
     if (id === 'catalog') { setView('home'); window.setTimeout(() => { try { document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' }); } catch { /* ignore */ } }, 60); return; }
@@ -850,6 +854,7 @@ export default function App() {
           else if (a.t === 'nsr') setView('nsr', a.id);
           else if (a.t === 'stats') { setTab('stats'); setView('build'); }
           else if (a.t === 'useCourse') { changeCourse(a.id); setKind('program'); setTab('header'); setView('build'); }
+          else if (a.t === 'past') setView('past', a.id);
         }} />}
       {remoteJob && (
         <div role="status" className="fixed z-40 top-20 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-24px))] rounded-xl border border-amber-300 bg-white shadow-lift px-4 py-3 text-[14px] flex flex-wrap items-center gap-2">
@@ -899,7 +904,11 @@ export default function App() {
           </div>
         )}
 
-        {view === 'board' ? (
+        {view === 'past' ? (
+          <Past key={pastQ} initialQ={pastQ} flash={(t, w) => flash(t, !w)} onConnect={() => setConnectOpen(true)}
+            onOpen={(c, p) => { startNewJob(c); setCamp(c); setKind('program'); setTab('header'); setView('build');
+              flash(`ดึงโปรแกรมเดิมมาเป็นงานใหม่แล้ว (${p.stats.days} วัน · ${p.stats.rows} แถว) — แก้โรงเรียน วันที่ จำนวน ราคา แล้วออกไฟล์ใหม่ได้เลย${p.missing.length ? ` · ยังขาด: ${p.missing.map(x => x.replace(/ \(.*\)$/, '')).join(', ')}` : ''}`); }} />
+        ) : view === 'board' ? (
           <Board flash={(t, w) => flash(t, !w)} onConnect={() => setConnectOpen(true)} onBuild={() => { setTab('brief'); setView('build'); }} onOpenNsr={t => setView('nsr', t)}
             onOpenJob={id => { const j = jobs.find(x => x.id === id); if (j) openJob(j); else openTeamJob((teamJobs.find(x => x.id === id) || { id }) as TeamJob); setTab('header'); setView('build'); }} />
         ) : view === 'nsr' ? (
@@ -993,6 +1002,12 @@ export default function App() {
                           </div>))}
                       </dl>
                     </div>)}
+                  {briefReport && (() => { const seen = pastForSchool(pastJobs(readPastCache()), camp.school); return seen.length > 0 && (
+                    <div className="rounded-xl border border-brand-mist bg-paper px-3.5 py-2.5 text-[13.5px]" role="note">
+                      <div className="font-semibold">เคยจัดกับโรงเรียนนี้ {seen.length} งาน</div>
+                      <ul className="mt-1 space-y-0.5">{seen.slice(0, 4).map(j => <li key={j.id} className="truncate">{j.dateLabel || '—'} · {j.courseCode ? courseLabel(j.courseCode) : j.name.replace(/^\d{6}\s*/, '').slice(0, 60)}{j.duration ? ` · ${j.duration}` : ''}{j.confirmed ? ' · ยืนยันแล้ว' : ''}</li>)}</ul>
+                      <button onClick={() => setView('past', camp.school.replace(/^โรงเรียน/, ''))} className="tap mt-1.5 text-brand-navy font-medium underline underline-offset-4">ดูงานเก่า / เปิดโปรแกรมเดิมมาแก้</button>
+                    </div>); })()}
                   <div className="pt-4 border-t border-brand-mist space-y-2">
                     <h3 className="text-[15px] font-semibold">หรือเริ่มจากงานที่เคยทำ</h3>
                     {PRESETS.map(p => (
