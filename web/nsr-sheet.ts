@@ -34,6 +34,7 @@ const toGrid = (values: string[][], formulas?: string[][]): Grid => values.map((
 const norm = (s: unknown) => String(s ?? '').replace(/[฿,\s]/g, '');
 const sameCell = (a: unknown, b: unknown) => { const x = readNum(a).n, y = readNum(b).n; if (x != null && y != null) return Math.abs(x - y) < 0.5; return norm(a) === norm(b); };
 
+const RETRY = ['timeout', 'net', 'busy'];
 // ── 1) ศูนย์กลางทีม (Apps Script บนชีต NSR) ──
 export function hubConn(): Conn {
   return {
@@ -48,12 +49,26 @@ export function hubConn(): Conn {
       return out;
     },
     async createTab(title, rows, index, fmt) {
-      const j = await hubCall('nsr.create', { title, index, fmt, rows: rows.map(r => r.map(c => (typeof c === 'object' ? c.f : c))) }, 60000);
-      return { sheetId: j.sheetId, title: j.title || title };
+      const body = { title, index, fmt, rows: rows.map(r => r.map(c => (typeof c === 'object' ? c.f : c))) };
+      // หมดเวลา/สัญญาณหลุด → ลองใหม่ 1 ครั้ง · ครั้งก่อนสร้างสำเร็จไปแล้ว (exists) = สำเร็จ
+      for (let i = 0; ; i++) {
+        try { const j = await hubCall('nsr.create', body, 45000); return { sheetId: j.sheetId, title: j.title || title }; }
+        catch (e: any) {
+          if (i > 0 && e?.code === 'exists') return { sheetId: -1, title };
+          if (i >= 1 || !RETRY.includes(e?.code)) throw e;
+        }
+      }
     },
     async editCells(title, _id, edits, force) {
-      try { await hubCall('nsr.edit', { title, edits, force: !!force }); return { ok: true }; }
-      catch (e: any) { if (e?.code === 'conflict') return { ok: false, conflicts: e.data?.conflicts || [] }; throw e; }
+      // ศูนย์กลางรุ่น 13+: ส่งซ้ำได้ปลอดภัย (ช่องที่เป็นค่าใหม่แล้ว = สำเร็จ) → หมดเวลา/สัญญาณหลุด ลองใหม่เองอีก 2 ครั้ง
+      for (let i = 0; ; i++) {
+        try { await hubCall('nsr.edit', { title, edits, force: !!force }, 30000); return { ok: true }; }
+        catch (e: any) {
+          if (e?.code === 'conflict') return { ok: false, conflicts: e.data?.conflicts || [] };
+          if (i >= 2 || !RETRY.includes(e?.code)) throw e;
+          await new Promise(r => setTimeout(r, 800 * (i + 1)));
+        }
+      }
     },
     async changes(since) { const j = await hubCall('nsr.changes', { since }, 20000); return (j.ids || []) as number[]; },
     async all(since) {

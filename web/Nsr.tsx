@@ -6,7 +6,7 @@ import {
   approvalSteps, approvalNeed, SELF_MIN_TOTAL, staffOT, OT_RATE, SALE_STATUS, LOST_REASONS, SaleStatus, SaleStatusId, normStatus, salesSummary, needsFollow, saleValue
 } from '../src/nsr-core';
 import { Conn, TabInfo, TabData, hubConn, mcpConn, connError, sheetUrl } from './nsr-sheet';
-import { hubReady, onRev, onArea, onHubState, HubState, enqueue, userName, IN_CLAUDE, LIVE_WEB } from './hub';
+import { hubReady, onRev, onArea, onHubState, HubState, enqueue, onQueued, queueOf, userName, IN_CLAUDE, LIVE_WEB } from './hub';
 import { normQ } from './Search';
 import { draftFromBrief, draftFromCamp, aiPrompt, applyAi, NsrDraft, DraftField } from '../src/nsr-brief';
 import type { Camp } from '../src/eqcamp-core';
@@ -31,6 +31,8 @@ const timeTh = (d: Date | null) => (d ? d.toLocaleTimeString('th-TH', { hour: '2
 export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: () => NsrPrefill | null; flash: (t: string, warn?: boolean) => void; onConnect: () => void; openTab?: string }) {
   // ── การเชื่อมชีต ──
   const [conn, setConn] = useState<Conn | null>(null);
+  const connRef = useRef<Conn | null>(null); connRef.current = conn;
+  const [pendingSave, setPendingSave] = useState<string>(() => { try { return (queueOf('nsr.edit')[0]?.body?.title) || ''; } catch { return ''; } });
   const [connState, setConnState] = useState<'none' | 'connecting' | 'live' | 'error'>('none');
   const [connMsg, setConnMsg] = useState('');
   const [lastSync, setLastSync] = useState<Date | null>(null);
@@ -68,10 +70,15 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
   const jobRef = useRef<NsrJob | null>(null); jobRef.current = job;
 
   // ต่อชีต: Apps Script ที่ตั้งไว้ → ตัวเชื่อมบน claude.ai → ไม่มี
+  const bgTimer = useRef<any>(null);
   const connect = async () => {
     setConnState('connecting'); setConnMsg('');
     const c: Conn | null = hubReady() ? hubConn() : await mcpConn().catch(() => null);
     if (!c) { setConn(null); setConnState('none'); return; }
+    if (c.kind === 'script') {
+      // ศูนย์กลางทีม: บันทึกได้ทันที ไม่ต้องรอโหลดรายการครบ 300+ แท็บ (เดิมโหลดไม่ผ่านครั้งเดียว = บันทึกไม่ได้เลย/ขึ้นไม่ออนไลน์)
+      setConn(c); setConnState('live'); clearTimeout(bgTimer.current); bgLoad(c, 0); return;
+    }
     try {
       if (c.all) {
         try { setConnState('connecting'); await syncAll(c, srvRef.current); setConn(c); setConnState('live'); setLastSync(new Date()); return; }
@@ -82,6 +89,23 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
       await loadTabs(c, list, true);
     } catch (e: any) { setConn(null); setConnState('error'); setConnMsg(c.kind === 'mcp' ? connError(e) : String(e?.message || e)); }
   };
+  // โหลดรายการงานเบื้องหลัง · ล้มเหลว = ลองใหม่เอง (8 วิ → 16 → 32 → 60) · ลิงก์ใช้ไม่ได้ = หยุดและบอกเหตุผล
+  const bgLoad = async (c: Conn, attempt: number) => {
+    try {
+      if (c.all) {
+        try { await syncAll(c, srvRef.current); setConnMsg(''); setLastSync(new Date()); return; }
+        catch (e: any) { if (e?.code !== 'op') throw e; c.all = undefined; c.setStatus = undefined; setStOk(false); }
+      }
+      const list = await c.listTabs();
+      setTabs(list); setLastSync(new Date()); sinceRef.current = Date.now();
+      await loadTabs(c, list, true); setConnMsg('');
+    } catch (e: any) {
+      if (e?.code === 'key' || e?.code === 'revoked' || e?.code === 'off') { setConn(null); setConnState('error'); setConnMsg(String(e?.message || e)); return; }
+      setConnMsg(`รายการงานยังโหลดไม่ครบ (${e?.message || e}) — บันทึกได้ตามปกติ · กำลังลองโหลดใหม่เอง`);
+      clearTimeout(bgTimer.current); bgTimer.current = setTimeout(() => bgLoad(c, attempt + 1), Math.min(60000, 8000 * 2 ** attempt));
+    }
+  };
+  useEffect(() => () => clearTimeout(bgTimer.current), []);
   // ทุกแท็บในคำสั่งเดียวจากศูนย์กลางทีม: ครั้งแรก = ทั้งชีต · ครั้งต่อไป = เฉพาะแท็บที่เปลี่ยนตั้งแต่ครั้งก่อน (since)
   const syncRef = useRef(false);
   const syncAll = async (c: Conn, since0: number) => {
@@ -249,22 +273,58 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
 
   // ── บันทึก ──
   const saveLocal = (j: NsrJob) => { const next = [{ ...j, updated: new Date().toISOString() }, ...local.filter(x => x.id !== j.id)].slice(0, 100); setLocal(next); lsSet(LS_LOCAL, next); };
+  const SAVE_WAIT = 25000;   // หน้าจอรอบันทึกไม่เกิน 25 วิ — เกินนี้ทำต่อเบื้องหลังเอง (ส่งซ้ำได้ปลอดภัย)
+  const afterSaved = (c: Conn, saved: NsrJob | null, tab = saved?.tab || '') => {
+    // อ่านกลับเบื้องหลัง (สูตรในชีตคำนวณใหม่) — ไม่ทับสิ่งที่ผู้ใช้แก้ต่อระหว่างนั้น
+    c.readTabs([tab]).then(([t]) => {
+      if (!t) return; putEntries([t]); const f = parseNsrTab(t.title, t.grid, t.sheetId, t.index);
+      if (!f || jobRef.current?.tab !== tab) return;
+      setOrig(f); if (saved && jobRef.current === saved) setJob(clone(f));   // ผู้ใช้แก้ต่อแล้ว = คงงานไว้ (ส่วนต่างจะเป็นช่องที่ยังไม่บันทึก)
+    }).catch(() => { /* ไม่เป็นไร — รอบซิงก์ถัดไปจะได้ค่าจากชีตเอง */ });
+  };
   const saveInPlace = async (force = false) => {
-    if (!conn || !job || !orig || !job.tab || job.sheetId == null) return;
+    if (!job || !orig || !job.tab || job.sheetId == null) return;
+    if (!conn) { flash(hubReady() ? 'กำลังเชื่อมต่อศูนย์กลางทีม — กดบันทึกอีกครั้งในไม่กี่วินาที' : 'ยังไม่ได้เชื่อมต่อทีม — เปิดลิงก์ทีมของคุณก่อน แล้วบันทึกอีกครั้ง', true); connect(); return; }
     const d = diffForTab(orig, job);
     if (!d.ok) { flash(d.reason, true); return; }
     if (!d.edits.length) { flash('ยังไม่มีช่องที่เปลี่ยน'); return; }
+    const c = conn, saved = job, tab = job.tab, sid = job.sheetId, n = d.edits.length;
+    const queueIt = (why: string) => {
+      enqueue('nsr.edit', { title: tab, edits: d.edits, force, sheetId: sid }, 'nsr:' + sid);
+      setPendingSave(tab); flash(`${why} — เก็บการแก้ ${n} ช่องไว้ในเครื่องแล้ว ระบบจะบันทึกลงชีตเองเมื่อเชื่อมต่อได้ (ปิดหน้าได้ ไม่หาย)`);
+    };
     setBusy('save');
+    let settled = false;
+    const work = c.editCells(tab, sid, d.edits, force).then(r => {
+      if (!r.ok) { if (!settled) setConflicts(r.conflicts); return 'conflict'; }
+      setOrig(clone(saved)); setConflicts(null); setRemote(null); setLastSync(new Date()); setPendingSave(p => p === tab ? '' : p);
+      afterSaved(c, saved); return 'ok';
+    });
+    const timer = new Promise<'slow'>(res => setTimeout(() => res('slow'), SAVE_WAIT));
     try {
-      const r = await conn.editCells(job.tab, job.sheetId, d.edits, force);
-      if (!r.ok) { setConflicts(r.conflicts); return; }
-      const [t] = await conn.readTabs([job.tab]);
-      if (t) { putEntries([t]); const f = parseNsrTab(t.title, t.grid, t.sheetId, t.index); if (f) { setOrig(f); setJob(clone(f)); } }
-      setConflicts(null); setRemote(null); setLastSync(new Date());
-      flash(`บันทึกลงแท็บ "${job.tab}" แล้ว (${d.edits.length} ช่อง)`);
-    } catch (e: any) { flash('บันทึกไม่สำเร็จ: ' + (conn.kind === 'mcp' ? connError(e) : e?.message), true); }
-    finally { setBusy(''); }
+      const r = await Promise.race([work, timer]);
+      settled = true;
+      if (r === 'ok') flash(`บันทึกลงแท็บ "${tab}" แล้ว (${n} ช่อง)`);
+      else if (r === 'slow') { queueIt('Google ตอบช้า'); work.then(x => { if (x === 'ok') flash(`บันทึกลงแท็บ "${tab}" แล้ว (${n} ช่อง)`); }).catch(() => { /* คิวจะส่งเอง */ }); }
+    } catch (e: any) {
+      settled = true;
+      if (['net', 'offline', 'timeout', 'busy'].includes(e?.code)) queueIt(e?.code === 'offline' ? 'ไม่มีอินเทอร์เน็ต' : e?.code === 'busy' ? 'ศูนย์กลางทีมมีคนใช้มาก' : 'สัญญาณไม่ดี');
+      else flash('บันทึกไม่สำเร็จ: ' + (c.kind === 'mcp' ? connError(e) : e?.message), true);
+    } finally { setBusy(''); }
   };
+  // ผลของการแก้ที่ค้างในคิว (ส่งตอนกลับมาออนไลน์)
+  useEffect(() => onQueued('nsr.edit', (body, _res, err) => {
+    setPendingSave(p => p === body.title ? '' : p);
+    if (err?.code === 'conflict') {
+      flash(`การแก้แท็บ "${body.title}" ที่ค้างไว้ส่งไม่ได้ — มีคนแก้ช่องเดียวกันในชีตก่อน · เปิดแท็บนั้นแล้วเลือก "โหลดค่าล่าสุด" หรือ "บันทึกทับ"`, true);
+      if (jobRef.current?.tab === body.title) setConflicts(err.data?.conflicts || []);
+      return;
+    }
+    if (err) return;
+    flash(`บันทึกการแก้ที่ค้างไว้ลงแท็บ "${body.title}" แล้ว`);
+    const c = connRef.current;
+    if (c && jobRef.current?.tab === body.title) afterSaved(c, null, body.title);   // ฐานเทียบ = ค่าในชีตจริง (ไม่แตะสิ่งที่แก้ต่อ)
+  }), []);
   const saveNewTab = async (title: string) => {
     if (!job) return;
     if (!conn) { saveLocal(job); setNewTab(null); flash('ยังไม่ได้เชื่อมชีต — เก็บไว้ในเครื่องนี้แล้ว (ส่งเข้าชีตได้เมื่อเชื่อมแล้ว)', true); return; }
@@ -281,7 +341,10 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
       setTabs(await conn.listTabs());
       const wasLocal = local.some(x => x.id === job.id); if (wasLocal) { const next = local.filter(x => x.id !== job.id); setLocal(next); lsSet(LS_LOCAL, next); }
       setNewTab(null); flash(`สร้างแท็บ "${r.title}" ในชีตแล้ว`);
-    } catch (e: any) { flash('สร้างแท็บไม่สำเร็จ: ' + (conn.kind === 'mcp' ? connError(e) : e?.message), true); }
+    } catch (e: any) {
+      if (['net', 'offline', 'timeout', 'busy'].includes(e?.code)) { saveLocal(job); setNewTab(null); flash('ยังส่งเข้าชีตไม่ได้ (สัญญาณไม่ดี/ศูนย์กลางทีมไม่ว่าง) — เก็บงานนี้ไว้ในเครื่องแล้ว กด "บันทึกเป็นแท็บใหม่" อีกครั้งเมื่อพร้อม', true); }
+      else flash('สร้างแท็บไม่สำเร็จ: ' + (conn.kind === 'mcp' ? connError(e) : e?.message), true);
+    }
     finally { setBusy(''); }
   };
 
@@ -445,13 +508,14 @@ export default function Nsr({ prefill, flash, onConnect, openTab }: { prefill: (
                   <div className={`${card} p-4 space-y-2`}>
                     <div className="text-[15px] font-semibold">บันทึก</div>
                     {job.tab && orig && (
-                      <button onClick={() => saveInPlace(false)} disabled={!conn || !!busy || !inPlace || !inPlace.ok || !inPlace.edits.length}
+                      <button onClick={() => saveInPlace(false)} disabled={(!conn && !hubReady()) || !!busy || !inPlace || !inPlace.ok || !inPlace.edits.length}
                         className="tap w-full px-3 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14px] font-semibold flex items-center justify-center gap-1.5">
                         <Save className="w-4 h-4" />{busy === 'save' ? 'กำลังบันทึก…' : `บันทึกลงแท็บเดิม${inPlace && inPlace.ok && inPlace.edits.length ? ` (${inPlace.edits.length} ช่อง)` : ''}`}
                       </button>
                     )}
                     {job.tab && inPlace && !inPlace.ok && <div className="text-[13px] text-amber-800">{inPlace.reason}</div>}
-                    {job.tab && !conn && <div className="text-[13px] text-sub">เชื่อมชีตก่อนจึงบันทึกลงแท็บได้</div>}
+                    {job.tab && pendingSave === job.tab && <div className="text-[13px] text-amber-800">มีการแก้รอส่งเข้าชีต — ระบบจะบันทึกเองเมื่อเชื่อมต่อได้</div>}
+                    {job.tab && !conn && <div className="text-[13px] text-sub">{hubReady() ? 'กำลังเชื่อมต่อศูนย์กลางทีม…' : 'เชื่อมต่อทีมก่อนจึงบันทึกลงแท็บได้'}</div>}
                     {newTab == null ? (
                       <button onClick={() => setNewTab(tabNameFor({ ...job, name: (job as any).tabHint || job.tab || job.name }, tabs.map(t => t.title)))} disabled={!!busy}
                         className={`tap w-full px-3 py-2.5 rounded-xl text-[14px] font-semibold flex items-center justify-center gap-1.5 ${job.tab ? 'border border-brand-mist hover:bg-paper' : 'bg-accent hover:bg-accent-deep text-white'}`}>
