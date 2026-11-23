@@ -8,6 +8,8 @@ export type { Region } from './letterheads-data';
 
 /* ===================== TYPES ===================== */
 import { COURSES, REF_ACTIVITIES, Course } from './eqcamp-data';
+import { EXTRA_REF_ACTIVITIES, MERGED_ACTIVITY_IDS } from './extra-activities-data';
+export { EXTRA_REF_ACTIVITIES, MERGED_ACTIVITY_IDS } from './extra-activities-data';
 export { COURSES } from './eqcamp-data';
 export type { Course } from './eqcamp-data';
 // แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนั้นเท่านั้น (สร้างจาก scripts/gen-course-templates.py)
@@ -163,8 +165,13 @@ export const LIB: Activity[] = [
   { id: 'x-boost', subjects: ALL, kind: 'recreation', title: 'กิจกรรม “Boost Up Learning” สันทนาการ' },
   { id: 'x-next', subjects: ALL, kind: 'closing', title: 'กิจกรรม “The Next Step”' },
   /* ---------- กิจกรรมจริงจากคลัง 14 หลักสูตร (รหัส ref-, สถานะ "รอตรวจ") ---------- */
-  ...REF_ACTIVITIES.map(a => ({ id: a.id, subjects: [a.family as Subject], kind: a.kind as Kind, title: tidyTitle(a.title), courseCode: a.course, draft: true }))
+  ...REF_ACTIVITIES.filter(a => !MERGED_ACTIVITY_IDS[a.id]).map(a => ({ id: a.id, subjects: [a.family as Subject], kind: a.kind as Kind, title: tidyTitle(a.title), courseCode: a.course, draft: true })),
+  /* ---------- กิจกรรมจริงจากไฟล์ทีมที่ยังไม่อยู่ในคลัง MASTER (src/extra-activities-data.ts — มีที่มาทุกรายการ) ---------- */
+  ...EXTRA_REF_ACTIVITIES.map(a => ({ id: a.id, subjects: [a.family as Subject], kind: a.kind as Kind, title: tidyTitle(a.title), courseCode: a.course, draft: true }))
 ];
+// id กิจกรรมที่ถูกรวมเข้ากับรายการอื่น → id ที่เก็บไว้ (งานเก่าที่เคยเลือกไว้ยังได้กิจกรรมเดิม)
+const mergedId = (id: string) => MERGED_ACTIVITY_IDS[id] || id;
+const mergeIds = (xs: any) => Array.isArray(xs) ? xs.map((x: any) => typeof x === 'string' ? mergedId(x) : x).filter((x: any, i: number, a: any[]) => !x || a.indexOf(x) === i) : xs;
 // หลักสูตร (ธีม) จริง 14 รายการ — ใช้เลือกคลังกิจกรรมเฉพาะธีม
 export const courseById = (code?: string): Course | undefined => COURSES.find(c => c.code === code);
 // รหัสเอกสารอ้างจากรหัสหลักสูตรจริง (เช่น PL STM 0101 → "PL STM 0101/2569") — ไม่เดา/ไม่มั่ว
@@ -360,7 +367,7 @@ export function applyExtraction(base: Camp, r: any): ExtractResult {
 }
 // เติม durationMode ให้ข้อมูลรุ่นเก่า (ก่อนมีฟิลด์นี้) แล้ว normalize
 export function migrateCamp(raw: any): Camp {
-  const out: Camp = { ...blankCamp(), ...raw, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds : [], addons: Array.isArray(raw?.addons) ? raw.addons.filter((x: any) => x && typeof x.code === 'string') : [], actsOverride: Array.isArray(raw?.actsOverride) ? raw.actsOverride.filter((x: any) => typeof x === 'string') : undefined, rowEdits: Array.isArray(raw?.rowEdits) ? raw.rowEdits.filter((x: any) => x && typeof x.from === 'string' && Number.isFinite(+x.day)).map((x: any) => ({ day: +x.day, from: x.from, ...(typeof x.to === 'string' ? { to: x.to } : {}), ...(typeof x.time === 'string' ? { time: x.time } : {}), ...(Array.isArray(x.sub) ? { sub: x.sub.filter((y: any) => typeof y === 'string') } : {}) })) : undefined, partyTheme: typeof raw?.partyTheme === 'string' ? raw.partyTheme : undefined, dayCourses: Array.isArray(raw?.dayCourses) ? raw.dayCourses.map((x: any) => typeof x === 'string' ? x : '') : [], extraActivities: raw?.extraActivities || [] };
+  const out: Camp = { ...blankCamp(), ...raw, activityIds: Array.isArray(raw?.activityIds) ? mergeIds(raw.activityIds) : blankCamp().activityIds, coreSlotIds: Array.isArray(raw?.coreSlotIds) ? raw.coreSlotIds.map((x: any) => typeof x === 'string' ? mergedId(x) : x) : [], addons: Array.isArray(raw?.addons) ? raw.addons.filter((x: any) => x && typeof x.code === 'string').map((x: any) => Array.isArray(x.ids) ? { ...x, ids: mergeIds(x.ids) } : x) : [], actsOverride: Array.isArray(raw?.actsOverride) ? raw.actsOverride.filter((x: any) => typeof x === 'string') : undefined, rowEdits: Array.isArray(raw?.rowEdits) ? raw.rowEdits.filter((x: any) => x && typeof x.from === 'string' && Number.isFinite(+x.day)).map((x: any) => ({ day: +x.day, from: x.from, ...(typeof x.to === 'string' ? { to: x.to } : {}), ...(typeof x.time === 'string' ? { time: x.time } : {}), ...(Array.isArray(x.sub) ? { sub: x.sub.filter((y: any) => typeof y === 'string') } : {}) })) : undefined, partyTheme: typeof raw?.partyTheme === 'string' ? raw.partyTheme : undefined, dayCourses: Array.isArray(raw?.dayCourses) ? raw.dayCourses.map((x: any) => typeof x === 'string' ? x : '') : [], extraActivities: raw?.extraActivities || [] };
   if (out.durationMode !== 'half' && out.durationMode !== 'day' && out.durationMode !== 'overnight') {
     out.durationMode = Number(out.nights) > 0 ? 'overnight' : (Number(out.days) <= 1 ? 'day' : 'overnight');
   }
@@ -865,7 +872,7 @@ function applyExtends(c: Camp, plan: Plan): Plan {
     const fixed = meals.map(r => ({ r, st: rowStart(r), du: rowDur(r) || 60 })).sort((a, b) => a.st - b.st);
     let hasL = items.some(r => mealKind(r.title, r.time) === 'l'), hasS = items.some(r => mealKind(r.title, r.time) === 's' && rowStart(r) >= 13 * 60);
     const code = dayCourseOf(c, x.day - 1) || c.courseCode || '';
-    const pool = x.ids && x.ids.length ? x.ids.map(id => LIB.find(a => a.id === id)).filter(Boolean) as Activity[] : extendOptions(c, { ...plan, days }, x.day - 1);
+    const pool = x.ids && x.ids.length ? x.ids.map(id => LIB.find(a => a.id === mergedId(id))).filter(Boolean) as Activity[] : extendOptions(c, { ...plan, days }, x.day - 1);
     const fb = extPoolAll(code); let pi = 0;
     const nm = (a: Activity) => { const n = tidyTitle(a.title).replace(/\s*[-–]?\s*(Part|EP)\.?\s*\d+\s*$/i, '').replace(/\.\s*$/, '').trim(); const b = n.replace(/^กิจกรรม\s*/, ''); if (/[“”"]/.test(b)) return `กิจกรรม ${b.replace(/\(\s+/g, '(').replace(/\s+\)/g, ')')}`; const pm = b.match(/^(.*?)\s*(\([^()]*\))\s*$/); return pm && pm[1] ? `กิจกรรม “${pm[1]}” ${pm[2]}` : `กิจกรรม “${b}”`; };
     const nextAct = (): string => {
@@ -1063,7 +1070,7 @@ function applyAddons(c: Camp, plan: Plan): Plan {
   const autoN = c.durationMode === 'overnight' ? Math.max(1, c.nights) : c.durationMode === 'half' ? 1 : nDays;
   for (const sel of sels) {
     const pool = addonActivities(sel.code);
-    const chosen = (sel.ids && sel.ids.length ? sel.ids.map(id => pool.find(a => a.id === id)).filter(Boolean) as Activity[] : pool.slice(0, autoN));
+    const chosen = (sel.ids && sel.ids.length ? sel.ids.map(id => pool.find(a => a.id === mergedId(id))).filter(Boolean) as Activity[] : pool.slice(0, autoN));
     const minutes = [45, 60, 90, 120].includes(Number(sel.minutes)) ? Number(sel.minutes) : 60;
     const titles: string[] = [];
     for (const a of chosen) {
@@ -1124,6 +1131,9 @@ function buildEngineSchedule(c: Camp): Plan {
     const list = reserved[k];
     if (list && list.length) { const i = useN[k] || 0; useN[k] = i + 1; return list[i % list.length]; } // หลายคืน → หมุนกิจกรรมของหลักสูตร
     const direct = of(k)[0];
+    // หลักสูตรมีกิจกรรมชนิดนี้หลายรายการ (เช่น ภาคค่ำอังกฤษ Mission Game / The Talent Show) → หมุนตามลำดับ ไม่ซ้ำคืนเดิมทุกคืน
+    const owns = (k === 'night' || k === 'recreation') && c.courseCode ? of(k).filter(a => a.courseCode === c.courseCode) : [];
+    if (owns.length > 1) { const i = useN[k] || 0; useN[k] = i + 1; return owns[i % owns.length]; }
     if (direct && (direct.courseCode || !c.courseCode || k === 'opening' || k === 'closing')) return direct;
     // หลักสูตรไม่มีกิจกรรมชนิดนี้ → ใช้กิจกรรมมาตรฐานของ "วิชาเดียวกัน" (เช่น อังกฤษ → English Night Show) ก่อนของกลาง
     const sameSubject = LIB.find(a => !a.courseCode && a.kind === k && a.subjects.length === 1 && a.subjects[0] === c.subject);
