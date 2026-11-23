@@ -2,7 +2,7 @@
 // รัน: node scripts/qa/gas-past-test.cjs <Code.gs ที่สร้างพร้อมรหัสเจ้าของ> <document.xml จาก past-docxml.ts>
 const fs = require('fs');
 const { makeHub } = require('./gas-env.cjs');
-const code0 = fs.readFileSync(process.argv[2], 'utf8').replace("const PAST_FOLDER = '';", "const PAST_FOLDER = 'ROOT';");
+const code0 = fs.readFileSync(process.argv[2], 'utf8').replace(/const PAST_FOLDER = '[^']*';/, "const PAST_FOLDER = 'ROOT';");
 const XML = fs.readFileSync(process.argv[3], 'utf8');
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const TBL = '<w:document><w:body><w:p><w:r><w:t>กำหนดการ</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:p><w:r><w:t>08.00 – 09.00 น.</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t xml:space="preserve">กิจกรรม &quot;A&quot; &amp; B</w:t></w:r></w:p><w:p><w:r><w:t>- ย่อย 1</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:t>ราคา</w:t></w:r><w:r><w:tab/><w:t>990</w:t></w:r></w:p><w:sectPr/></w:body></w:document>';
@@ -70,7 +70,7 @@ const setup = (opt = {}) => {
   ok('resumable scan: no duplicate rows', new Set(TATA('past.list').folders.map(f => f.id)).size === 4);
 }
 // 4) ไม่ได้ตั้งโฟลเดอร์
-{ const H = makeHub(fs.readFileSync(process.argv[2], 'utf8')); const T = (code0.match(/const TEAM_KEY = '([^']+)'/) || [])[1], O = (code0.match(/const OWNER_CODE = '([^']*)'/) || [])[1];
+{ const H = makeHub(fs.readFileSync(process.argv[2], 'utf8').replace(/const PAST_FOLDER = '[^']*';/, "const PAST_FOLDER = '';")); const T = (code0.match(/const TEAM_KEY = '([^']+)'/) || [])[1], O = (code0.match(/const OWNER_CODE = '([^']*)'/) || [])[1];
   const cl = H.handle({ op: 'admin.claim', owner: O, key: T, dev: 'a' }); const r = H.handle({ op: 'past.scan', key: cl.key, dev: 'a' });
   ok('no PAST_FOLDER → nopast', r.error === 'nopast', JSON.stringify(r)); }
 console.log(fail ? `past-hub: ${fail} FAIL` : 'past-hub: all pass'); process.exit(fail ? 1 : 0);
