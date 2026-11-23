@@ -245,7 +245,7 @@ const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ:
 const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
 const CONFIG_SEED = ${JSON.stringify(opt.config || {})};   // ค่าตั้งต้นของทีม (แอดมินแก้ได้บนเว็บ)
 const PAST_FOLDER = '${opt.pastFolder || ''}';   // โฟลเดอร์งานที่เคยส่งจริง (เช่น "2569") — อ่านอย่างเดียว ไม่แก้ไฟล์ต้นฉบับ
-const VERSION = 11;
+const VERSION = 12;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -298,7 +298,7 @@ function route_(q) {
     // คลังงานเก่า (อ่านอย่างเดียว): รายการโฟลเดอร์งาน + ไฟล์ · ข้อความของไฟล์ Word เฉพาะไฟล์ที่อยู่ในคลังเท่านั้น
     case 'past.list': return { ok: true, folders: pastRows_(), scannedAt: props_().getProperty('pastAt') || '', root: PAST_FOLDER ? 1 : 0 };
     case 'past.text': return pastText_(String(q.fileId || ''));
-    case 'past.scan': { var pl = LockService.getScriptLock(); if (!pl.tryLock(5000)) return { ok: false, error: 'busy' }; try { ensurePast_(); var rs = pastScan_(!!q.full); if (rs.ok) audit_(q, 'สแกนคลังงานเก่า', String(rs.n), 'เปลี่ยน ' + rs.changed + (rs.left ? ' (ยังไม่ครบ)' : '')); return rs; } finally { pl.releaseLock(); } }
+    case 'past.scan': { if (!pastLock_()) return { ok: false, error: 'busy' }; try { ensurePast_(); var rs = pastScan_(!!q.full); if (rs.ok) audit_(q, 'สแกนคลังงานเก่า', String(rs.n), 'เปลี่ยน ' + rs.changed + (rs.left ? ' (ยังไม่ครบ)' : '')); return rs; } finally { pastUnlock_(); } }
     case 'config.get': return { ok: true, config: cfg_() };
     case 'config.set': { var nc = q.config || {}, cur = cfg_(), sm = nc.sme || {}; var clean = function (x) { x = x || {}; return { email: String(x.email || '').trim().toLowerCase().slice(0, 80), label: String(x.label || '').slice(0, 60) }; };
       cur.sme = { blue: clean(sm.blue), orange: clean(sm.orange), url: String(sm.url || '').indexOf('https://') === 0 ? String(sm.url).slice(0, 200) : 'https://app.smemove.com/' };
@@ -709,7 +709,10 @@ function pastScan_(full) {
   p.setProperty('pastTok', ''); p.setProperty('pastAt', new Date().toISOString()); if (changed) bump_('past');
   return { ok: true, left: false, changed: changed, n: Math.max(0, sh.getLastRow() - 1) };
 }
-function pastDaily() { var l = LockService.getScriptLock(); if (!l.tryLock(10000)) return; try { var r = pastScan_(false), k = 0; while (r.ok && r.left && k++ < 10) r = pastScan_(false); } finally { l.releaseLock(); } }
+// ล็อกเฉพาะการสแกน (ไม่ใช้ล็อกรวมของทีม — สแกนนานหลายนาทีแล้วทีมยังบันทึกงานได้) · ค้างเกิน 6 นาที = ถือว่าหลุด
+function pastLock_() { var l = LockService.getScriptLock(); if (!l.tryLock(3000)) return false; try { var p = props_(), t = +(p.getProperty('pastRun') || 0); if (t && Date.now() - t < 360000) return false; p.setProperty('pastRun', String(Date.now())); return true; } finally { l.releaseLock(); } }
+function pastUnlock_() { props_().setProperty('pastRun', ''); }
+function pastDaily() { if (!pastLock_()) return; try { var t0 = Date.now(), r = pastScan_(false); while (r.ok && r.left && Date.now() - t0 < 240000) { props_().setProperty('pastRun', String(Date.now())); r = pastScan_(false); } } finally { pastUnlock_(); } }
 function ensurePast_() { var p = props_(); if (!PAST_FOLDER || p.getProperty('pastTrig') === '1') return;
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'pastDaily') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('pastDaily').timeBased().everyHours(6).create(); p.setProperty('pastTrig', '1'); }

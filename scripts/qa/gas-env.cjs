@@ -53,7 +53,7 @@ const env = {
   const iter = (kind, parent, list, pos = 0) => ({ hasNext: () => pos < list.length, next: () => { driveReads++; const id = list[pos++]; return kind === 'f' ? fileObj(id) : folderObj(id); }, getContinuationToken: () => JSON.stringify([kind, parent, pos]) });
   const folderObj = id => { const f = D.folders[id]; if (!f) throw new Error('No item with the given ID could be found'); return { getId: () => id, getName: () => f.name, getLastUpdated: () => new Date(f.updated || '2026-10-08T00:00:00Z'), getDateCreated: () => new Date(f.created || f.updated || '2026-10-01T00:00:00Z'),
     getFiles: () => iter('f', id, f.files || []), getFolders: () => iter('d', id, f.folders || []) }; };
-  const fileObj = id => { const f = D.files[id]; if (!f) throw new Error('No item with the given ID could be found'); return { getId: () => id, getName: () => f.name, getMimeType: () => f.mime, getSize: () => f.size || 1000, getLastUpdated: () => new Date(f.updated || '2026-10-08T00:00:00Z'),
+  const fileObj = id => { const f = D.files[id]; if (!f) throw new Error('No item with the given ID could be found'); return { getId: () => id, getName: () => f.name, getMimeType: () => f.mime, getSize: () => f.size || 25000, getLastUpdated: () => new Date(f.updated || '2026-10-08T00:00:00Z'),
     getBlob: () => ({ setContentType() { return this; }, _entries: f.entries || [] }) }; };
   env.DriveApp = { getFolderById: folderObj, getFileById: id => { driveReads++; return fileObj(id); },
     continueFolderIterator: tok => { const [k, parent, pos] = JSON.parse(tok); return iter(k, parent, D.folders[parent].folders || [], pos); } };
