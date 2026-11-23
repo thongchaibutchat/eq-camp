@@ -134,7 +134,7 @@ export default function Past({ onOpen, onConnect, flash, initialQ = '' }: { onOp
                       </div>
                       {j.canOpen ? (
                         <button onClick={() => open(j)} disabled={!!busy} className="tap shrink-0 px-3.5 py-2 rounded-xl bg-brand-navy text-white text-[13.5px] font-medium disabled:opacity-50">{busy === j.id ? 'กำลังอ่าน…' : 'เปิดมาแก้'}</button>
-                      ) : <span className="shrink-0 text-[12.5px] text-sub sm:pt-2">{j.kind === 'corp' ? 'ดูไฟล์ได้อย่างเดียว' : j.program ? 'มีแต่ PDF — ดูได้อย่างเดียว' : 'ยังไม่มีไฟล์โปรแกรม'}</span>}
+                      ) : <span className="shrink-0 text-[12.5px] text-sub sm:pt-2">{j.kind === 'corp' ? 'ดูไฟล์ได้อย่างเดียว' : j.bigDocx ? 'ไฟล์ Word ใหญ่เกิน 50 MB (มีภาพฝัง) — ดูใน Drive' : j.program ? 'มีแต่ PDF — ดูได้อย่างเดียว' : 'ยังไม่มีไฟล์โปรแกรม'}</span>}
                     </div>
                   </li>
                 ))}

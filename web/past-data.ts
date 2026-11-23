@@ -2,6 +2,8 @@
 // ข้อมูลลูกค้า (ชื่อโรงเรียน/ราคา) อยู่ในศูนย์กลางทีมเท่านั้น — เว็บสาธารณะไม่มีข้อมูลนี้ · เก็บสำเนาในเครื่องของสมาชิกเพื่อค้นหาเร็ว
 import { hubCall, hubReady, HubError } from './hub';
 import { classifyPast, parsePastProgram, PastFolder, PastJob, PastParse } from '../src/past-import';
+// ตัวช่วยตรวจคุณภาพตัวอ่าน (ไม่มีข้อมูลลับ — ตัวอ่านล้วน): ทดสอบโปรแกรมจริงทั้งคลังจากหน้าเว็บ
+try { (globalThis as any).__eqPast = { parsePastProgram, classifyPast }; } catch { /* */ }
 
 const LS = 'eqcamp.past.v1';
 export interface PastCache { at: string; scannedAt: string; folders: PastFolder[] }
@@ -36,9 +38,18 @@ export async function scanPast(onStep?: (n: number) => void, full = false): Prom
 }
 /** เปิดโปรแกรม Word ของงานเก่า → งานใหม่ (ยังไม่บันทึก จนกว่าผู้ใช้กดสร้างงาน) */
 export async function openPast(job: PastJob): Promise<PastParse> {
-  const f = job.programDocx; if (!f) throw new HubError('type', 'งานนี้ไม่มีไฟล์ Word ของโปรแกรม — เปิดดูได้อย่างเดียว');
-  const r = await hubCall<{ ok: boolean; text: string; name: string; error?: string }>('past.text', { fileId: f.id }, 90000);
-  if (!r.ok) throw new HubError(r.error || 'server', r.error === 'missing' ? 'ไม่พบไฟล์นี้ในคลัง — ให้แอดมินสแกนโฟลเดอร์ใหม่' : r.error === 'type' ? 'อ่านได้เฉพาะไฟล์ Word (.docx)' : r.error === 'read' ? 'ไฟล์ Word นี้อ่านไม่ได้' : 'อ่านไฟล์ไม่สำเร็จ');
-  return parsePastProgram(r.text, { folderId: job.id, folderName: job.name, fileId: f.id, fileName: f.n, date: job.date, confirmed: job.confirmed });
+  const cands = (job.docxs && job.docxs.length ? job.docxs : job.programDocx ? [job.programDocx] : []).slice(0, 4);
+  if (!cands.length) throw new HubError('type', 'งานนี้ไม่มีไฟล์ Word ของโปรแกรม — เปิดดูได้อย่างเดียว');
+  // ลองไฟล์ Word ตามลำดับ จนเจอไฟล์ที่มีกำหนดการ (บางโฟลเดอร์มีรายชื่อนักเรียน/หนังสือราชการเป็น .docx ด้วย)
+  let first: PastParse | undefined, err: HubError | undefined;
+  for (const f of cands) {
+    const r = await hubCall<{ ok: boolean; text: string; name: string; error?: string }>('past.text', { fileId: f.id }, 90000);
+    if (!r.ok) { err = err || new HubError(r.error || 'server', r.error === 'missing' ? 'ไม่พบไฟล์นี้ในคลัง — ให้แอดมินสแกนโฟลเดอร์ใหม่' : r.error === 'type' ? 'อ่านได้เฉพาะไฟล์ Word (.docx)' : r.error === 'read' ? 'ไฟล์ Word นี้อ่านไม่ได้' : 'อ่านไฟล์ไม่สำเร็จ'); continue; }
+    const p = parsePastProgram(r.text, { folderId: job.id, folderName: job.name, fileId: f.id, fileName: f.n, date: job.date, confirmed: job.confirmed });
+    if (p.stats.rows > 0) return p;
+    first = first || p;
+  }
+  if (first) return first;
+  throw err || new HubError('read', 'ไฟล์ Word นี้อ่านไม่ได้');
 }
 export const driveUrl = (id: string, folder = false) => folder ? `https://drive.google.com/drive/folders/${id}` : `https://drive.google.com/file/d/${id}/view`;

@@ -56,6 +56,39 @@ const all = (p: any) => p.days.flatMap((d: any) => d.items.map((r: any) => r.tit
   // 3) ข้อความพัง/ว่าง → ไม่ throw + รายการไม่พบ
   const z = parsePastProgram('อะไรก็ไม่รู้\nไม่มีโครง');
   ok('junk: ไม่ throw + ไม่พบหลายช่อง', z.missing.length >= 4 && !buildSchedule(z.camp).tpl?.id.startsWith('past:'), z.missing);
+  // 3b) ราคารวมทั้งงาน (ไม่มี "ท่าน") → ไม่ใส่เป็นราคาต่อท่าน + เตือนยอดรวม · วันที่ค่าเริ่มต้นของแอปไม่นับว่าพบ
+  { const L = parsePastProgram('PL 0304/2569\nหลักสูตร ทัศนศึกษา “แกะรอยมังกร”\nจำนวนผู้เข้ารับการอบรม\tนักเรียน จำนวน 41 ท่าน\nระยะเวลาอบรม\t1 วัน\nกำหนดการ\nโรงเรียนตัวอย่างวิทยา\n08.00 – 09.00 น.\tกิจกรรม A\n15.30 – 16.30 น.\tเดินทางกลับ\nราคาปกติ 79,900 บาท ลดเหลือ 60,000 บาท\nรายละเอียดงบประมาณมีดังนี้\n- ค่าอาหาร');
+    ok('lump: ไม่ใส่ราคาต่อท่าน + เตือนยอดรวม ≈ ต่อหัว', !L.found.some(([k]) => k === 'ราคา') && L.missing.includes('ราคาต่อท่าน') && L.warnings.some(w => /60,000/.test(w) && /1,463/.test(w)) && !L.tpl.price, [L.missing, L.warnings]);
+    ok('date placeholder ไม่นับว่าพบ', !L.found.some(([k]) => k === 'วันที่') && !L.camp.dates, L.camp.dates);
+    const P = parsePastProgram('หลักสูตร X\nกำหนดการ\n08.00 – 09.00 น.\tกิจกรรม A\nราคาปกติ 3,500 บาท ลดเหลือ 2,990 บาท/ท่าน\nรายละเอียดงบประมาณมีดังนี้\n- ค่าอาหาร');
+    ok('per-head: ราคาต่อท่านยังอ่านได้', P.camp.specialPrice === 2990 && P.camp.normalPrice === 3500, [P.camp.normalPrice, P.camp.specialPrice]); }
+  // 3c) รูปแบบจากโปรแกรมจริง: "1เพื่อ" / ไม่มีเลขข้อ / "การบูรณาการการเรียน" / "สถานที่ ณ จังหวัด" / "ราคาพิเศษ ท่านละ … จากราคาปกติ …" / งบไม่มีขีด + หัว "โดยรวมรายละเอียดราคา"
+  { const V = parsePastProgram(readFileSync('scripts/qa/fixtures/past-variants.txt', 'utf8'), { fileId: 'V' });
+    const sec = (h: RegExp) => V.tpl.secs.find(x => h.test(x.h || ''));
+    ok('variants: วัตถุประสงค์ 2 ข้อ (1เพื่อ + ไม่มีเลข)', sec(/วัตถุประสงค์/)?.items?.length === 2, sec(/วัตถุประสงค์/));
+    ok('variants: หัวข้อ "การบูรณาการการเรียน" 2 ข้อ', sec(/บูรณาการการเรียน/)?.items?.length === 2, V.tpl.secs);
+    ok('variants: ราคาพิเศษ ท่านละ 10,000 จากปกติ 12,990', V.camp.normalPrice === 12990 && V.camp.specialPrice === 10000, [V.camp.normalPrice, V.camp.specialPrice]);
+    ok('variants: งบ 3 รายการ (ไม่มีขีด + เลขข้อ + บรรทัดต่อ)', V.tpl.budget.length === 3 && /Foreigner Teacher/.test(V.tpl.budget[1]) && V.tpl.budget[2] === 'ค่าที่พัก จำนวน 1 คืน', V.tpl.budget);
+    ok('variants: จังหวัดจากบรรทัดสถานที่ · ไม่มีบรรทัดถูกข้าม', V.camp.province === 'ชลบุรี' && !V.warnings.some(w => /ไม่ได้นำเข้า/.test(w)), [V.camp.province, V.warnings]); }
+  // 3d) หัววันเป็นวันที่จริง ("วันที่ 12 กรกฎาคม 2569") → แยกวันถูก · ช่วงวันที่ในหัวยังอ่านเป็นวันที่ค่าย
+  { const D = parsePastProgram('หลักสูตร X Camp\nระยะเวลาอบรม\t3 วัน 2 คืน\nกำหนดการ\nโรงเรียนตัวอย่างวิทยา\nวันที่ 12 – 14 กรกฎาคม 2569\nวันที่ 12 กรกฎาคม 2569\n08.00 – 09.00 น.\tกิจกรรม A\nวันที่ 13 กรกฎาคม 2569\n09.00 – 10.00 น.\tกิจกรรม B\nวันจันทร์ที่ 14 กรกฎาคม 2569\n09.00 – 10.00 น.\tกิจกรรม C\nราคาปกติ 3,000 ลดเหลือ 2,500 บ./ท่าน');
+    ok('date-days: 3 วัน ไม่มีเตือนระยะเวลา', D.stats.days === 3 && !D.warnings.some(w => /ระยะเวลาบนหน้าปก/.test(w)), [D.stats, D.warnings]);
+    ok('date-days: วันที่ค่ายจากหัว', /12\s*[–-]\s*14\s*กรกฎาคม/.test(D.camp.dates), D.camp.dates);
+    const S = parsePastProgram('หลักสูตร Y\nกำหนดการ\nวันที่ 12 กรกฎาคม 2569\n08.00 – 09.00 น.\tกิจกรรม A\n09.00 – 10.00 น.\tกิจกรรม B');
+    ok('date-days: วันที่เดียว = หัวกำหนดการ ไม่ใช่หัววัน', S.stats.days === 1 && S.stats.rows === 2 && /12 กรกฎาคม/.test(S.camp.dates), [S.stats, S.camp.dates]); }
+  // 3e) เลือกไฟล์ Word: ชื่อบอกว่าเป็นโปรแกรมมาก่อน รายชื่อ/หนังสือไปท้าย · ไฟล์ล็อก ~$ ไม่นับ
+  { const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const J = classifyPast({ id: 'C', name: '691201 ค่ายตัวอย่าง โรงเรียนตัวอย่าง', files: [
+      { id: 'a', n: 'รายชื่อนักเรียน.docx', m: DOCX, s: 30000 }, { id: 'b', n: '~$หลักสูตร ค่ายตัวอย่าง.docx', m: DOCX, s: 162 },
+      { id: 'c', n: 'หลักสูตร ค่ายตัวอย่าง.docx', m: DOCX, s: 900000 }, { id: 'd', n: 'หลักสูตร ใหญ่.docx', m: DOCX, s: 150e6 }] });
+    ok('docx: โปรแกรมมาก่อน · ~$ ไม่นับ · ไฟล์ >48MB ไม่นับ', J.programDocx?.id === 'c' && J.docxs.map(x => x.id).join() === 'c,a' && J.canOpen, J.docxs.map(x => x.id));
+    const B = classifyPast({ id: 'E', name: '691201 ค่าย โรงเรียนใหญ่', files: [{ id: 'd', n: 'หลักสูตร ใหญ่.docx', m: DOCX, s: 150e6 }] });
+    ok('docx: มีแต่ไฟล์ใหญ่ → เปิดแก้ไม่ได้ + bigDocx', !B.canOpen && B.bigDocx?.id === 'd', B); }
+  // 3f) จำนวนผู้เข้าร่วม: ไม่มีคำว่านักเรียน → อ่านได้ · เป็นช่วง → ไม่เดา + เตือน
+  { const A1 = parsePastProgram('หลักสูตร X\nผู้เข้าร่วม จำนวน 45 ท่าน\nวิทยากร จำนวน 7 ท่าน\nกำหนดการ\n08.00 – 09.00 น.\tกิจกรรม A');
+    ok('students: ผู้เข้าร่วม จำนวน 45 ท่าน', A1.camp.students === 45, A1.camp.students);
+    const A2 = parsePastProgram('หลักสูตร X\nข้อมูลผู้เข้าร่วม จำนวน 80 – 90 คน\nกำหนดการ\n08.00 – 09.00 น.\tกิจกรรม A');
+    ok('students: ช่วง 80–90 → ไม่เดา + เตือน', !A2.camp.students && A2.missing.includes('จำนวนนักเรียน') && A2.warnings.some(w => /80–90/.test(w)), [A2.camp.students, A2.warnings]); }
   // 4) จัดชนิดจากชื่อโฟลเดอร์
   const j1 = classifyPast({ id: 'A', name: '691204 “ค่ายบูรณาการวิชาการภาษาอังกฤษ” (English Camp 2026) โรงเรียนอนุบาลตัวอย่างวิทยา   โปรแกรม 3 วัน 2 คืน', files: [
     { id: '1', n: 'English Camp ตัวอย่าง.pdf', m: 'application/pdf' }, { id: '2', n: 'English Camp ตัวอย่าง.docx', m: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },

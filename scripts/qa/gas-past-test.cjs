@@ -69,6 +69,17 @@ const setup = (opt = {}) => {
   ok('resumable scan: stops early then completes', first === true && r.ok && !r.left && TATA('past.list').folders.length === 4, JSON.stringify(r));
   ok('resumable scan: no duplicate rows', new Set(TATA('past.list').folders.map(f => f.id)).size === 4);
 }
+// 5) ล็อกเฉพาะการสแกน — สแกนค้างอยู่ ทีมยังบันทึกงานได้ · สแกนซ้อน = busy · ค้างเกิน 6 นาที = ปล่อย
+{ const { H, ADM, TATA } = setup();
+  H.props.pastRun = String(Date.now());
+  ok('scan running → 2nd scan busy', ADM('past.scan').error === 'busy');
+  const jp = TATA('job.put', { job: { id: 'jx', name: 'ระหว่างสแกน', snap: { camp: { school: 'รร.ทดสอบ' } } } });
+  ok('scan running → team job save still works', jp.ok, JSON.stringify(jp));
+  H.props.pastRun = String(Date.now() - 7 * 60000);
+  const r = ADM('past.scan'); ok('stale scan lock (7 min) released', r.ok && r.n === 4, JSON.stringify(r));
+  ok('scan lock cleared after scan', !H.props.pastRun);
+  H.fn.pastDaily(); ok('pastDaily clears scan lock', !H.props.pastRun);
+}
 // 4) ไม่ได้ตั้งโฟลเดอร์
 { const H = makeHub(fs.readFileSync(process.argv[2], 'utf8').replace(/const PAST_FOLDER = '[^']*';/, "const PAST_FOLDER = '';")); const T = (code0.match(/const TEAM_KEY = '([^']+)'/) || [])[1], O = (code0.match(/const OWNER_CODE = '([^']*)'/) || [])[1];
   const cl = H.handle({ op: 'admin.claim', owner: O, key: T, dev: 'a' }); const r = H.handle({ op: 'past.scan', key: cl.key, dev: 'a' });
