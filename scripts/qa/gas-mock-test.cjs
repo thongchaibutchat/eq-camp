@@ -17,6 +17,9 @@ ok('nsr.create duplicate refused', call('nsr.create', { title: 'ใหม่@ท
 ok('rev changed after write', call('rev').rev !== r0.rev);
 const e1 = call('nsr.edit', { title: 'stem@ทดสอบ', edits: [{ r: 2, c: 4, v: 90, was: '80' }] }); ok('nsr.edit', e1.ok && t1._g[1][3] === 90);
 const e2 = call('nsr.edit', { title: 'stem@ทดสอบ', edits: [{ r: 2, c: 4, v: 95, was: '80' }] }); ok('nsr.edit conflict', e2.error === 'conflict' && e2.conflicts[0].now === '90');
+// v13: ส่งซ้ำ (เช่น หมดเวลาแล้วลองใหม่) — ช่องเป็นค่าใหม่อยู่แล้ว = สำเร็จ ไม่ใช่ชนกัน
+const e2b = call('nsr.edit', { title: 'stem@ทดสอบ', edits: [{ r: 2, c: 4, v: 90, was: '80' }] }); ok('nsr.edit retry after timeout = ok (idempotent)', e2b.ok && t1._g[1][3] === 90, JSON.stringify(e2b));
+const e2c = call('nsr.edit', { title: 'stem@ทดสอบ', edits: [{ r: 2, c: 4, v: 95, was: '90' }] }); ok('nsr.edit normal edit after retry', e2c.ok && t1._g[1][3] === 95);
 const since = Date.now() - 60000;
 const ch = call('nsr.changes', { since }); ok('nsr.changes lists edited tabs', ch.ids.includes(t1.getSheetId()), JSON.stringify(ch));
 fn.onEdit({ range: { getSheet: () => t1 } }); ok('onEdit bumps rev', call('rev').rev.split('.')[1] !== '0');
@@ -101,6 +104,12 @@ H.lock.free = false;
 ok('write while lock held → busy (retryable)', call('log', { ev: { eid: 'e10' } }).error === 'busy');
 ok('reads still work while lock held', call('events').ok && call('jobs').ok && call('rev').ok);
 H.lock.free = true; ok('write after lock frees', call('log', { ev: { eid: 'e10' } }).ok);
+// v13: การอ่านแท็บใหม่ (nsr.all) ใช้ล็อกของตัวเอง — ระหว่างนั้นบันทึกได้ · ล็อกค้างหมดอายุเอง
+H.cache.allRun = '1';
+const ar = call('nsr.all', {}); ok('nsr.all while another refresh runs: answers without rebuilding', ar.ok && ar.built === 0, JSON.stringify({ built: ar.built, left: ar.left }));
+const e2d = call('nsr.edit', { title: 'stem@ทดสอบ', edits: [{ r: 2, c: 4, v: 96, was: '95' }] }); ok('save works while refresh holds its own lock', e2d.ok);
+delete H.cache.allRun;
+const ar2 = call('nsr.all', {}); ok('nsr.all rebuilds after refresh lock frees + releases it', ar2.ok && ar2.built >= 1 && !H.cache.allRun, JSON.stringify({ built: ar2.built }));
 ok('doGet', JSON.parse(fn.doGet().s).ok);
 ok('unknown op', call('zzz').error === 'op');
 process.exitCode = fail ? 1 : 0;

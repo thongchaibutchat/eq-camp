@@ -74,7 +74,7 @@ function makeStore(fixture, opt = {}) {
       }
       case 'nsr.edit': {
         const t = tabs.find(x => x.title === req.title); if (!t) return { ok: false, error: 'missing' };
-        const conflicts = (req.edits || []).filter(x => !same(t.values[x.r - 1][x.c - 1], x.was)).map(x => ({ r: x.r, c: x.c, now: t.values[x.r - 1][x.c - 1] }));
+        const conflicts = (req.edits || []).filter(x => !same(t.values[x.r - 1][x.c - 1], x.was) && !same(t.values[x.r - 1][x.c - 1], x.v)).map(x => ({ r: x.r, c: x.c, now: t.values[x.r - 1][x.c - 1] }));
         if (conflicts.length && !req.force) return { ok: false, error: 'conflict', conflicts };
         for (const x of req.edits) { t.values[x.r - 1][x.c - 1] = String(x.v); t.formulas[x.r - 1][x.c - 1] = ''; }
         evalTab(t); touch(t.sheetId); bump('nsr'); return { ok: true };

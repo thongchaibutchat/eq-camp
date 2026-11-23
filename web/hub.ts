@@ -118,6 +118,7 @@ async function hubCallOnce<T = any>(op: string, body: Record<string, any>, timeo
 // ── คิวคำสั่งเขียน (ออฟไลน์/เน็ตหลุด) — ส่งตามลำดับ · คีย์ซ้ำ = แทนของเก่า (เช่น บันทึกงานเดียวกันหลายครั้ง ส่งครั้งล่าสุดครั้งเดียว) ──
 type QItem = { id: string; op: string; body: any; ck?: string; at: number; tries: number };
 const queue = (): QItem[] => { try { const a = JSON.parse(ls.get(LS.q) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
+export const queueOf = (op: string) => queue().filter(x => x.op === op);
 const saveQ = (q: QItem[]) => { ls.set(LS.q, q.length ? JSON.stringify(q.slice(-500)) : ''); state = { ...state, pending: q.length }; emitState(); };
 export function enqueue(op: string, body: any, ck?: string) {
   let q = queue(); if (ck) q = q.filter(x => x.ck !== ck);
@@ -245,7 +246,7 @@ const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ:
 const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
 const CONFIG_SEED = ${JSON.stringify(opt.config || {})};   // ค่าตั้งต้นของทีม (แอดมินแก้ได้บนเว็บ)
 const PAST_FOLDER = '${opt.pastFolder || ''}';   // โฟลเดอร์งานที่เคยส่งจริง (เช่น "2569") — อ่านอย่างเดียว ไม่แก้ไฟล์ต้นฉบับ
-const VERSION = 12;
+const VERSION = 13;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -351,7 +352,7 @@ function route_(q) {
         var bad2 = editsBad_(q.edits); if (bad2) { audit_(q, 'ปฏิเสธ', 'nsr.edit ' + q.title, bad2); return { ok: false, error: 'bad', message: bad2 }; }
         var s2 = ss.getSheetByName(q.title); if (!s2) return { ok: false, error: 'missing' };
         var conflicts = [];
-        (q.edits || []).forEach(function (x) { var cur = s2.getRange(x.r, x.c).getDisplayValue(); if (!same_(cur, x.was)) conflicts.push({ r: x.r, c: x.c, now: cur }); });
+        (q.edits || []).forEach(function (x) { var cur = s2.getRange(x.r, x.c).getDisplayValue(); if (!same_(cur, x.was) && !same_(cur, x.v)) conflicts.push({ r: x.r, c: x.c, now: cur }); });   // ช่องเป็นค่าใหม่อยู่แล้ว (เช่น ส่งซ้ำหลังหมดเวลา) = สำเร็จ ไม่ใช่ชนกัน
         if (conflicts.length && !q.force) return { ok: false, error: 'conflict', conflicts: conflicts };
         var was = (q.edits || []).map(function (x) { return [x.r, x.c, s2.getRange(x.r, x.c).getDisplayValue(), x.v]; });
         (q.edits || []).forEach(function (x) { s2.getRange(x.r, x.c).setValue(cellIn_(x.v, true)); });
@@ -606,6 +607,9 @@ var CACHE_COLS = ['sheetId','title','ts','json'];
 function trimRows_(m) { return m.map(function (r) { var a = r.slice(); while (a.length && (a[a.length - 1] === '' || a[a.length - 1] === null)) a.pop(); return a; }); }
 function snap_(sh) { var n = Math.min(Math.max(sh.getLastRow(), 1), 60), rg = sh.getRange(1, 1, n, 15), v = trimRows_(rg.getDisplayValues()), f = trimRows_(rg.getFormulas());
   while (v.length && !v[v.length - 1].length && !(f[v.length - 1] || []).length) { v.pop(); f.pop(); } return JSON.stringify({ v: v, f: f }); }
+// ล็อกด้วย CacheService (หมดอายุเอง 2 นาที · ไม่กินโควตา Properties รายวัน) · ถือล็อกรวมแค่ช่วงตรวจ-จอง (มิลลิวินาที)
+function allLock_() { var l = LockService.getScriptLock(); if (!l.tryLock(1500)) return false; try { var c = CacheService.getScriptCache(); if (c.get('allRun')) return false; c.put('allRun', '1', 120); return true; } catch (x) { return false; } finally { l.releaseLock(); } }
+function allUnlock_() { try { CacheService.getScriptCache().remove('allRun'); } catch (x) {} }
 function all_(ss, q) {
   var t0 = Date.now(), since = Number(q.since) || 0, props = props_().getProperties(), sheets = ss.getSheets();
   var cs = tab_('NsrCache', CACHE_COLS), n = cs.getLastRow(), meta = n > 1 ? cs.getRange(2, 1, n - 1, 3).getValues() : [];
@@ -617,14 +621,15 @@ function all_(ss, q) {
   if (missN && json) { var refill = {}; meta.forEach(function (m, k) { var v = json[k] && json[k][0]; if (v && !hit['d:' + m[0]] && String(v).length < 30000) refill['d:' + m[0]] = String(v); }); cachePut_(refill); }
   tm.data = Date.now() - t0; tm.miss = missN;
   var at = {}; meta.forEach(function (r, i) { at[String(r[0])] = i; });
-  var lock = LockService.getScriptLock(), locked = lock.tryLock(2000), left = 0, built = 0, refresh = 0, out = [], writes = [];
+  // ล็อกของการอ่านแท็บใหม่เท่านั้น (ไม่ใช้ล็อกบันทึกของทีม — เดิมถือได้ 20 วิ ทุกเครื่องบันทึกต้องรอ) · ค้าง >2 นาที = หลุด
+  var locked = allLock_(), left = 0, built = 0, refresh = 0, out = [], writes = [];
   try {
     sheets.forEach(function (sh) {
       var id = String(sh.getSheetId()), i = at[id], r = i === undefined ? null : meta[i], edited = Number(props['t:' + id]) || 0;
       var need = !r || String(r[1]) !== sh.getName() || edited > Number(r[2]) || Number(r[2]) <= 1;   // ts 1 = แท็บใหญ่เกินช่อง (อ่านสดทุกครั้ง)
       var old = !need && r && t0 - Number(r[2]) > 86400000 && refresh < 15;   // กันพลาด: แท็บที่ไม่ได้อ่านใหม่เกิน 1 วัน ทยอยอ่านใหม่
       var rec = { title: sh.getName(), sheetId: Number(id), index: sh.getIndex() - 1 };
-      if ((need || old) && locked && Date.now() - t0 < 20000) {
+      if ((need || old) && locked && Date.now() - t0 < 15000) {
         var ts = Date.now(), d = snap_(sh), fit = d.length < 30000; if (old) refresh++; built++;
         var mrow = [Number(id), "'" + rec.title, fit ? ts : 1], cd = fit ? d : '';   // ' = เก็บชื่อแท็บเป็นข้อความ (กันชีตแปลง 12/2025 เป็นวันที่)
         if (r) { meta[i] = mrow; writes.push([i, cd]); } else { at[id] = meta.length; meta.push(mrow); writes.push([meta.length - 1, cd]); }
@@ -642,7 +647,7 @@ function all_(ss, q) {
       else writes.forEach(function (w) { cs.getRange(w[0] + 2, 1, 1, 4).setValues([[meta[w[0]][0], meta[w[0]][1], meta[w[0]][2], w[1]]]); });
       var put = {}; writes.forEach(function (w) { if (w[1] && w[1].length < 30000) put['d:' + meta[w[0]][0]] = w[1]; }); cachePut_(put);
     }
-  } finally { if (locked) lock.releaseLock(); }
+  } finally { if (locked) allUnlock_(); }
   var wants = out.filter(function (rec) { return rec.want !== undefined; }), wh = cacheGet_(wants.map(function (rec) { return 'd:' + rec.sheetId; }));
   wants.forEach(function (rec) { rec.d = wh['d:' + rec.sheetId] || String(cs.getRange(rec.want + 2, 4).getValue() || ''); delete rec.want; });
   tm.total = Date.now() - t0;
