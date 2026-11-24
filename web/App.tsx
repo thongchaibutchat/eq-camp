@@ -14,18 +14,19 @@ import TeamConnect, { HubPill } from './TeamConnect';
 import SearchPalette from './Search';
 import { hubReady, onRev, onArea, acceptInvite, isInviteHash, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
 import type { LogEv } from './registry';
-import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete, keepMine, onJobConflict } from './jobs';
+import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete, keepMine, onJobConflict, jobStatus } from './jobs';
 import type { Job, TeamJob } from './jobs';
 import { Packer } from 'docx';
 import {
   FileText, Sparkles, Calendar, Calculator, Image as ImageIcon, Download, Plus, Trash2,
   CheckCircle2, AlertTriangle, Lock, BookOpen, Layers, ChevronRight, Wand2, Eye,
-  BarChart3, History, RefreshCw, Users, X, Check, Info, ExternalLink, Copy, Search
+  BarChart3, History, RefreshCw, Users, X, Check, Info, ExternalLink, Copy, Search, GripVertical, RotateCcw
 } from 'lucide-react';
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
   packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoSetsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
   showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, scheduleActs, actInSchedule, PARTY_THEMES, isPartyRow, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote, dayEndOf, parseHM, extendOptions
+, moveRow, resetOrder
 } from '../src/eqcamp-core';
 import { FONT_REG_B64 } from '../src/font-data';
 
@@ -140,9 +141,15 @@ export default function App() {
   const [teamJobs, setTeamJobs] = useState<TeamJob[]>(() => loadTeamJobs());
   const [remoteJob, setRemoteJob] = useState<TeamJob | null>(null);
   const pushT = useRef<any>(null);
+  // เสร็จสิ้น: จำเนื้องานตอนกด "เสร็จสิ้น" — แก้เนื้องานหลังจากนั้น = กลับเป็น "กำลังทำ" เอง (เปิดดู/ดาวน์โหลดไม่นับ)
+  const doneKey = useRef<string>('');
+  const campKey = (c: Camp) => JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 });
   const storeJob = (c: Camp, fileMade = false) => {
     const sn = snapshot(c, customVenues, brief, false);
-    const list = saveJob({ id: jobId, ...jobMeta(c), snap: sn, fileMade }); setJobs(list);
+    const old = jobsRef.current.find(j => j.id === jobId);
+    let st: Partial<Job> = {};
+    if (old?.done && doneKey.current && campKey(c) !== doneKey.current) { st = { done: false, doneAt: '', doneBy: '' }; doneKey.current = ''; flash('งานนี้กลับเป็น "กำลังทำ" เพราะมีการแก้ไข — กด "เสร็จสิ้น" อีกครั้งเมื่อแก้เสร็จ'); }
+    const list = saveJob({ id: jobId, ...jobMeta(c), snap: sn, fileMade, ...st } as any); setJobs(list);
     const rec = list.find(j => j.id === jobId);
     if (rec && hubReady()) { clearTimeout(pushT.current); pushT.current = setTimeout(() => pushJob({ ...rec, by: userName() } as any), fileMade ? 0 : 2500); }
   };
@@ -178,7 +185,7 @@ export default function App() {
   const openTeamJob = async (t: TeamJob) => {
     try {
       const full = await fetchTeamJob(t.id); if (!full) { flash('ไม่พบงานนี้ในทีมแล้ว', false); return; }
-      const list = saveJob({ id: full.id, name: full.name, course: full.course, school: full.school, dates: full.dates, duration: full.duration, snap: full.snap, files: 0 } as any); setJobs(list);
+      const list = saveJob({ id: full.id, name: full.name, course: full.course, school: full.school, dates: full.dates, duration: full.duration, snap: full.snap, files: 0, done: !!(full.done ?? t.done), doneAt: full.doneAt || t.doneAt || '', doneBy: full.doneBy || t.doneBy || '' } as any); setJobs(list);
       const j = list.find(x => x.id === full.id); if (j) openJob(j);
       setRemoteJob(null);
     } catch (e: any) { flash('เปิดงานของทีมไม่สำเร็จ: ' + (e?.message || ''), false); }
@@ -192,11 +199,27 @@ export default function App() {
     const t = setTimeout(() => storeJob(camp), 700); return () => clearTimeout(t);
   }, [camp, brief, jobId]);
   // เริ่มงานใหม่ (งานเดิมบันทึกไว้แล้ว) / เปิดงานที่บันทึกไว้
-  const startNewJob = (c: Camp) => { setJobId(newJobId()); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); };
+  const startNewJob = (c: Camp) => { setJobId(newJobId()); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); doneKey.current = ''; setFinish(null); };
+  // ── เสร็จสิ้น ──
+  const [finish, setFinish] = useState<null | 'confirm' | 'done'>(null);
+  const curJob = jobs.find(j => j.id === jobId);
+  const finishJob = () => {
+    clearTimeout(pushT.current);
+    const sn = snapshot(camp, customVenues, brief, false), now = new Date().toISOString();
+    const list = saveJob({ id: jobId, ...jobMeta(camp), snap: sn, done: true, doneAt: now, doneBy: userName() } as any); setJobs(list);
+    doneKey.current = campKey(camp);
+    const rec = list.find(j => j.id === jobId); if (rec && hubReady()) pushJob({ ...rec, by: userName() } as any);
+    setFinish('done');
+  };
+  const reopenJob = () => {   // ยังไม่เสร็จจริง → กลับเป็นกำลังทำ
+    const list = saveJob({ id: jobId, ...jobMeta(camp), snap: snapshot(camp, customVenues, brief, false), done: false, doneAt: '', doneBy: '' } as any); setJobs(list);
+    doneKey.current = ''; const rec = list.find(j => j.id === jobId); if (rec && hubReady()) pushJob({ ...rec, by: userName() } as any);
+    setFinish(null); flash('ตั้งงานนี้เป็น "กำลังทำ" แล้ว');
+  };
   const openJob = (j: Job) => {
     try {
       const { camp: c, venues, brief: b } = rehydrate(j.snap);
-      setJobId(j.id); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 });
+      setJobId(j.id); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); doneKey.current = j.done ? baseline.current : '';
       setCamp(c); setCustomVenues(venues); if (b !== undefined) setBrief(b); setPhotoNonce(n => n + 1); setTab('header');
       flash(`เปิดงาน "${j.name}" แล้ว — ทำต่อได้เลย (บันทึกอัตโนมัติ)`);
     } catch (e) { flash('เปิดงานไม่สำเร็จ: ' + (e as Error).message, false); }
@@ -208,6 +231,41 @@ export default function App() {
   const aiReq = useRef(0);
   const [busy, setBusy] = useState(false);
   const [editRow, setEditRow] = useState<{ day: number; i: number } | null>(null);
+  // ลากย้ายช่วงในกำหนดการ (เมาส์/นิ้ว/แป้นลูกศร) — เวลาเรียงใหม่ตามความยาวเดิมของแต่ละช่วง เวลาเลิกของวันไม่เปลี่ยน
+  const [drag, setDrag] = useState<{ day: number; from: number; over: number } | null>(null);
+  const dragRef = useRef<{ day: number; from: number; over: number } | null>(null);
+  const doMove = (day: number, from: number, to: number) => {
+    if (from === to) return;
+    const dayOrders = moveRow(camp, plan, day, from, to); const nc = { ...camp, dayOrders };
+    const moved = plan.days.find(x => x.day === day)?.items[from];
+    const np = buildSchedule(nc); const now = np.days.find(x => x.day === day)?.items.find(r => r.key && r.key === moved?.key);
+    set({ dayOrders }); setEditRow(null);
+    if (moved && now) flash(`ย้าย “${moved.title.slice(0, 40)}” ไปช่วง ${now.time} แล้ว · เวลาช่วงอื่นเลื่อนตาม เวลาเลิกเท่าเดิม`);
+  };
+  const overIndex = (day: number, y: number) => {
+    const rows = Array.from(document.querySelectorAll<HTMLElement>(`[data-sched-day="${day}"] > [data-row]`));
+    let at = rows.length - 1;
+    for (let k = 0; k < rows.length; k++) { const b = rows[k].getBoundingClientRect(); if (y < b.top + b.height / 2) { at = k; break; } }
+    return Math.max(0, at);
+  };
+  const gripProps = (day: number, i: number, n: number, label: string) => ({
+    'aria-label': `ลากเพื่อย้าย ${label} (หรือกดลูกศรขึ้น/ลง)`, title: 'ลากขึ้นลงเพื่อย้ายช่วง',
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return; e.preventDefault(); (e.currentTarget as any).setPointerCapture?.(e.pointerId);
+      const st = { day, from: i, over: i }; dragRef.current = st; setDrag(st);
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => {
+      const st = dragRef.current; if (!st) return;
+      if (e.clientY < 70) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 70) window.scrollBy(0, 14);
+      const over = overIndex(day, e.clientY); if (over !== st.over) { const nx = { ...st, over }; dragRef.current = nx; setDrag(nx); }
+    },
+    onPointerUp: () => { const st = dragRef.current; dragRef.current = null; setDrag(null); if (st) doMove(st.day, st.from, st.over); },
+    onPointerCancel: () => { dragRef.current = null; setDrag(null); },
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); doMove(day, i, i - 1); }
+      if (e.key === 'ArrowDown' && i < n - 1) { e.preventDefault(); doMove(day, i, i + 1); }
+    },
+  });
   // มือถือ: เมื่อไฟล์พร้อม แสดงแผ่น "บันทึก/แชร์/เปิด" ให้ผู้ใช้แตะเอง (iOS/Android ต้องมีการแตะสด ๆ จึงแชร์/ดาวน์โหลดได้แน่นอน)
   const [saveSheet, setSaveSheet] = useState<{ files: { blob: Blob; name: string }[]; title: string } | null>(null);
   // ความคืบหน้าการสร้าง PDF (มือถือใช้เวลานานกว่า — ต้องเห็นว่ายังทำงานอยู่)
@@ -387,7 +445,7 @@ export default function App() {
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
     const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
     // ระยะเวลาเปลี่ยน → ค่าที่พัก/มื้ออาหารในงบเปลี่ยน: คืนรายการงบเป็นอัตโนมัติ กันตัวเลขค้างผิด
-    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined }));
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined, dayOrders: undefined }));
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — จัดกำหนดการใหม่แล้ว${hadBudget ? ' · รายการงบกลับเป็นอัตโนมัติ (แก้ได้อีกครั้งในขั้นราคา & งบ)' : ''}`);
   };
@@ -395,7 +453,7 @@ export default function App() {
   const changeCourse = (code: string) => {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined });
+    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined, dayOrders: undefined });
     const nT = templatesOf(code).length;
     flash(nT ? `เลือก "${co.name}" (${code}) — ใช้แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนี้` : `เลือก "${co.name}" (${code}) — ยังไม่มีแม่แบบจริง ระบบจัดจากคลังกิจกรรม (รอตรวจ)`);
   };
@@ -788,14 +846,14 @@ export default function App() {
                 className={`tap px-3 py-2 rounded-lg text-[15px] ${navOn(n.id) ? 'text-brand-navy font-semibold bg-paper' : 'text-sub hover:text-brand-ink hover:bg-paper font-medium'}`}>{n.label}</button>
             ))}
           </nav>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2 min-w-0">
             <button onClick={() => setSearchOpen(true)} aria-label="ค้นหาทั้งระบบ (กด / หรือ Ctrl+K)" className="tap flex items-center gap-2 px-2.5 lg:px-3 py-2 rounded-xl border border-brand-mist bg-white hover:bg-paper text-[13.5px] text-sub">
               <Search className="w-4 h-4" /><span className="hidden xl:inline">ค้นหา</span><kbd className="hidden xl:inline text-[11px] border border-brand-mist rounded px-1.5">/</kbd>
             </button>
             <HubPill onClick={() => setConnectOpen(true)} />
             {view === 'build' ? (<>
               <button onClick={() => download(kind)} disabled={busy}
-                className="tap px-3.5 sm:px-4 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14px] font-semibold flex items-center gap-1.5">
+                className="tap px-3 sm:px-4 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14px] font-semibold flex items-center gap-1.5">
                 <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : <>ดาวน์โหลด<span className="hidden lg:inline"> {DOC_TYPES.find(d => d.id === kind)!.label}</span></>}
               </button>
               <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
@@ -803,8 +861,8 @@ export default function App() {
                 <Layers className="w-4 h-4" />ครบชุด<span className="hidden lg:inline"> 4 ไฟล์</span>
               </button>
               <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF"
-                className="tap px-3 py-2.5 rounded-xl border border-brand-mist enabled:hover:bg-paper disabled:opacity-40 text-[14px] font-medium flex items-center gap-1.5">
-                <FileText className="w-4 h-4" />PDF
+                className="tap px-2.5 sm:px-3 py-2.5 rounded-xl border border-brand-mist enabled:hover:bg-paper disabled:opacity-40 text-[14px] font-medium flex items-center gap-1.5" aria-label="บันทึกเป็น PDF">
+                <FileText className="w-4 h-4" /><span className="hidden min-[400px]:inline">PDF</span>
               </button>
             </>) : (
               <button onClick={() => setView('build')} className="tap px-4 py-2.5 rounded-xl bg-accent hover:bg-accent-deep text-white text-[14px] font-semibold">สร้างเอกสาร</button>
@@ -844,6 +902,11 @@ export default function App() {
       )}
 
       {saveSheet && <SaveSheet sheet={saveSheet} onClose={() => setSaveSheet(null)} download={anchorDownload} />}
+      {finish && <FinishDialog mode={finish} camp={camp} checks={checks as any} job={curJob} busy={busy} team={hubReady()}
+        onConfirm={finishJob} onClose={() => setFinish(null)} onReopen={reopenJob}
+        onNew={() => { setFinish(null); startNewJob(blankCamp()); setCamp(blankCamp()); setBrief(''); setTab(STEPS[0].id); window.scrollTo(0, 0); flash('เริ่มงานใหม่แล้ว — งานที่เสร็จอยู่ใน "งานของฉัน"'); }}
+        onAll={downloadAll} onPdf={printPDF}
+        onFix={(id?: string) => { setFinish(null); if (id) setTab(id); }} />}
       {connectOpen && <TeamConnect setupKey={setupKey} onClose={() => { setConnectOpen(false); setSetupKey(''); }} flash={(t, w) => flash(t, !w)} />}
       {searchOpen && <SearchPalette onClose={() => setSearchOpen(false)} jobs={jobs} teamJobs={teamJobs}
         go={(a) => {
@@ -925,7 +988,7 @@ export default function App() {
             <h2 className="text-[16px] font-semibold">เลือกเอกสาร</h2>
             <div className="flex items-center gap-1.5">
               
-              <span className="hidden sm:inline text-[12.5px] text-sub mr-1" aria-live="polite">{jobs.some(j => j.id === jobId) ? `บันทึกอัตโนมัติ · ${ago(jobs.find(j => j.id === jobId)!.savedAt)}` : ''}</span>
+              <span className="hidden sm:inline text-[12.5px] text-sub mr-1" aria-live="polite">{curJob ? (curJob.done ? `เสร็จแล้ว · ${ago(curJob.doneAt || curJob.savedAt)}` : `กำลังทำ · บันทึกอัตโนมัติ ${ago(curJob.savedAt)}`) : ''}</span>
               <button onClick={() => setTab('brief')} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-brand-navy font-medium hover:bg-paper">งานของฉัน{jobs.length ? ` (${jobs.length})` : ''}</button>
               <button onClick={exportDB} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-brand-ink hover:bg-paper">ส่งออกงาน</button>
               <button onClick={() => fileInput.current?.click()} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-brand-ink hover:bg-paper">นำเข้างาน</button>
@@ -1241,7 +1304,7 @@ export default function App() {
                   {camp.courseCode && (templatesOf(camp.courseCode).length > 0) && (
                     <div className="border border-brand-mist rounded-xl p-3 space-y-2 bg-white">
                       <div className="text-[13px] text-sub">แม่แบบที่ใช้</div>
-                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, rowEdits: undefined, actsOverride: undefined, budgetItems: undefined })} className={inp}>
+                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, rowEdits: undefined, actsOverride: undefined, budgetItems: undefined, dayOrders: undefined })} className={inp}>
                         {plan.tpl && plan.tpl.exact
                           ? plan.tpl.options.map(o => <option key={o.id} value={o.id}>แม่แบบจริง · {o.label}</option>)
                           : <option value="">ไม่มีแม่แบบ {durKeyLabel(durKeyOf(camp))} — หน้าปกจาก {plan.tpl ? plan.tpl.source.replace('__', ' · ') : '-'}</option>}
@@ -1259,15 +1322,21 @@ export default function App() {
                   </div>}
                   {plan.days.map(d => (
                     <div key={d.day} className="border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="bg-brand text-white text-[13.5px] font-semibold px-3 py-1.5 flex items-center justify-between gap-2"><span>วันที่ {d.day}</span><span className="font-normal text-white/80">เลิก {dayEndOf(d) || '-'} น.</span></div>
+                      <div className="bg-brand text-white text-[13.5px] font-semibold px-3 py-1.5 flex items-center justify-between gap-2"><span>วันที่ {d.day}</span>
+                        <span className="flex items-center gap-3">
+                          {(camp.dayOrders || []).some(o => o.day === d.day) && <button onClick={() => { set({ dayOrders: resetOrder(camp, d.day) }); flash(`วันที่ ${d.day} กลับเป็นลำดับเดิมแล้ว`); }} className="tap inline-flex items-center gap-1 font-normal text-white/90 hover:text-white underline underline-offset-2"><RotateCcw size={13} />คืนลำดับเดิม</button>}
+                          <span className="font-normal text-white/80">เลิก {dayEndOf(d) || '-'} น.</span>
+                        </span></div>
                       <DayTools camp={camp} plan={plan} day={d.day} set={set} />
-                      <div className="divide-y divide-slate-100">
+                      <div className="divide-y divide-slate-100" data-sched-day={d.day}>
                         {d.items.map((r, i) => (
                           editRow && editRow.day === d.day && editRow.i === i
                             ? <RowEditForm key={i} day={d.day} row={r} camp={camp} set={set} onDone={() => setEditRow(null)} />
-                            : <div key={i} className="group flex gap-2 px-2.5 py-1.5 text-[13px]">
+                            : <div key={r.key || i} data-row className={`group flex gap-1.5 pl-1 pr-2.5 py-1.5 text-[13px] transition-colors ${drag && drag.day === d.day ? (drag.from === i ? 'opacity-40 bg-paper' : drag.over === i ? (drag.over < drag.from ? 'shadow-[inset_0_3px_0_0_#0C2A41]' : 'shadow-[inset_0_-3px_0_0_#0C2A41]') : '') : ''}`}>
+                            <button type="button" {...gripProps(d.day, i, d.items.length, `${r.time} ${r.title}`)} className="self-start shrink-0 -my-0.5 px-1 py-1.5 rounded-md text-slate-300 hover:text-brand-ink hover:bg-paper focus-visible:text-brand-ink cursor-grab active:cursor-grabbing touch-none select-none"><GripVertical size={16} /></button>
                             <span className="font-semibold text-sub w-28 shrink-0">{r.time}</span>
                             <span className="text-slate-800 flex-1 min-w-0">
+                              {r.moved && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">ย้ายแล้ว</span>}
                               {r.ext && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">ช่วงที่ขยาย</span>}
                               {r.added !== undefined && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">เพิ่มเอง</span>}
                               {r.orig && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-amber-50 text-amber-800 text-[11px] font-semibold">{r.party && camp.partyTheme && !(camp.rowEdits || []).some(e => e.day === d.day && e.from === r.orig) ? 'ธีมปาร์ตี้' : 'แก้แล้ว'}</span>}
@@ -1372,9 +1441,10 @@ export default function App() {
                   <span className={`text-[13px] text-sub ${stepIdx === STEPS.length - 1 ? 'hidden sm:inline' : ''}`}>ขั้นที่ {stepIdx + 1} จาก {STEPS.length}</span>
                   {stepIdx < STEPS.length - 1
                     ? <button onClick={() => setTab(STEPS[stepIdx + 1].id)} className="tap px-5 py-2.5 rounded-xl text-[14px] font-semibold bg-brand-navy text-white hover:opacity-90">ถัดไป: {STEPS[stepIdx + 1].label}</button>
-                    : <span className="flex gap-2">
+                    : <span className="flex flex-wrap justify-end gap-2">
                         <button onClick={printPDF} disabled={busy} className="tap px-4 py-2.5 rounded-xl text-[14px] font-semibold border border-brand-mist hover:bg-paper disabled:opacity-40">PDF</button>
-                        <button onClick={() => download(kind)} disabled={busy} className="tap px-4 py-2.5 rounded-xl text-[14px] font-semibold bg-accent text-white hover:bg-accent-deep disabled:opacity-40">Word</button>
+                        <button onClick={() => download(kind)} disabled={busy} className="tap px-4 py-2.5 rounded-xl text-[14px] font-semibold border border-brand-mist hover:bg-paper disabled:opacity-40">Word</button>
+                        <button onClick={() => setFinish(curJob?.done ? 'done' : 'confirm')} className="tap inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[14px] font-semibold bg-accent text-white hover:bg-accent-deep"><CheckCircle2 className="w-4 h-4" />{curJob?.done ? 'เสร็จแล้ว' : 'เสร็จสิ้น'}</button>
                       </span>}
                 </div>
               )}
@@ -1989,34 +2059,41 @@ function PartyPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof b
 /* แก้ไขแถวกำหนดการ (เวลา/ชื่อ/ลบ/คืนค่าเดิม) → camp.rowEdits อ้างวัน + ชื่อแถวเดิม */
 /* งานของฉัน: ทุกงานบันทึกอัตโนมัติในเครื่องนี้ — เปิดทำต่อ / ทำสำเนา (ใช้เป็นแม่แบบงานใหม่) / ลบ */
 function JobsPanel({ jobs, team, current, onOpen, onOpenTeam, onCopy, onDelete }: { jobs: Job[]; team: TeamJob[]; current: string; onOpen: (j: Job) => void; onOpenTeam: (t: TeamJob) => void; onCopy: (j: Job) => void; onDelete: (j: Job) => void }) {
-  const [q, setQ] = useState(''); const [all, setAll] = useState(false);
+  const [q, setQ] = useState(''); const [all, setAll] = useState(false); const [st, setSt] = useState<'all' | 'doing' | 'done'>('all');
   const connected = hubReady();
   // รวมงานในเครื่อง + งานของทีม (งานเดียวกันแสดงครั้งเดียว — ฉบับที่ใหม่กว่า)
-  type Row = { id: string; name: string; sub: string; savedAt: string; files: number; local?: Job; team?: TeamJob };
+  type Row = { id: string; name: string; sub: string; savedAt: string; files: number; local?: Job; team?: TeamJob; done?: boolean; doneAt?: string; doneBy?: string };
   const map = new Map<string, Row>();
   for (const j of jobs) map.set(j.id, { id: j.id, name: j.name, sub: [j.course, j.duration, j.dates].filter(Boolean).join(' · '), savedAt: j.savedAt, files: j.files, local: j });
   for (const t of team) { if (t.deleted) { if (!map.get(t.id)?.local) map.delete(t.id); continue; } const r = map.get(t.id); if (r) { r.team = t; if (t.savedAt > r.savedAt) r.savedAt = t.savedAt; } else map.set(t.id, { id: t.id, name: t.name, sub: [t.course, t.duration, t.dates].filter(Boolean).join(' · '), savedAt: t.savedAt, files: t.files || 0, team: t }); }
+  // สถานะ = ฉบับที่ใหม่กว่า (เครื่องนี้ / ทีม)
+  for (const r of map.values()) { const src = r.team && (!r.local || r.team.savedAt > r.local.savedAt) ? r.team : r.local; r.done = !!src?.done; r.doneAt = src?.doneAt; r.doneBy = src?.doneBy; }
   const rows = [...map.values()].sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1));
+  const nDone = rows.filter(r => r.done).length;
   if (!rows.length) return (
     <div className="rounded-xl border border-brand-mist bg-white px-3.5 py-3 text-[13.5px] text-sub">{connected ? 'งานของทีม' : 'งานของฉัน'}: ยังไม่มีงานที่บันทึกไว้ — เริ่มจากวางบรีฟด้านล่าง ระบบบันทึกให้อัตโนมัติ เปิดทำต่อได้ทุกเมื่อ</div>);
   const nq = q.trim().toLowerCase().replace(/\s+/g, '');
-  const list = rows.filter(r => !nq || `${r.name}${r.sub}${r.local?.snap?.camp?.docCode || r.team?.docCode || ''}${r.team?.by || ''}`.toLowerCase().replace(/\s+/g, '').includes(nq));
-  const shown = all || q ? list : list.slice(0, 5);
+  const list = rows.filter(r => st === 'all' || (st === 'done') === !!r.done).filter(r => !nq || `${r.name}${r.sub}${r.local?.snap?.camp?.docCode || r.team?.docCode || ''}${r.team?.by || ''}`.toLowerCase().replace(/\s+/g, '').includes(nq));
+  const shown = all || q || st !== 'all' ? list : list.slice(0, 5);
   return (
     <div className="rounded-xl border border-brand-mist bg-white overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 border-b border-brand-mist">
         <div><div className="text-[15px] font-semibold">{connected ? 'งานของทีม' : 'งานของฉัน'}</div><div className="text-[12.5px] text-sub">{connected ? 'บันทึกอัตโนมัติ · ทุกเครื่องในทีมเห็นและเปิดทำต่อได้ทันที' : 'บันทึกอัตโนมัติในเครื่องนี้ · เชื่อมต่อทีมเพื่อเปิดจากเครื่องอื่นได้'}</div></div>
         {rows.length > 5 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน/หลักสูตร/ผู้ทำ" aria-label="ค้นหางาน" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-[13.5px] w-52" />}
       </div>
+      <div className="flex gap-1.5 px-3.5 py-2 border-b border-brand-mist text-[13px]" role="group" aria-label="กรองตามสถานะงาน">
+        {([['all', `ทั้งหมด ${rows.length}`], ['doing', `กำลังทำ ${rows.length - nDone}`], ['done', `เสร็จแล้ว ${nDone}`]] as const).map(([k, t]) => (
+          <button key={k} onClick={() => setSt(k)} aria-pressed={st === k} className={`tap px-3 py-1 rounded-full border ${st === k ? 'bg-brand-navy text-white border-brand-navy' : 'border-brand-mist hover:bg-paper'}`}>{t}</button>))}
+      </div>
       <ul className="divide-y divide-brand-mist">
         {shown.map(r => (
           <li key={r.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${r.id === current ? 'bg-paper' : ''}`}>
             <div className="min-w-0 flex-1">
-              <div className="text-[14.5px] font-semibold truncate">{r.name}{r.id === current && <span className="ml-2 text-[12px] font-medium text-brand-navy">กำลังทำอยู่</span>}{!r.local && <span className="ml-2 text-[12px] font-medium text-emerald-700">จากทีม</span>}</div>
-              <div className="text-[12.5px] text-sub truncate">{r.sub} · แก้ล่าสุด {ago(r.savedAt)}{r.team?.by ? ` โดย ${r.team.by}` : ''}{r.files ? ` · สร้างไฟล์แล้ว ${r.files} ครั้ง` : ''}</div>
+              <div className="text-[14.5px] font-semibold truncate">{r.done ? <span className="mr-2 align-[1px] inline-block px-1.5 rounded bg-emerald-100 text-emerald-800 text-[11.5px] font-semibold">เสร็จแล้ว</span> : <span className="mr-2 align-[1px] inline-block px-1.5 rounded bg-amber-50 text-amber-800 text-[11.5px] font-semibold">กำลังทำ</span>}{r.name}{r.id === current && <span className="ml-2 text-[12px] font-medium text-brand-navy">เปิดอยู่</span>}{!r.local && <span className="ml-2 text-[12px] font-medium text-emerald-700">จากทีม</span>}</div>
+              <div className="text-[12.5px] text-sub truncate">{r.sub} · {r.done ? `เสร็จ ${ago(r.doneAt || r.savedAt)}${r.doneBy ? ` โดย ${r.doneBy}` : ''} · ` : ''}แก้ล่าสุด {ago(r.savedAt)}{r.team?.by ? ` โดย ${r.team.by}` : ''}{r.files ? ` · สร้างไฟล์แล้ว ${r.files} ครั้ง` : ''}</div>
             </div>
             <div className="flex gap-1.5 text-[13px]">
-              {r.id !== current && <button onClick={() => (r.local && (!r.team || r.team.savedAt <= r.local.savedAt) ? onOpen(r.local) : onOpenTeam(r.team!))} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">เปิดทำต่อ</button>}
+              {r.id !== current && <button onClick={() => (r.local && (!r.team || r.team.savedAt <= r.local.savedAt) ? onOpen(r.local) : onOpenTeam(r.team!))} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">{r.done ? 'เปิดดู / แก้' : 'เปิดทำต่อ'}</button>}
               {r.local && <button onClick={() => onCopy(r.local!)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist">ทำสำเนา</button>}
               {r.local && <button onClick={() => onDelete(r.local!)} aria-label={`ลบงาน ${r.name}`} className="tap px-2.5 py-1.5 rounded-lg text-rose-600">ลบ</button>}
             </div>
@@ -2034,20 +2111,32 @@ function ActOptions({ camp, day }: { camp: Camp; day: number }) {
 }
 const hmIn = (v: string) => v.replace(':', '.');            // <input type=time> "13:30" → "13.30"
 const hmOut = (v?: string) => { const m = parseHM(v); return m === null ? '' : `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
-const END_OPTS = ['12.00', '13.00', '14.00', '15.00', '15.30', '16.00', '16.30', '17.00', '18.00', '20.00', '21.00', '21.30', '22.00'];
+/* เวลาเลิกของวัน: พิมพ์/เลือกได้อิสระ (เร็วขึ้นหรือช้าลง) ทุกแม่แบบ/ต้นฉบับ/งานเก่า · ใช้ค่าเมื่อเวลาครบ HH:MM (ไม่ปรับระหว่างพิมพ์) */
+function EndTimeInput({ day, value, base, custom, onSet }: { day: number; value: string; base: string; custom: boolean; onSet: (v: string) => void }) {
+  const [v, setV] = useState(hmOut(value)); useEffect(() => { setV(hmOut(value)); }, [value]);
+  const tm = useRef<any>(null); useEffect(() => () => clearTimeout(tm.current), []);
+  const commit = (x: string) => { clearTimeout(tm.current); const h = hmIn(x); if (parseHM(h) === null) { setV(hmOut(value)); return; } if (h === hmIn(hmOut(value))) return; onSet(h === hmIn(hmOut(base)) ? '' : h); };
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-2"><span className="text-sub">เวลาเลิก</span>
+        <input type="time" step={300} value={v} onChange={e => { const x = e.target.value; setV(x); clearTimeout(tm.current); if (x) tm.current = setTimeout(() => commit(x), 900); }} onBlur={e => commit(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') commit((e.target as HTMLInputElement).value); }}
+          aria-label={`เวลาเลิกวันที่ ${day}`} className="px-2 py-1.5 rounded-lg border border-brand-mist bg-white text-[13.5px] w-[7.5rem]" />
+      </label>
+      {custom ? <button onClick={() => onSet('')} className="tap text-[13px] text-brand-navy underline underline-offset-2">กลับเป็นตามต้นฉบับ ({base || '-'} น.)</button>
+        : <span className="text-[12.5px] text-sub">ตามต้นฉบับ · เปลี่ยนได้ทั้งเร็วขึ้น/ช้าลง</span>}
+    </span>);
+}
 /* เครื่องมือรายวัน: ขยายเวลาเลิก (ระบบเติมกิจกรรม/อาหารให้ แล้วเลื่อนพิธีปิด-เดินทางกลับไปท้าย) + เพิ่มช่วงเวลาเอง */
 function DayTools({ camp, plan, day, set }: { camp: Camp; plan: ReturnType<typeof buildSchedule>; day: number; set: (p: Partial<Camp>) => void }) {
   const ext = (camp.dayExtends || []).find(x => x.day === day);
   const others = (camp.dayExtends || []).filter(x => x.day !== day);
   // เวลาเลิกตามแม่แบบ (ก่อนขยาย)
   const baseEnd = useMemo(() => { const p = buildSchedule({ ...camp, dayExtends: others.length ? others : undefined }); const d = p.days[day - 1]; return d ? dayEndOf(d) : ''; }, [camp, day]);
-  const baseMin = parseHM(baseEnd) ?? 0;
   const [adding, setAdding] = useState(false);
   const d = plan.days[day - 1]; const endNow = d ? dayEndOf(d) : '';
   const [st, setSt] = useState(''); const [en, setEn] = useState(''); const [ti, setTi] = useState(''); const [sub, setSub] = useState('');
   const open = () => { const e = parseHM(endNow) ?? 9 * 60; const a = Math.max(0, e - 60); setSt(hmOut(`${Math.floor(a / 60)}.${String(a % 60).padStart(2, '0')}`)); setEn(hmOut(endNow)); setTi(''); setSub(''); setAdding(true); };
   const setEnd = (v: string) => set({ dayExtends: v ? [...others, { day, end: v }] : (others.length ? others : undefined) });
-  const opts = END_OPTS.filter(o => (parseHM(o) ?? 0) >= baseMin + 30);
   const lastRet = d && d.items.length ? d.items[d.items.length - 1] : null;
   const afterReturn = adding && lastRet && /เดินทางกลับ|เป็นต้นไป|Come back/i.test(lastRet.title) && (parseHM(hmIn(st)) ?? 0) >= (parseHM(lastRet.time) ?? 9999);
   const saveAdd = () => {
@@ -2058,13 +2147,7 @@ function DayTools({ camp, plan, day, set }: { camp: Camp; plan: ReturnType<typeo
   return (
     <div className="px-3 py-2 bg-paper border-b border-brand-mist text-[13.5px] space-y-2">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <label className="flex items-center gap-2"><span className="text-sub">ขยายเวลาเลิกถึง</span>
-          <select value={ext ? ext.end : ''} onChange={e => setEnd(e.target.value)} className="px-2 py-1.5 rounded-lg border border-brand-mist bg-white text-[13.5px]" aria-label={`ขยายเวลาเลิกวันที่ ${day}`}>
-            <option value="">ตามแม่แบบ ({baseEnd || '-'} น.)</option>
-            {opts.map(o => <option key={o} value={o}>{o} น.</option>)}
-            {ext && !opts.includes(ext.end) && <option value={ext.end}>{ext.end} น.</option>}
-          </select>
-        </label>
+        <EndTimeInput day={day} value={ext ? ext.end : endNow} base={baseEnd} custom={!!ext} onSet={setEnd} />
         <button onClick={() => (adding ? setAdding(false) : open())} className="tap px-3 py-1.5 rounded-lg border border-brand-mist bg-white hover:bg-white/70 font-medium">{adding ? 'ปิด' : '+ เพิ่มช่วงเวลา'}</button>
         {ext && <span className="text-sub">ระบบเติมกิจกรรมของหลักสูตรให้ แล้วเลื่อนพิธีปิด/เดินทางกลับไป {ext.end} น. · แตะ "แก้ไข" ที่แถวเพื่อเปลี่ยนกิจกรรม</span>}
       </div>
@@ -2114,4 +2197,60 @@ function RowEditForm({ day, row, camp, set, onDone }: { day: number; row: any; c
       <ActOptions camp={camp} day={day} />
     </div>
   );
+}
+
+/* เสร็จสิ้น: ยืนยัน (บอกสิ่งที่ยังขาด) → หน้าสรุป "เสร็จสิ้น" + ทางไปต่อ */
+function FinishDialog({ mode, camp, checks, job, busy, team, onConfirm, onClose, onReopen, onNew, onAll, onPdf, onFix }: {
+  mode: 'confirm' | 'done'; camp: Camp; checks: { ok: boolean; soft?: boolean; msg: string; tab?: string }[]; job?: Job; busy: boolean; team: boolean;
+  onConfirm: () => void; onClose: () => void; onReopen: () => void; onNew: () => void; onAll: () => void; onPdf: () => void; onFix: (tab?: string) => void }) {
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => { first.current?.focus(); const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [mode]);
+  const hard = checks.filter(c => !c.ok && !c.soft), soft = checks.filter(c => !c.ok && c.soft);
+  const dur = camp.durationMode === 'half' ? 'ครึ่งวัน' : camp.durationMode === 'day' ? `${camp.days} วัน` : `${camp.days} วัน ${camp.nights} คืน`;
+  const summary = [camp.courseCode ? courseLabel(camp.courseCode) : '', dur, camp.dates && !/^\s*วันที่\s*\.{2,}/.test(camp.dates) ? camp.dates : '', camp.students ? `${camp.students} คน` : ''].filter(Boolean).join(' · ');
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="finish-h" onClick={e => e.stopPropagation()} className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-lift max-h-[92vh] overflow-y-auto">
+        {mode === 'confirm' ? (
+          <div className="p-5 space-y-4">
+            <h2 id="finish-h" className="text-[18px] font-semibold">ทำงานนี้เสร็จแล้ว?</h2>
+            <p className="text-[14px] text-sub">{camp.school || 'ยังไม่ระบุโรงเรียน'}{summary ? ` · ${summary}` : ''}</p>
+            {hard.length
+              ? <div className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-3 text-[13.5px] text-amber-900">
+                  <div className="font-semibold mb-1">ยังขาด {hard.length} ข้อ — ส่งลูกค้าได้แต่ควรเติมก่อน</div>
+                  <ul className="list-disc ml-5 space-y-0.5">{hard.slice(0, 5).map((c, i) => <li key={i}>{c.msg}</li>)}</ul>
+                  {hard.length > 5 && <div className="mt-1">และอีก {hard.length - 5} ข้อ</div>}
+                </div>
+              : <div className="rounded-xl border border-brand-mist bg-paper px-3.5 py-3 text-[13.5px]">ข้อมูลครบแล้ว{soft.length ? ` · มีข้อสังเกต ${soft.length} ข้อ (ไม่บังคับ)` : ''}</div>}
+            <p className="text-[13px] text-sub">กด "เสร็จสิ้น" แล้วงานจะขึ้นเป็น <b className="text-brand-ink">เสร็จแล้ว</b> ใน{team ? 'งานของทีม (ทุกเครื่องเห็น)' : 'งานของฉัน'} · ถ้าแก้ต่อภายหลัง ระบบจะเปลี่ยนกลับเป็น "กำลังทำ" ให้เอง</p>
+            <div className="flex flex-wrap justify-end gap-2 pt-1">
+              <button onClick={() => onFix()} className="tap px-4 py-2.5 rounded-xl text-[14px] font-medium border border-brand-mist hover:bg-paper">กลับไปแก้</button>
+              <button ref={first} onClick={onConfirm} className="tap inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[14px] font-semibold bg-accent text-white hover:bg-accent-deep"><CheckCircle2 className="w-4 h-4" />เสร็จสิ้น</button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="shrink-0 w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center"><Check className="w-7 h-7" strokeWidth={3} /></span>
+              <div>
+                <h2 id="finish-h" className="text-[22px] font-semibold leading-tight">เสร็จสิ้น</h2>
+                <div className="text-[13.5px] text-sub">{job?.doneAt ? `บันทึกเป็นงานที่เสร็จแล้ว · ${ago(job.doneAt)}${job.doneBy ? ` โดย ${job.doneBy}` : ''}` : 'บันทึกเป็นงานที่เสร็จแล้ว'}</div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-brand-mist px-3.5 py-3 text-[14px]">
+              <div className="font-semibold">{camp.school || 'ยังไม่ระบุโรงเรียน'}</div>
+              {summary && <div className="text-sub text-[13.5px]">{summary}</div>}
+              <div className="text-sub text-[13px] mt-1">{team ? 'ส่งเข้างานของทีมแล้ว — ทุกเครื่องเห็นสถานะ "เสร็จแล้ว"' : 'บันทึกในเครื่องนี้ — เชื่อมต่อทีมเพื่อให้ทีมเห็น'}{job?.files ? ` · สร้างไฟล์แล้ว ${job.files} ครั้ง` : ''}</div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button ref={first} onClick={onAll} disabled={busy} className="tap inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[14px] font-semibold bg-accent text-white hover:bg-accent-deep disabled:opacity-40"><Layers className="w-4 h-4" />{busy ? 'กำลังสร้างไฟล์…' : 'ดาวน์โหลดครบชุด 4 ไฟล์'}</button>
+              <button onClick={onPdf} disabled={busy} className="tap inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-[14px] font-semibold border border-brand-mist hover:bg-paper disabled:opacity-40"><FileText className="w-4 h-4" />บันทึกโปรแกรมเป็น PDF</button>
+              <button onClick={onNew} className="tap px-4 py-2.5 rounded-xl text-[14px] font-semibold bg-brand-navy text-white hover:opacity-90">เริ่มงานใหม่</button>
+              <button onClick={onClose} className="tap px-4 py-2.5 rounded-xl text-[14px] font-medium border border-brand-mist hover:bg-paper">ดูงานนี้ต่อ</button>
+            </div>
+            <button onClick={onReopen} className="tap w-full text-[13px] text-sub underline underline-offset-2">ยังไม่เสร็จจริง — ตั้งเป็น "กำลังทำ"</button>
+          </div>
+        )}
+      </div>
+    </div>);
 }

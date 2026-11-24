@@ -186,12 +186,12 @@ export default function Board({ onConnect, onOpenJob, onOpenNsr, onBuild, flash 
         </Card>
 
         {connected && isAdmin && <div className="lg:col-span-2"><TeamAdmin flash={flash} /></div>}
-        <Card title="งานที่กำลังทำ (7 วันล่าสุด)" className="lg:col-span-2">
+        <Card title={`งาน 7 วันล่าสุด · กำลังทำ ${B.activeJobs.filter(j => !j.done).length} · เสร็จแล้ว ${B.activeJobs.filter(j => j.done).length}`} className="lg:col-span-2">
           {B.activeJobs.length ? (
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {B.activeJobs.map(j => (
                 <li key={j.id}><button onClick={() => onOpenJob(j.id)} className="tap w-full text-left rounded-xl border border-brand-mist px-3 py-2.5 hover:bg-paper">
-                  <span className="block text-[14.5px] font-medium truncate">{j.school || j.name}</span>
+                  <span className="block text-[14.5px] font-medium truncate">{j.done ? <span className="mr-1.5 align-[1px] inline-block px-1.5 rounded bg-emerald-100 text-emerald-800 text-[11.5px] font-semibold">เสร็จแล้ว</span> : <span className="mr-1.5 align-[1px] inline-block px-1.5 rounded bg-amber-50 text-amber-800 text-[11.5px] font-semibold">กำลังทำ</span>}{j.school || j.name}</span>
                   <span className="block text-[12.5px] text-sub truncate">{[j.course, j.duration, j.dates].filter(Boolean).join(' · ')}</span>
                   <span className="block text-[12.5px] text-sub mt-0.5">{j.who} · แก้ {ago(j.savedAt)}{j.files ? ` · ${j.files} ไฟล์` : ''}</span>
                 </button></li>

@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, dayEndOf, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, dayEndOf, parseHM, moveRow, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
 // คำผิดที่รู้จัก — รายการกลาง data/typo-fixes.json
 const TYPO_JSON = JSON.parse(fs.readFileSync('data/typo-fixes.json', 'utf8'));
 const TYPO_BAD: string[] = TYPO_JSON.fixes.map((f: string[]) => f[0]).filter((w: string) => w.trim().length > 1);
@@ -92,6 +92,17 @@ for (const [dm, d, n] of [['day', 1, 0], ['day', 2, 0], ['overnight', 2, 1], ['o
   configs.push({ name:`EXTeng_${dm}${d}${n}`, camp: mk({ courseCode:'PL STM 0101', templateId:'engine', school:'ร.ร.', students:40, teachers:2, durationMode:dm as any, days:d, nights:n, venue:'ว', normalPrice:3000, specialPrice:2500, costPerPerson:1000,
     dayExtends: [{ day: d, end: '16.30' }, { day: 1, end: '07.00' }, { day: 1, end: 'xx' }], addons: [{ code:'PL ENG 0104' }] } as any) });
 
+// 9. ลากย้ายช่วง + เวลาเลิกเร็วขึ้น (24 พ.ย. 2569): ทุกแม่แบบ — วันที่ 1 ย้ายแถว 4 → 2 · วันสุดท้ายเลิกเร็วขึ้น 90 นาที
+TEMPLATES.forEach(t => {
+  const dm = t.dur.startsWith('o') ? 'overnight' : t.dur === 'half' ? 'half' : 'day';
+  const days = dm === 'overnight' ? +t.dur.charAt(1) : dm === 'day' ? (+t.dur.slice(3) || 1) : 1, nights = dm === 'overnight' ? +t.dur.slice(2) : 0;
+  const base = mk({ courseCode:t.code, templateId:t.id, school:'โรงเรียนทดสอบลาก', students:60, teachers:4, durationMode:dm as any, days, nights, dates:'x', province:'', venue:'ว', normalPrice:4000, specialPrice:3000, costPerPerson:1800 } as any);
+  const p0 = buildSchedule(base); const dl = p0.days[days - 1]; const e = dayEndOf(dl); const em = parseHM(e);
+  const end = em !== null ? `${String(Math.floor((em - 90) / 60)).padStart(2, '0')}.${String((em - 90) % 60).padStart(2, '0')}` : '';
+  const dayOrders = p0.days[0].items.length > 4 ? moveRow(base, p0, 1, 3, 1) : undefined;
+  configs.push({ name:`MOVE_${t.id.replace(/\s+/g, '_')}`, camp: { ...base, dayOrders, ...(end ? { dayExtends: [{ day: days, end }] } : {}) } as any, base, short: end ? { day: days, end, was: e } : undefined } as any);
+});
+
 let fail = 0, ok = 0;
 (async () => {
   const manifest: string[] = [];
@@ -134,6 +145,19 @@ let fail = 0, ok = 0;
           if (dayEndOf(d) !== x.end) throw new Error(`extend day ${x.day}: ends ${dayEndOf(d)} not ${x.end}`);
           if (!d.items.some(r => r.ext)) throw new Error(`extend day ${x.day}: no added rows`);
           let prev = -1; for (const r of d.items) { const v = tm(r.time); if (v < 0) continue; if (v + 1 < prev) throw new Error(`extend day ${x.day}: time goes back at ${r.time} ${r.title}`); prev = v; }
+        }
+        // ลากย้าย: วันที่ย้ายเลิกเวลาเดิม · เวลาไม่ย้อน · มีแถวติด "ย้ายแล้ว" · เลิกเร็วขึ้น: ตรงเวลาที่ตั้ง (หรือเตือนว่าเร็วเกิน)
+        if ((cfg as any).base) {
+          const tm2 = (s: string) => { const m = s.match(/(\d{1,2})[.:](\d{2})/); return m ? +m[1] * 60 + +m[2] : -1; };
+          const sh = (cfg as any).short, b0 = buildSchedule({ ...(cfg as any).base, dayExtends: undefined } as any);
+          if ((cfg.camp as any).dayOrders && !(sh && sh.day === 1)) {
+            if (dayEndOf(plan.days[0]) !== dayEndOf(b0.days[0])) throw new Error(`move: day 1 end ${dayEndOf(b0.days[0])} → ${dayEndOf(plan.days[0])}`);
+            if (!plan.days[0].items.some(r => r.moved)) throw new Error('move: no moved row');
+          }
+          const mono = (items: any[]) => { let prev = -1; for (const r of items) { const v = tm2(r.time); if (v < 0) continue; if (v + 1 < prev) return r; prev = v; } return null; };
+          for (const d of plan.days) { if (mono(b0.days[d.day - 1]?.items || [])) continue;   // ต้นฉบับเวลาย้อนเอง = ไม่ใช่ผลของการลาก/ย่อ
+            const bad = mono(d.items); if (bad) throw new Error(`move/short day ${d.day}: time goes back at ${bad.time} ${bad.title}`); }
+          if (sh) { const got = dayEndOf(plan.days[sh.day - 1]); if (got !== sh.end && !(plan.extWarn || []).some(w => /เร็วเกินไป/.test(w))) throw new Error(`short day ${sh.day}: ${sh.was} → want ${sh.end} got ${got}`); }
         }
         for (const a of ((cfg.camp as any).rowAdds || []) as { day: number; title: string }[]) if (a.title && a.day <= plan.days.length && !plan.days[a.day - 1].items.some(r => r.title === a.title.trim())) throw new Error('rowAdd missing: ' + a.title);
         if (/ตัวอย่างกิจกรรม/.test(JSON.stringify(k.budget))) throw new Error('budget has stray heading');

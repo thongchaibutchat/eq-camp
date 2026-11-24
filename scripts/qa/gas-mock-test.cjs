@@ -33,6 +33,16 @@ const jp = call('job.put', { job: { id: 'j1', name: 'งาน 1', snap: big }, 
 const jg = call('job.get', { id: 'j1' }); ok('job.get roundtrip (shared link name marked)', jg.job && jg.job.snap.camp.school.length === 120000 && jg.job.by === 'ก (ลิงก์รวม)', JSON.stringify(jg.job && jg.job.by));
 call('job.put', { job: { id: 'j1', name: 'งาน 1 แก้', snap: { a: 1 } }, dev: 'd2' });
 const jg2 = call('job.get', { id: 'j1' }); ok('job.put overwrite shrinks', jg2.job.name === 'งาน 1 แก้' && jg2.job.snap.a === 1);
+// v14: สถานะงาน (เสร็จแล้ว/กำลังทำ) แท็บแยก JobState — ไม่แตะคอลัมน์ Jobs
+ok('job not done by default (no JobState tab yet)', call('jobs', {}).jobs.find(j => j.id === 'j1').done === false);
+call('job.put', { job: { id: 'j1', name: 'งาน 1 แก้', snap: { a: 1 }, done: true }, dev: 'd2', base: jg2.job.savedAt });
+{ const l = call('jobs', {}).jobs.find(j => j.id === 'j1'); ok('job.put done:true → list shows done + doneAt', l.done === true && /^\d{4}-/.test(l.doneAt), JSON.stringify(l)); }
+{ const g = call('job.get', { id: 'j1' }); ok('job.get carries done + snap intact', g.job.done === true && g.job.snap.a === 1); }
+{ const b = call('board', {}); ok('board jobs carry done', b.jobs.find(j => j.id === 'j1').done === true); }
+call('job.put', { job: { id: 'j1', name: 'งาน 1 แก้', snap: { a: 2 }, done: false }, dev: 'd2', base: call('job.get', { id: 'j1' }).job.savedAt });
+{ const l = call('jobs', {}).jobs.find(j => j.id === 'j1'); ok('job.put done:false → back to in progress', l.done === false && !l.doneAt); }
+call('job.put', { job: { id: 'j1', name: 'งาน 1 แก้', snap: { a: 3 } }, dev: 'd2', base: call('job.get', { id: 'j1' }).job.savedAt });
+ok('job.put without done (old web) keeps state', call('jobs', {}).jobs.find(j => j.id === 'j1').done === false && call('job.get', { id: 'j1' }).job.snap.a === 3);
 const js = call('jobs'); ok('jobs list no snap', js.jobs.length === 1 && !js.jobs[0].snap);
 call('job.del', { id: 'j1' }); ok('job.del soft', call('jobs').jobs[0].deleted === true);
 ok('hub spreadsheet created once', H.created() === 1 && files.HUB1.getSheetByName('Log') && files.HUB1.getSheetByName('Jobs'));

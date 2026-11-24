@@ -38,7 +38,7 @@ export type DurationMode = 'half' | 'day' | 'overnight';
 // src = id ภาพจากไฟล์ต้นฉบับของค่าย (web/photos/<id>.jpg) ที่ระบบดึงให้ · ไม่มี src = ภาพที่ทีมอัปโหลดเอง
 export interface Img { data?: Uint8Array; caption: string; src?: string }
 // slot = ดัชนีช่อง "กิจกรรมหลัก" (core) ทั่วทั้งกำหนดการ (0..N-1) ใช้ผูกกับ coreSlotIds เพื่อเลือกกิจกรรมรายช่วง
-export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string; orig?: string; party?: boolean; added?: number; ext?: boolean }
+export interface Row { time: string; title: string; sub?: string[]; slot?: number; addon?: string; orig?: string; party?: boolean; added?: number; ext?: boolean; moved?: boolean; key?: string }
 export interface Day { day: number; items: Row[] }
 export interface Camp {
   docCode: string; subject: Subject; courseCode?: string; school: string; level: string;
@@ -58,6 +58,8 @@ export interface Camp {
   dayExtends?: DayExtend[];
   /** ช่วงเวลาที่เพิ่มเอง */
   rowAdds?: RowAdd[];
+  /** ลำดับแถวที่ทีมลากย้ายเอง ต่อวัน (คีย์จาก rowKey) — ว่าง = ลำดับเดิม · ย้ายแล้วเวลาเรียงใหม่ตามความยาวเดิมของแต่ละช่วง */
+  dayOrders?: { day: number; keys: string[] }[];
   // ข้อมูลลูกค้าสำหรับใบเสนอราคาในโปรแกรมบัญชี (SME Move) — ไม่ใช้ในเอกสาร Word · ว่าง = ให้กรอกเอง (ห้ามเดา)
   quoteCustomer?: { address?: string; taxId?: string; branch?: string; contact?: string; phone?: string; email?: string; vat?: 'include' | 'exclude' | 'none'; smeNo?: string };
   activityIds: string[]; coreSlotIds?: string[]; actImgs: Img[]; venueImgs: Img[];
@@ -854,8 +856,33 @@ export function extendOptions(c: Camp, plan: Plan, dayIdx: number): Activity[] {
   const used = new Set(plan.days.flatMap(d => d.items.map(r => actKey(r.title))));
   return extPoolAll(dayCourseOf(c, dayIdx) || c.courseCode || '').filter(a => !used.has(actKey(addonName(a.title))));
 }
+/* เลิกเร็วขึ้น: แถวปิด/สรุปคงความยาว วางย้อนจากเวลาเลิกใหม่ · แถวกลับ/พัก = เวลาเลิก · ช่วงที่คร่อม = ย่อ · ช่วงหลังจากนั้น = ตัด (แจ้งทุกแถว ไม่เงียบ) */
+function shortenDay(items: Row[], ti: number, target: number, cur: number, isRet: boolean, day: number): { items: Row[]; warn: string[] } {
+  const L = items[items.length - 1], tail = items.slice(ti), warn: string[] = [];
+  const suf = items.some(r => /น\./.test(r.time)) ? ' น.' : '';
+  const movable = tail.filter(r => !mealKind(r.title, r.time) && !(isRet && r === L));
+  const before = [...items.slice(0, ti), ...tail.filter(r => mealKind(r.title, r.time) && r !== L)];
+  let endC = target; const placed: Row[] = [];
+  for (const r of [...movable].reverse()) { const du = rowDur(r); placed.unshift({ ...r, time: du ? `${fmt(endC - du)} – ${fmt(endC)}${suf}` : `${fmt(endC)}${suf}` }); endC -= du; }
+  const W = endC; const keep: Row[] = []; const cut: string[] = [], cutShort: string[] = [];
+  for (const r of before) {
+    const st = rowStart(r), du = rowDur(r);
+    if (st < 0) { keep.push(r); continue; }
+    if (st + du <= W) { keep.push(r); continue; }
+    if (W - st >= 15 && du) { keep.push({ ...r, time: shiftEnd(r.time, st + du, W) }); cutShort.push(tidyTitle(r.title).slice(0, 40)); continue; }
+    cut.push(tidyTitle(r.title).slice(0, 40));
+  }
+  const first = items.find(r => rowStart(r) >= 0);
+  if ((first && W < rowStart(first) + 15) || !keep.some(r => rowStart(r) >= 0)) { warn.push(`วันที่ ${day}: เวลาเลิก ${fmt(target)} น. เร็วเกินไป (ช่วงปิดท้ายไม่พอ) — ไม่ได้ปรับ`); return { items, warn }; }
+  if (cutShort.length) warn.push(`วันที่ ${day}: เลิกเร็วขึ้นเป็น ${fmt(target)} น. — ย่อเวลา ${cutShort.join(' · ')}`);
+  if (cut.length) warn.push(`วันที่ ${day}: เลิกเร็วขึ้นเป็น ${fmt(target)} น. — ตัดออก ${cut.join(' · ')}`);
+  const ret = isRet ? [{ ...L, time: shiftHM2(L.time, target - cur) }] : [];
+  return { items: [...keep, ...placed, ...ret], warn };
+}
+const shiftEnd = (t: string, oldEnd: number, newEnd: number): string => { let n = 0; const all = tmins(t).length; return t.replace(/(\d{1,2})[.:](\d{2})/g, (m, h, mi) => (++n === all && +h * 60 + +mi === oldEnd ? fmt(newEnd) : m)); };
 function applyExtends(c: Camp, plan: Plan): Plan {
-  const exts = (c.dayExtends || []).filter(x => x && x.day >= 1 && x.day <= plan.days.length && parseHM(x.end) !== null);
+  const seen = new Set<number>();   // วันเดียวกันตั้งซ้ำ = ใช้ค่าแรก
+  const exts = (c.dayExtends || []).filter(x => x && x.day >= 1 && x.day <= plan.days.length && parseHM(x.end) !== null && !seen.has(x.day) && (seen.add(x.day), true));
   if (!exts.length) return plan;
   const days: Day[] = plan.days.map(d => ({ ...d, items: d.items.map(r => ({ ...r })) }));
   const warn: string[] = [...(plan.extWarn || [])];
@@ -864,12 +891,13 @@ function applyExtends(c: Camp, plan: Plan): Plan {
     const target = parseHM(x.end)!; const L = items[items.length - 1]; const isRet = DAY_RETURN.test(L.title);
     const cur = dayEndMin(d);
     if (cur < 0) { warn.push(`วันที่ ${x.day}: อ่านเวลาเลิกเดิมไม่ได้ — ขยายเวลาไม่ได้ (แก้เวลาแถวสุดท้ายก่อน)`); continue; }
-    if (target - cur < 15) { warn.push(`วันที่ ${x.day}: เวลาเลิกที่ตั้ง ${fmt(target)} น. ไม่เกินเวลาเดิม ${fmt(cur)} น. — ไม่ได้เพิ่มช่วง`); continue; }
+    if (Math.abs(target - cur) < 5) continue;                                                    // เท่าเวลาเดิม
     // ท้ายวัน = แถวท้ายที่ติดกัน (ปิด/สรุป/กลับ/พัก + มื้ออาหารที่คั่นอยู่)
     let ti = items.length;
     while (ti > 0 && (DAY_TAIL.test(items[ti - 1].title) || mealKind(items[ti - 1].title, items[ti - 1].time))) ti--;
     while (ti < items.length - 1 && mealKind(items[ti].title, items[ti].time)) ti++;            // ไม่เริ่มท้ายวันด้วยมื้ออาหาร
     if (ti >= items.length) ti = items.length - 1;
+    if (target < cur) { const r = shortenDay(items, ti, target, cur, isRet, x.day); d.items = r.items; warn.push(...r.warn); continue; }
     const tail = items.slice(ti);
     const S = Math.max(0, rowStart(tail[0]) >= 0 ? rowStart(tail[0]) : cur);
     const meals = tail.filter(r => mealKind(r.title, r.time) && r !== L);
@@ -956,10 +984,64 @@ function applyEdits(c: Camp, plan: Plan): Plan {
     const en = tmins(row.time); const nx = d.items[at + 1];
     if (en.length > 1 && nx && DAY_RETURN.test(nx.title)) { const n0 = tmins(nx.time)[0]; if (n0 !== undefined && n0 < en[en.length - 1]) d.items[at + 1] = { ...nx, time: shiftHM2(nx.time, en[en.length - 1] - n0) }; }
   });
-  const touched = edits.length || (c.rowAdds || []).length;
+  // ลำดับที่ลากย้ายเอง (หลังแก้ชื่อ/เพิ่มช่วง) → เรียงใหม่ + เวลาไหลตาม
+  for (const d of days) { const base = d.items; d.items = base.map((r, i) => ({ ...r, key: rowKey(base, i) })); }   // คีย์ตามลำดับก่อนลาก (คงที่)
+  const reordered = applyOrders(c, days);
+  const touched = edits.length || (c.rowAdds || []).length || reordered;
   const meals = touched ? renumberMeals(days.map(d => (d.items = d.items.map(r => ({ ...r })), d))) : plan.meals;
   return { ...plan, days, meals, editMissed: missed };
 }
+/* ===================== ลากย้ายช่วงในกำหนดการ =====================
+ * คีย์แถว = ชื่อเดิม (หรือ +ลำดับของช่วงที่เพิ่มเอง) + #n เมื่อชื่อซ้ำในวันเดียวกัน → แก้ชื่อแถวแล้วคีย์ไม่เปลี่ยน
+ * เวลาใหม่: ช่วงแรกเริ่มเวลาเดิมของตำแหน่งแรก · แต่ละช่วงคงความยาวของตัวเอง · ช่องว่างระหว่างตำแหน่งคงเดิม → เวลาเลิกของวันไม่เปลี่ยน
+ * แถวไม่มีเวลา = คงไว้ · แถวเวลาเดียว ("19.00", "21.00 เป็นต้นไป") ยาว 0 นาที */
+export function rowKey(items: Row[], i: number): string {
+  const base = (r: Row) => (r.added !== undefined ? '+' + r.added : (r.orig ?? r.title));
+  const b = base(items[i]); let n = 0;
+  for (let k = 0; k < i; k++) if (base(items[k]) === b) n++;
+  return n ? `${b}#${n + 1}` : b;
+}
+function retimeDay(orig: Row[], next: Row[]): Row[] {
+  // เรียงเวลาใหม่เฉพาะช่วงตำแหน่งที่เปลี่ยน (แถวนอกช่วงคงเวลาเดิมทุกตัว — ต้นฉบับที่เวลาซ้อนกันเองไม่ถูกแก้ตามไปด้วย)
+  let lo = 0, hi = next.length - 1;
+  while (lo < next.length && next[lo] === orig[lo]) lo++;
+  while (hi > lo && next[hi] === orig[hi]) hi--;
+  if (lo >= next.length) return next;
+  const span = (r: Row) => { const t = tmins(r.time || ''); return t.length ? { s: t[0], e: t.length > 1 ? t[t.length - 1] : undefined } : null; };
+  const pos = orig.map(span);
+  let cursor: number | undefined, prevEnd: number | undefined;
+  return next.map((r, i) => {
+    if (i < lo || i > hi) return r;
+    const p = pos[i], sp = span(r), movedPos = r !== orig[i];
+    if (!p || !sp) return movedPos ? { ...r, moved: true } : r;
+    const start = cursor === undefined ? p.s : cursor + (prevEnd !== undefined ? Math.max(0, p.s - prevEnd) : 0);
+    cursor = start + (sp.e !== undefined ? Math.max(0, sp.e - sp.s) : 0);
+    prevEnd = p.e !== undefined ? p.e : p.s;
+    if (start === sp.s && !movedPos) return r;
+    return { ...r, time: start === sp.s ? r.time : shiftHM2(r.time, start - sp.s), moved: true };
+  });
+}
+function applyOrders(c: Camp, days: Day[]): boolean {
+  let any = false;
+  for (const o of c.dayOrders || []) {
+    const d = days.find(x => x && o && x.day === o.day); if (!d || !Array.isArray(o.keys) || !o.keys.length) continue;
+    const keys = d.items.map(r => r.key || ''); const used = new Set<number>(); const out: Row[] = [];
+    for (const k of o.keys) { const j = keys.findIndex((x, idx) => !used.has(idx) && x === k); if (j >= 0) { used.add(j); out.push(d.items[j]); } }   // แถวที่ไม่มีแล้ว (ลบ/เปลี่ยนแม่แบบ) = ข้าม
+    d.items.forEach((r, idx) => { if (!used.has(idx)) out.splice(Math.min(idx, out.length), 0, r); });              // แถวใหม่หลังลาก = คงตำแหน่งเดิม
+    if (out.every((r, i) => r === d.items[i])) continue;
+    d.items = retimeDay(d.items, out); any = true;
+  }
+  return any;
+}
+/** ย้ายแถว from → to ในวันนั้น (ตำแหน่งตามที่แสดง) แล้วคืน dayOrders ชุดใหม่ — ใช้จาก UI ลาก/ปุ่มเลื่อน */
+export function moveRow(c: Camp, plan: Plan, day: number, from: number, to: number): Camp['dayOrders'] {
+  const d = plan.days.find(x => x.day === day);
+  if (!d || from === to || from < 0 || to < 0 || from >= d.items.length || to >= d.items.length) return c.dayOrders;
+  const keys = d.items.map((r, i) => r.key || rowKey(d.items, i)); const [k] = keys.splice(from, 1); keys.splice(to, 0, k);
+  return [...(c.dayOrders || []).filter(o => o.day !== day), { day, keys }];
+}
+/** คืนลำดับเดิมของวันนั้น */
+export const resetOrder = (c: Camp, day: number): Camp['dayOrders'] => { const r = (c.dayOrders || []).filter(o => o.day !== day); return r.length ? r : undefined; };
 function basePlan(c: Camp): Plan {
   const p = templateFor(c);
   if (p && p.exact) return planFromTemplate(c, p);

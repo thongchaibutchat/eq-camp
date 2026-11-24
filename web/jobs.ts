@@ -2,7 +2,8 @@
  * บันทึกอัตโนมัติทุกครั้งที่แก้ (ไม่ต้องกดเซฟ) + เมื่อสร้างไฟล์ (นับจำนวนไฟล์) · เก็บในเครื่องนี้ (localStorage)
  * ไม่เก็บไฟล์ภาพที่อัปโหลดเอง (โควตาเบราว์เซอร์จำกัด) — ภาพจากไฟล์ค่าย/ชุดภาพจะดึงให้ใหม่ตอนเปิดงาน
  * ย้ายไปเครื่องอื่น = "ส่งออกงาน" (.json รวมภาพ) แล้ว "นำเข้างาน" */
-export interface Job { id: string; name: string; course?: string; school?: string; dates?: string; duration?: string; savedAt: string; files: number; lastFileAt?: string; snap: any }
+export interface Job { id: string; name: string; course?: string; school?: string; dates?: string; duration?: string; savedAt: string; files: number; lastFileAt?: string; snap: any;
+  /** ทำเสร็จแล้ว (กด "เสร็จสิ้น") · แก้ต่อภายหลัง = กลับเป็นกำลังทำเอง */ done?: boolean; doneAt?: string; doneBy?: string }
 const KEY = 'eqcamp.jobs.v1';
 const MAX = 80;
 
@@ -37,7 +38,7 @@ export const ago = (iso?: string): string => {
 
 // ── งานของทีม (ศูนย์กลางทีม): ทุกเครื่องเห็นงานเดียวกัน เปิดทำต่อจากมือถือ/คอมเครื่องไหนก็ได้ ──
 import { hubReady, hubCall, enqueue, deviceId, onQueued } from './hub';
-export interface TeamJob { id: string; savedAt: string; name: string; course?: string; school?: string; dates?: string; duration?: string; docCode?: string; files?: number; lastFileAt?: string; by?: string; dev?: string; deleted?: boolean }
+export interface TeamJob { done?: boolean; doneAt?: string; doneBy?: string; id: string; savedAt: string; name: string; course?: string; school?: string; dates?: string; duration?: string; docCode?: string; files?: number; lastFileAt?: string; by?: string; dev?: string; deleted?: boolean }
 const TKEY = 'eqcamp.jobs.team.v1';
 export const loadTeamJobs = (): TeamJob[] => { try { const a = JSON.parse(localStorage.getItem(TKEY) || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 export async function refreshTeamJobs(): Promise<TeamJob[] | null> {
@@ -47,7 +48,7 @@ export async function refreshTeamJobs(): Promise<TeamJob[] | null> {
 }
 export async function fetchTeamJob(id: string): Promise<(TeamJob & { snap: any }) | null> {
   const j = await hubCall('job.get', { id }, 30000); const job = j.job && j.job.snap ? j.job : null;
-  if (job) setSync(id, { base: job.savedAt, h: contentHash(job.snap, job.files, job.name) });   // ฉบับที่เปิดมา = ฐานของการแก้ครั้งต่อไป
+  if (job) setSync(id, { base: job.savedAt, h: contentHash(job.snap, job.files, job.name) + (job.done ? ':D' : '') });   // ฉบับที่เปิดมา = ฐานของการแก้ครั้งต่อไป
   return job;
 }
 // ── หลายคนแก้งานเดียวกัน: จำ "ฉบับทีมที่เครื่องนี้ทำต่อจาก" (base) → ศูนย์กลางไม่ยอมให้ทับฉบับที่ใหม่กว่าจากเครื่องอื่น (ไม่มีงานหายเงียบ ๆ)
@@ -63,9 +64,9 @@ export const contentHash = (snap: any, files?: number, name?: string) => hstr(st
 export function pushJob(j: Job, opt: { force?: boolean } = {}) {
   if (!hubReady()) return;
   const { snap, ...meta } = j;
-  const h = contentHash(snap, j.files, j.name), cur = syncAll()[j.id];
+  const h = contentHash(snap, j.files, j.name) + (j.done ? ':D' : ''), cur = syncAll()[j.id];   // เปลี่ยนสถานะเสร็จ/ไม่เสร็จ = ส่งใหม่
   if (!opt.force && cur && cur.h === h) return;
-  enqueue('job.put', { job: { ...meta, docCode: snap?.camp?.docCode || '', snap }, base: cur?.base || '', h }, 'job:' + j.id);
+  enqueue('job.put', { job: { ...meta, done: !!j.done, docCode: snap?.camp?.docCode || '', snap }, base: cur?.base || '', h }, 'job:' + j.id);
 }
 // เลือก "ทำต่อฉบับของฉัน" หลังชนกัน → ยอมรับว่ารู้แล้วว่ามีฉบับใหม่กว่า (base = ฉบับทีมล่าสุด) แล้วส่งของฉันทับ
 export function keepMine(j: Job, teamSavedAt: string) { setSync(j.id, { base: teamSavedAt, h: '' }); pushJob(j, { force: true }); }
@@ -78,3 +79,6 @@ onQueued('job.put', (body, res, err) => {
 });
 export function pushDelete(id: string) { if (hubReady()) enqueue('job.del', { id }, 'job:' + id); }
 export const isMine = (t: TeamJob) => !t.dev || t.dev === deviceId();
+
+// สถานะงานสำหรับแสดงผล
+export const jobStatus = (j?: { done?: boolean } | null) => (j && j.done ? 'done' : 'doing') as 'done' | 'doing';
