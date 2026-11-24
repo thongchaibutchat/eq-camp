@@ -246,7 +246,7 @@ const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ:
 const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
 const CONFIG_SEED = ${JSON.stringify(opt.config || {})};   // ค่าตั้งต้นของทีม (แอดมินแก้ได้บนเว็บ)
 const PAST_FOLDER = '${opt.pastFolder || ''}';   // โฟลเดอร์งานที่เคยส่งจริง (เช่น "2569") — อ่านอย่างเดียว ไม่แก้ไฟล์ต้นฉบับ
-const VERSION = 13;
+const VERSION = 14;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -545,14 +545,24 @@ function ensureCols_(sh, cols) { var k = sh.getName(); if (COLS_OK[k]) return; C
 function seenEid_(sh, eid) { var n = sh.getLastRow(); if (n < 2) return false; var v = sh.getRange(Math.max(2, n - 300), 2, Math.min(300, n - 1), 1).getValues(); for (var i = 0; i < v.length; i++) if (v[i][0] === eid) return true; return false; }
 // งาน: ข้อมูลงาน (JSON) แบ่งเก็บหลายช่อง ช่องละไม่เกิน 45,000 ตัวอักษร (เพดานชีต 50,000)
 function jobs_(withSnap) {
-  var sh = tab_('Jobs', JOB_COLS), last = sh.getLastRow();   // รายการงานอ่านเฉพาะคอลัมน์ข้อมูลงาน (ไม่ดึงเนื้องานก้อนใหญ่) → เร็วแม้หลายคนเปิดพร้อมกัน
+  var sh = tab_('Jobs', JOB_COLS), last = sh.getLastRow(), st = jobState_();   // รายการงานอ่านเฉพาะคอลัมน์ข้อมูลงาน (ไม่ดึงเนื้องานก้อนใหญ่) → เร็วแม้หลายคนเปิดพร้อมกัน
   if (last < 2) return [];
   var v = withSnap ? sh.getDataRange().getValues() : sh.getRange(1, 1, last, JOB_COLS.length).getValues(); v.shift();
   return v.filter(function (r) { return r[0]; }).map(function (r) { var o = {}; JOB_COLS.forEach(function (c, i) { o[c] = r[i] instanceof Date ? r[i].toISOString() : r[i]; });
     o.files = Number(o.files) || 0; o.deleted = o.deleted === true || o.deleted === 'TRUE';
     if (withSnap) { var s = r.slice(JOB_COLS.length).join(''); try { o.snap = s ? JSON.parse(s) : null; } catch (x) { o.snap = null; } }
+    var js = st[o.id]; o.done = !!(js && js.done); if (o.done) { o.doneAt = js.doneAt; o.doneBy = js.doneBy; }
     return o; });
 }
+// สถานะงาน (เสร็จแล้ว/กำลังทำ) เก็บแท็บแยก "JobState" — ไม่แตะคอลัมน์ของแท็บ Jobs (เนื้องานต่อท้ายคอลัมน์ข้อมูล)
+var JS_COLS = ['id', 'done', 'doneAt', 'doneBy'];
+function jobState_() { var sh = hub_().getSheetByName('JobState'), m = {}; if (!sh) return m; var n = sh.getLastRow(); if (n < 2) return m;   // อ่านอย่างเดียว ไม่สร้างแท็บ (ไม่รอล็อก)
+  sh.getRange(2, 1, n - 1, 4).getValues().forEach(function (r) { if (r[0]) m[r[0]] = { done: r[1] === true || r[1] === 'TRUE', doneAt: r[2] instanceof Date ? r[2].toISOString() : String(r[2] || ''), doneBy: String(r[3] || '') }; }); return m; }
+function setJobState_(id, done, by) { var sh = tab_('JobState', JS_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; }), at = ids.indexOf(id) + 1;
+  var cur = at > 1 ? sh.getRange(at, 2).getValue() : false; cur = cur === true || cur === 'TRUE';
+  if (at > 1 && cur === !!done) return false;
+  var row = [id, !!done, done ? new Date().toISOString() : '', done ? String(by || '') : ''];
+  if (at > 1) sh.getRange(at, 1, 1, 4).setValues([row]); else sh.appendRow(row); return true; }
 function putJob_(j, base, dev, by, q) {
   if (!j.id || !j.snap || String(j.id).length > 40) return { ok: false, error: 'bad' };
   if (JSON.stringify(j.snap).length > 600000) return { ok: false, error: 'bad', message: 'งานใหญ่เกิน' };
@@ -564,6 +574,7 @@ function putJob_(j, base, dev, by, q) {
   var row = [j.id, now, j.name || '', j.course || '', j.school || '', j.dates || '', j.duration || '', j.docCode || '', Number(j.files) || 0, j.lastFileAt || '', by || '', dev || '', false, s.length].concat(parts);
   if (at > 1) { hist_(sh, at, q, 'ก่อนบันทึกทับ'); sh.getRange(at, 1, 1, Math.max(sh.getLastColumn(), row.length)).clearContent(); sh.getRange(at, 1, 1, row.length).setValues([row]); }
   else sh.appendRow(row);
+  if (typeof j.done === 'boolean' && setJobState_(j.id, j.done, by)) audit_(q || {}, j.done ? 'ทำงานเสร็จ' : 'งานกลับเป็นกำลังทำ', String(j.name || ''), j.id);
   bump_('job'); return { ok: true, savedAt: now };
 }
 function delJob_(id, q) { var sh = tab_('Jobs', JOB_COLS), ids = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; }), at = ids.indexOf(id) + 1;

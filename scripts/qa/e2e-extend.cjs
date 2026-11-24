@@ -14,7 +14,7 @@ const { chromium, devices } = require('playwright');
     ok('preview default return 11.00', /11\.00 น\. เป็นต้นไป/.test(await prev()));
     for (let i = 0; i < 3; i++) { await pg.getByRole('button', { name: /^ถัดไป:/ }).click(); await pg.waitForTimeout(500); }
     // ขยายวันที่ 2 ถึง 16.00
-    await pg.getByLabel('ขยายเวลาเลิกวันที่ 2').selectOption('16.00'); await pg.waitForTimeout(700);
+    { const ei = pg.getByLabel('เวลาเลิกวันที่ 2'); await ei.fill('16:00'); await ei.press('Enter'); } await pg.waitForTimeout(900);
     let pv = await prev(); let body = await pg.locator('body').innerText();
     ok('day2 now ends 16.00', /16\.00 น\. เป็นต้นไป/.test(pv) && /เลิก 16\.00 น\./.test(body));
     ok('extended rows badge', /ช่วงที่ขยาย/.test(body));
@@ -22,7 +22,7 @@ const { chromium, devices } = require('playwright');
     ok('closing moved before return', /15\.00 – 16\.00 น\.\s*กิจกรรม “The Next Step”/.test(pv));
     // เพิ่มช่วงเวลาเอง วันที่ 1
     await pg.getByRole('button', { name: '+ เพิ่มช่วงเวลา' }).first().click(); await pg.waitForTimeout(300);
-    const box = pg.locator('input[type=time]'); await box.nth(0).fill('20:00'); await box.nth(1).fill('20:30');
+    const box = pg.locator('input[type=time]:not([aria-label^="เวลาเลิก"])'); await box.nth(0).fill('20:00'); await box.nth(1).fill('20:30');
     await pg.getByPlaceholder('เลือกกิจกรรมของหลักสูตร หรือพิมพ์เอง').fill('กิจกรรมดูดาวรอบกองไฟ');
     await pg.getByRole('button', { name: 'เพิ่มลงกำหนดการ' }).click(); await pg.waitForTimeout(500);
     pv = await prev(); ok('custom slot in preview', /20\.00 – 20\.30 น\.\s*กิจกรรมดูดาวรอบกองไฟ/.test(pv));
@@ -34,7 +34,7 @@ const { chromium, devices } = require('playwright');
     await pg.waitForTimeout(1200); await pg.reload(); await pg.waitForTimeout(1500);
     ok('after reload still extended', /16\.00 น\. เป็นต้นไป/.test(await prev()));
     await pg.getByRole('button', { name: /^งานของฉัน/ }).click(); await pg.waitForTimeout(400);
-    body = await pg.locator('body').innerText(); ok('jobs list has job', /งานของฉัน[\s\S]*โรงเรียนสตรีวิทยา[\s\S]*กำลังทำอยู่/.test(body));
+    body = await pg.locator('body').innerText(); ok('jobs list has job', /งานของฉัน[\s\S]*โรงเรียนสตรีวิทยา[\s\S]*เปิดอยู่/.test(body));
     await pg.locator('textarea').first().fill('โรงเรียนบ้านใหม่ จำนวน 40 คน ค่ายภาษาอังกฤษ 1 วัน วันที่ 5 ก.พ. 2570 ราคา 990 บาท');
     await pg.getByRole('button', { name: /เริ่มงานใหม่/ }).first().click(); await pg.waitForTimeout(2000);
     body = await pg.locator('body').innerText(); ok('two jobs listed', /โรงเรียนบ้านใหม่/.test(body) && /โรงเรียนสตรีวิทยา/.test(body));
