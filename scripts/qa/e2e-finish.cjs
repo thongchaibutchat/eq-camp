@@ -82,7 +82,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const tj = () => [...store.jobs.values()].find(j => /ทดสอบลากวาง/.test(j.school || j.name));
     ok('finish: team hub has done:true', tj() && tj().done === true, JSON.stringify(tj() && { done: tj().done }));
     await pg.getByRole('button', { name: 'ดูงานนี้ต่อ' }).click(); await sleep(300);
-    ok('header shows เสร็จแล้ว', /เสร็จแล้ว ·/.test(await body()) || tag === 'iphone');
+    ok('header shows เสร็จแล้ว', /เสร็จแล้ว [^\n]+ ·/.test(await body()) || tag === 'iphone');
     // 6) อีกเครื่องเห็นสถานะ "เสร็จแล้ว"
     const ctx2 = await b.newContext({ ...opt }); await route(ctx2); const p2 = await ctx2.newPage();
     await p2.goto(BASE + '/#/build'); await sleep(3500);

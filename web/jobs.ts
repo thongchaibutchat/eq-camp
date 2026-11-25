@@ -3,10 +3,24 @@
  * ไม่เก็บไฟล์ภาพที่อัปโหลดเอง (โควตาเบราว์เซอร์จำกัด) — ภาพจากไฟล์ค่าย/ชุดภาพจะดึงให้ใหม่ตอนเปิดงาน
  * ย้ายไปเครื่องอื่น = "ส่งออกงาน" (.json รวมภาพ) แล้ว "นำเข้างาน" */
 export interface Job { id: string; name: string; course?: string; school?: string; dates?: string; duration?: string; savedAt: string; files: number; lastFileAt?: string; snap: any;
-  /** ทำเสร็จแล้ว (กด "เสร็จสิ้น") · แก้ต่อภายหลัง = กลับเป็นกำลังทำเอง */ done?: boolean; doneAt?: string; doneBy?: string }
+  /** ทำเสร็จแล้ว (กด "เสร็จสิ้น") · แก้ต่อภายหลัง = กลับเป็นกำลังทำเอง */ done?: boolean; doneAt?: string; doneBy?: string;
+  /** แท็บที่บันทึกล่าสุด */ tab?: string }
 const KEY = 'eqcamp.jobs.v1';
-const MAX = 80;
+const MAX = 150;   // เกินนี้/เต็มโควตา → ตัดงานเก่าสุด (งานของทีมยังอยู่ในศูนย์กลางครบ)
 
+/** แท็บนี้ (กันสองแท็บแก้งานเดียวกันทับกันเงียบ ๆ) */
+export const TAB_ID = 't' + Math.random().toString(36).slice(2, 8);
+/** สำเนา: เก็บใน snap.copyOf → ซิงก์ไปเครื่องอื่นพร้อมเนื้องาน */
+export interface CopyInfo { id: string; root: string; name: string; school: string; no: number }
+export const copyOf = (j?: { snap?: any } | null): CopyInfo | undefined => { const c = j?.snap?.copyOf; return c && c.id && c.no ? c : undefined; };
+/** เลขสำเนาถัดไปของงานต้นฉบับ (นับทั้งสำเนาในเครื่อง + ชื่อ "(สำเนา n)" ในทีม) */
+export function nextCopyNo(root: string, rootName: string, local: Job[], team: { name: string; deleted?: boolean }[]): number {
+  let n = 0;
+  for (const j of local) { const c = copyOf(j); if (c && c.root === root) n = Math.max(n, c.no); }
+  const re = new RegExp('^' + rootName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ' \\(สำเนา (\\d+)\\)$');
+  for (const t of team) { const m = !t.deleted && String(t.name || '').match(re); if (m) n = Math.max(n, +m[1]); }
+  return n + 1;
+}
 export const newJobId = () => 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const loadJobs = (): Job[] => {
   try { const r = localStorage.getItem(KEY); const a = r ? JSON.parse(r) : []; return Array.isArray(a) ? a.filter(j => j && j.id && j.snap) : []; } catch { return []; }
@@ -20,7 +34,7 @@ const write = (jobs: Job[]): boolean => {
 export const saveJob = (j: Omit<Job, 'files' | 'savedAt'> & { files?: number; fileMade?: boolean }): Job[] => {
   const jobs = loadJobs(); const old = jobs.find(x => x.id === j.id);
   const now = new Date().toISOString();
-  const rec: Job = { ...old, ...j, savedAt: now, files: (old?.files || 0) + (j.fileMade ? 1 : 0), lastFileAt: j.fileMade ? now : old?.lastFileAt } as Job;
+  const rec: Job = { ...old, ...j, tab: TAB_ID, savedAt: now, files: (old?.files || 0) + (j.fileMade ? 1 : 0), lastFileAt: j.fileMade ? now : old?.lastFileAt } as Job;
   delete (rec as any).fileMade;
   const next = [rec, ...jobs.filter(x => x.id !== j.id)];
   write(next); return next;

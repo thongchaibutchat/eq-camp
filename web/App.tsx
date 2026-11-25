@@ -8,6 +8,7 @@ import { readPastCache, pastJobs } from './past-data';
 import { pastForSchool } from '../src/past-import';
 import SmeMovePanel from './SmeMove';
 import ActivityPicker from './ActivityPicker';
+import VenuePicker from './VenuePicker';
 import type { NsrPrefill } from './Nsr';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv } from './registry';
@@ -15,7 +16,7 @@ import TeamConnect, { HubPill } from './TeamConnect';
 import SearchPalette from './Search';
 import { hubReady, onRev, onArea, acceptInvite, isInviteHash, setUserName, userName, deviceId, setupKeyFrom, onHubState, enqueue, hubUrl } from './hub';
 import type { LogEv } from './registry';
-import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete, keepMine, onJobConflict, jobStatus } from './jobs';
+import { loadJobs, saveJob, removeJob, newJobId, ago, loadTeamJobs, refreshTeamJobs, fetchTeamJob, pushJob, pushDelete, keepMine, onJobConflict, jobStatus, copyOf, nextCopyNo, TAB_ID, CopyInfo } from './jobs';
 import type { Job, TeamJob } from './jobs';
 import { Packer } from 'docx';
 import {
@@ -25,7 +26,7 @@ import {
 } from 'lucide-react';
 import {
   Camp, AddonSel, DocKind, Img, Subject, Activity, Kind, DurationMode, SUBJECTS, LIB, VENUES, DOC_TYPES, PRESETS,
-  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoSetsFor, photoCaption, venuePhotoSetFor, venueCaption, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
+  packDocx, FONT_FACE_CSS, blankCamp, fromPreset, parseBrief, parseDuration, migrateCamp, normalizeDuration, applyExtraction, buildSchedule, compose, check, isReady, subjectPool, buildDoc, fileName, money, staffText, defaultActs, defaultCourseActs, COURSES, LETTERHEADS, regionOf, Region, coursePhotoIds, hasCoursePhotos, courseDataset, courseById, docCodeFor, photoIdsFor, photoSetsFor, photoCaption, venuePhotoSetFor, venueCaption, venuePhotoCat, VENUE_PHOTO_LABEL, VenueEntry, CAT_ACTS, venueDirectory, durKeyLabel, durKeyOf, CoverSec, templatesOf, realCaption, readBrief, briefFields, cleanBrief, BriefField, BRAND, STEAM_GALLERY, letterheadFor, isSteamProgram, courseShortTh,
   showTeachers, notionActsInPlan, actStandard, notionActFor, courseLabel, dayCourseOf, scheduleActs, actInSchedule, PARTY_THEMES, isPartyRow, ADDON_COURSES, addonActivities, addonRowTitle, withAddonPrice, addonPriceNote, dayEndOf, parseHM, extendOptions
 , moveRow, resetOrder
 } from '../src/eqcamp-core';
@@ -135,8 +136,14 @@ export default function App() {
   // ---- งานที่บันทึกไว้: ทุกงานบันทึกอัตโนมัติ เปิดทำต่อได้ภายหลัง ----
   const [jobId, setJobId] = useState<string>(() => (saved && saved.jobId) || newJobId());
   const [jobs, setJobs] = useState<Job[]>(() => loadJobs());
-  const baseline = useRef<string>(JSON.stringify({ ...(initial?.camp ?? {}), actImgs: 0, venueImgs: 0 }));
-  const jobMeta = (c: Camp) => ({ name: (c.school || '').trim() || 'ยังไม่ระบุโรงเรียน', course: c.courseCode ? courseLabel(c.courseCode) : SUBJECTS[c.subject]?.label || '',
+  // ค่าตั้งต้นที่ยังไม่แตะ = ไม่บันทึกเป็นงาน (เดิมเทียบกับ {} เมื่อเปิดครั้งแรก → ตัวอย่างตั้งต้นถูกบันทึกเป็นงานทุกครั้งที่มีคนเปิดเว็บใหม่)
+  const baseline = useRef<string>(JSON.stringify({ ...camp, actImgs: 0, venueImgs: 0 }));
+  // สำเนา: งานที่ทำสำเนาจากงานเดิม ชื่อ = "ชื่องานเดิม (สำเนา n)" (นับต่อจากสำเนาที่มีแล้ว) — เปลี่ยนโรงเรียนในสำเนา = ใช้ชื่อโรงเรียนใหม่ + บอกว่าสำเนาจากงานไหน
+  const curCopy = useRef<CopyInfo | undefined>((saved && saved.copyOf) || undefined);
+  const jobName = (c: Camp) => { const base = (c.school || '').trim() || 'ยังไม่ระบุโรงเรียน', cp = curCopy.current;
+    return cp && base === ((cp.school || '').trim() || 'ยังไม่ระบุโรงเรียน') ? `${cp.name} (สำเนา ${cp.no})` : base; };
+  const snapOf = (c: Camp) => ({ ...snapshot(c, customVenues, brief, false), ...(curCopy.current ? { copyOf: curCopy.current } : {}) });
+  const jobMeta = (c: Camp) => ({ name: jobName(c), course: c.courseCode ? courseLabel(c.courseCode) : SUBJECTS[c.subject]?.label || '',
     school: c.school, dates: c.dates, duration: c.durationMode === 'half' ? 'ครึ่งวัน' : c.durationMode === 'day' ? `${c.days} วัน` : `${c.days} วัน ${c.nights} คืน` });
   // งานของทีม: ทุกการบันทึกส่งขึ้นศูนย์กลางทีม (หน่วง 2.5 วิ รวมการพิมพ์ต่อเนื่อง) · เครื่องอื่นเห็นภายใน ~5 วิ
   const [teamJobs, setTeamJobs] = useState<TeamJob[]>(() => loadTeamJobs());
@@ -146,12 +153,12 @@ export default function App() {
   const doneKey = useRef<string>('');
   const campKey = (c: Camp) => JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 });
   const storeJob = (c: Camp, fileMade = false) => {
-    const sn = snapshot(c, customVenues, brief, false);
+    const sn = snapOf(c);
     const old = jobsRef.current.find(j => j.id === jobId);
     let st: Partial<Job> = {};
     if (old?.done && doneKey.current && campKey(c) !== doneKey.current) { st = { done: false, doneAt: '', doneBy: '' }; doneKey.current = ''; flash('งานนี้กลับเป็น "กำลังทำ" เพราะมีการแก้ไข — กด "เสร็จสิ้น" อีกครั้งเมื่อแก้เสร็จ'); }
     const list = saveJob({ id: jobId, ...jobMeta(c), snap: sn, fileMade, ...st } as any); setJobs(list);
-    const rec = list.find(j => j.id === jobId);
+    const rec = list.find(j => j.id === jobId); if (rec) lastSaved.current = rec.savedAt;
     if (rec && hubReady()) { clearTimeout(pushT.current); pushT.current = setTimeout(() => pushJob({ ...rec, by: userName() } as any), fileMade ? 0 : 2500); }
   };
   const jobIdRef = useRef(jobId); jobIdRef.current = jobId;
@@ -192,7 +199,7 @@ export default function App() {
     } catch (e: any) { flash('เปิดงานของทีมไม่สำเร็จ: ' + (e?.message || ''), false); }
   };
   // autosave to localStorage (captions kept, image binaries dropped to stay within quota)
-  useEffect(() => { saveLS({ ...snapshot(camp, customVenues, brief, false), jobId }); }, [camp, customVenues, brief, jobId]);
+  useEffect(() => { saveLS({ ...snapOf(camp), jobId }); }, [camp, customVenues, brief, jobId]);
   // บันทึกงานลงรายการ "งานของฉัน" เมื่อมีการแก้จริง (ไม่บันทึกแม่แบบตั้งต้นที่ยังไม่ได้แตะ)
   useEffect(() => {
     const key = JSON.stringify({ ...camp, actImgs: 0, venueImgs: 0 });
@@ -200,33 +207,65 @@ export default function App() {
     const t = setTimeout(() => storeJob(camp), 700); return () => clearTimeout(t);
   }, [camp, brief, jobId]);
   // เริ่มงานใหม่ (งานเดิมบันทึกไว้แล้ว) / เปิดงานที่บันทึกไว้
-  const startNewJob = (c: Camp) => { setJobId(newJobId()); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); doneKey.current = ''; setFinish(null); };
+  const startNewJob = (c: Camp) => { curCopy.current = undefined; setJobId(newJobId()); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); doneKey.current = ''; setFinish(null); };
   // ── เสร็จสิ้น ──
   const [finish, setFinish] = useState<null | 'confirm' | 'done'>(null);
   const curJob = jobs.find(j => j.id === jobId);
   const finishJob = () => {
     clearTimeout(pushT.current);
-    const sn = snapshot(camp, customVenues, brief, false), now = new Date().toISOString();
+    const sn = snapOf(camp), now = new Date().toISOString();
     const list = saveJob({ id: jobId, ...jobMeta(camp), snap: sn, done: true, doneAt: now, doneBy: userName() } as any); setJobs(list);
     doneKey.current = campKey(camp);
     const rec = list.find(j => j.id === jobId); if (rec && hubReady()) pushJob({ ...rec, by: userName() } as any);
     setFinish('done');
   };
   const reopenJob = () => {   // ยังไม่เสร็จจริง → กลับเป็นกำลังทำ
-    const list = saveJob({ id: jobId, ...jobMeta(camp), snap: snapshot(camp, customVenues, brief, false), done: false, doneAt: '', doneBy: '' } as any); setJobs(list);
+    const list = saveJob({ id: jobId, ...jobMeta(camp), snap: snapOf(camp), done: false, doneAt: '', doneBy: '' } as any); setJobs(list);
     doneKey.current = ''; const rec = list.find(j => j.id === jobId); if (rec && hubReady()) pushJob({ ...rec, by: userName() } as any);
     setFinish(null); flash('ตั้งงานนี้เป็น "กำลังทำ" แล้ว');
   };
-  const openJob = (j: Job) => {
+  const openJob = (j: Job, opts?: { msg?: string }) => {
     try {
       const { camp: c, venues, brief: b } = rehydrate(j.snap);
+      clearTimeout(pushT.current);   // การบันทึกที่ค้างของงานก่อนหน้าส่งตามเดิม (ผูกกับรหัสงานเดิม ไม่ไปทับงานที่เปิดใหม่)
+      curCopy.current = copyOf(j); lastSaved.current = j.savedAt;
       setJobId(j.id); baseline.current = JSON.stringify({ ...c, actImgs: 0, venueImgs: 0 }); doneKey.current = j.done ? baseline.current : '';
-      setCamp(c); setCustomVenues(venues); if (b !== undefined) setBrief(b); setPhotoNonce(n => n + 1); setTab('header');
-      flash(`เปิดงาน "${j.name}" แล้ว — ทำต่อได้เลย (บันทึกอัตโนมัติ)`);
+      setCamp(c); setCustomVenues(venues); if (b !== undefined) setBrief(b); setPhotoNonce(n => n + 1); setTab('header'); setJobsOpen(false);
+      flash(opts?.msg || `เปิดงาน "${j.name}" แล้ว — แก้ตรงนี้บันทึกลงงานนี้เท่านั้น (บันทึกอัตโนมัติ)`);
     } catch (e) { flash('เปิดงานไม่สำเร็จ: ' + (e as Error).message, false); }
   };
-  const copyJob = (j: Job) => { const id = newJobId(); const list = saveJob({ ...j, id, name: j.name + ' (สำเนา)', files: 0 } as any); setJobs(list); const r = list.find(x => x.id === id); if (r) pushJob({ ...r, by: userName() } as any); flash('ทำสำเนางานแล้ว'); };
-  const deleteJob = (j: Job) => { if (!confirm(`ลบงาน "${j.name}" ออกจากรายการ${hubReady() ? 'ของทีม' : ''}? (ไฟล์ที่ดาวน์โหลดไปแล้วไม่หาย)`)) return; setJobs(removeJob(j.id)); pushDelete(j.id); setTeamJobs(t => t.map(x => x.id === j.id ? { ...x, deleted: true } : x)); if (j.id === jobId) setJobId(newJobId()); };
+  // ทำสำเนา = สร้างงานใหม่ (รหัสใหม่) ชื่อ "งานเดิม (สำเนา n)" แล้วเปิดสำเนาทันที — สิ่งที่แก้ต่อจากนี้ลงสำเนาเท่านั้น งานเดิมไม่เปลี่ยน
+  // (เดิมไม่เปิดสำเนาให้ ผู้ใช้แก้ต่อคิดว่าอยู่ในสำเนา แต่บันทึกลงงานที่เปิดอยู่ = สำเนาก่อนหน้า/ต้นฉบับ → ทับกัน)
+  const copyJob = (j: Job) => {
+    if (j.id === jobId) storeJob(camp);   // บันทึกงานที่เปิดอยู่ก่อน (ถ้ากำลังแก้)
+    const src = loadJobs().find(x => x.id === j.id) || j;
+    const parent = copyOf(src), root = parent ? parent.root : src.id;
+    const rootName = parent ? parent.name : (String(src.snap?.camp?.school || '').trim() || src.name.replace(/ \(สำเนา \d+\)$/, ''));
+    const no = nextCopyNo(root, rootName, loadJobs(), teamJobs);
+    const info: CopyInfo = { id: src.id, root, name: rootName, school: String(src.snap?.camp?.school || ''), no };
+    const id = newJobId();
+    const list = saveJob({ id, name: `${rootName} (สำเนา ${no})`, course: src.course, school: src.school, dates: src.dates, duration: src.duration, snap: { ...src.snap, copyOf: info }, files: 0, done: false, doneAt: '', doneBy: '' } as any);
+    setJobs(list); const r = list.find(x => x.id === id);
+    if (r) { if (hubReady()) pushJob({ ...r, by: userName() } as any); openJob(r, { msg: `ทำสำเนาแล้ว — ตอนนี้กำลังแก้ "${r.name}" (งานเดิมไม่เปลี่ยน)` }); }
+  };
+  const copyTeamJob = async (t: TeamJob) => {
+    try { const full = await fetchTeamJob(t.id); if (!full) { flash('ไม่พบงานนี้ในทีมแล้ว', false); return; }
+      copyJob({ id: full.id, name: full.name, course: full.course, school: full.school, dates: full.dates, duration: full.duration, snap: full.snap, savedAt: full.savedAt, files: 0 } as Job);
+    } catch (e: any) { flash('ทำสำเนาไม่สำเร็จ: ' + (e?.message || ''), false); }
+  };
+  // สองแท็บเปิดงานเดียวกัน → เตือน (ไม่ให้ทับกันเงียบ ๆ)
+  const lastSaved = useRef<string>('');
+  const [otherTab, setOtherTab] = useState<Job | null>(null);
+  useEffect(() => {
+    const on = (e: StorageEvent) => {
+      if (e.key !== 'eqcamp.jobs.v1') return;
+      const j = loadJobs().find(x => x.id === jobIdRef.current);
+      if (j && j.tab && j.tab !== TAB_ID && j.savedAt > lastSaved.current) setOtherTab(j);
+    };
+    window.addEventListener('storage', on); return () => window.removeEventListener('storage', on);
+  }, []);
+  const [jobsOpen, setJobsOpen] = useState(false);
+  const deleteJob = (j: Job) => { if (!confirm(`ลบงาน "${j.name}" ออกจากรายการ${hubReady() ? 'ของทีม' : ''}? (ไฟล์ที่ดาวน์โหลดไปแล้วไม่หาย)`)) return; setJobs(removeJob(j.id)); pushDelete(j.id); setTeamJobs(t => t.map(x => x.id === j.id ? { ...x, deleted: true } : x)); if (j.id === jobId) { curCopy.current = undefined; setJobId(newJobId()); } };
   useEffect(() => { const id = hashArg('#/job/'); if (!id) return; const loc = loadJobs().find(j => j.id === id); if (loc) openJob(loc); else if (hubReady()) openTeamJob({ id } as TeamJob); try { history.replaceState(null, '', '#/build'); } catch { /* */ } }, []);
   const fileInput = useRef<HTMLInputElement>(null);
   const aiReq = useRef(0);
@@ -482,6 +521,12 @@ export default function App() {
   const removeImage = (group: 'actImgs' | 'venueImgs', idx: number) => setCamp(c => ({ ...c, [group]: c[group].filter((_, i) => i !== idx) }));
   const captionImage = (group: 'actImgs' | 'venueImgs', idx: number, v: string) => setCamp(c => { const arr = [...c[group]]; arr[idx] = { ...arr[idx], caption: v }; return { ...c, [group]: arr }; });
   // ใช้ภาพจากไฟล์ของค่ายนี้อีกครั้ง (ล้างภาพที่อัปโหลดเอง แล้วดึงชุดของแม่แบบ)
+  // เลือกที่พักจากทำเนียบ → เติมจังหวัด/ทัศนศึกษา/ผู้ติดต่อ (เฉพาะที่มีข้อมูล) · ภาพที่พักดึงให้เองตามชื่อ (ภาพที่ทีมอัปโหลดเองไม่ถูกทับ)
+  const pickVenue = (e: VenueEntry) => {
+    setCamp(c => ({ ...c, venue: e.name, province: e.province || c.province, venueVisit: e.visit || c.venueVisit, supplierNote: e.note || c.supplierNote }));
+    setPhotoNonce(n => n + 1);
+    flash(e.photos.length ? `เลือก ${e.name} แล้ว — ดึงภาพที่พัก ${e.photos.length} รูป (แยกหมวด) ให้แล้ว` : `เลือก ${e.name} แล้ว — ที่พักนี้ยังไม่มีภาพในระบบ อัปโหลดภาพทางการได้ที่ขั้น “ภาพ”`);
+  };
   const reloadPhotos = () => { setCamp(c => ({ ...c, actImgs: [], venueImgs: [] })); setPhotoNonce(n => n + 1); flash('ดึงภาพจากไฟล์ของค่ายนี้ใหม่แล้ว'); };
   // เลือกกิจกรรมรายช่วง (per-slot): '' = อัตโนมัติ, อื่น ๆ = id กิจกรรมในคลัง
   const setSlot = (idx: number, id: string) => setCamp(c => {
@@ -903,6 +948,17 @@ export default function App() {
       )}
 
       {saveSheet && <SaveSheet sheet={saveSheet} onClose={() => setSaveSheet(null)} download={anchorDownload} />}
+      {jobsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-6" role="dialog" aria-modal="true" aria-label="งานทั้งหมด" onClick={e => { if (e.target === e.currentTarget) setJobsOpen(false); }}>
+          <div className="bg-paper w-full sm:max-w-3xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <div><div className="text-[17px] font-semibold">งานทั้งหมด</div><div className="text-[12.5px] text-sub">ทุกงานที่เคยทำ — เปิดงานไหน แก้แล้วบันทึกลงงานนั้นเท่านั้น · ทำสำเนา = งานใหม่แยกต่างหาก</div></div>
+              <button onClick={() => setJobsOpen(false)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist bg-white text-[13.5px]">ปิด</button>
+            </div>
+            <JobsPanel full jobs={jobs} team={teamJobs} current={jobId} onOpen={j => openJob(j)} onOpenTeam={t => { setJobsOpen(false); openTeamJob(t); }} onCopy={j => { setJobsOpen(false); copyJob(j); }} onCopyTeam={t => { setJobsOpen(false); copyTeamJob(t); }} onDelete={deleteJob} />
+          </div>
+        </div>
+      )}
       {finish && <FinishDialog mode={finish} camp={camp} checks={checks as any} job={curJob} busy={busy} team={hubReady()}
         onConfirm={finishJob} onClose={() => setFinish(null)} onReopen={reopenJob}
         onNew={() => { setFinish(null); startNewJob(blankCamp()); setCamp(blankCamp()); setBrief(''); setTab(STEPS[0].id); window.scrollTo(0, 0); flash('เริ่มงานใหม่แล้ว — งานที่เสร็จอยู่ใน "งานของฉัน"'); }}
@@ -919,7 +975,20 @@ export default function App() {
           else if (a.t === 'stats') { setTab('stats'); setView('build'); }
           else if (a.t === 'useCourse') { changeCourse(a.id); setKind('program'); setTab('header'); setView('build'); }
           else if (a.t === 'past') setView('past', a.id);
+          else if (a.t === 'pick') {   // ใส่กิจกรรมจากคลังลงงานที่เปิดอยู่ (ไม่ซ้ำ) → ไปขั้นกิจกรรมให้เห็นตำแหน่งที่ลง
+            const a2 = CAT_ACTS.find(x => x.i === a.id);
+            if (a2) { setCamp(c => (c.picks || []).some(p => p.id === a2.i) ? c : { ...c, picks: [...(c.picks || []), { id: a2.i }] }); flash(`ใส่ “${a2.n}” ลงงานนี้แล้ว — ดูตำแหน่ง/แทนช่วงได้ในขั้นกิจกรรม`); }
+            setTab('activities'); setView('build');
+          }
+          else if (a.t === 'venue') { const e = venueDirectory(customVenues).find(x => x.name === a.id); if (e) pickVenue(e); setTab('header'); setView('build'); }
         }} />}
+      {otherTab && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-3"><div className="flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 text-[14px]">
+          <AlertTriangle className="w-4 h-4 text-amber-600" /><span className="flex-1 min-w-[12rem]">งาน "{otherTab.name}" ถูกแก้จากอีกแท็บในเครื่องนี้ {ago(otherTab.savedAt)} — ถ้าแก้ทั้งสองแท็บ ฉบับที่บันทึกทีหลังจะทับ</span>
+          <button onClick={() => { const j = loadJobs().find(x => x.id === otherTab.id); setOtherTab(null); if (j) openJob(j, { msg: 'โหลดฉบับล่าสุดจากอีกแท็บแล้ว' }); }} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white text-[13.5px] font-medium">โหลดฉบับล่าสุด</button>
+          <button onClick={() => { setOtherTab(null); storeJob(camp); }} className="tap px-3 py-1.5 rounded-lg border border-brand-mist text-[13.5px]">ใช้ฉบับในแท็บนี้</button>
+        </div></div>
+      )}
       {remoteJob && (
         <div role="status" className="fixed z-40 top-20 left-1/2 -translate-x-1/2 w-[min(560px,calc(100%-24px))] rounded-xl border border-amber-300 bg-white shadow-lift px-4 py-3 text-[14px] flex flex-wrap items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" /><span className="flex-1 min-w-[12rem]">งานนี้ถูกแก้จากเครื่องอื่น{remoteJob.by ? ` (${remoteJob.by})` : ''} {ago(remoteJob.savedAt)}</span>
@@ -989,8 +1058,8 @@ export default function App() {
             <h2 className="text-[16px] font-semibold">เลือกเอกสาร</h2>
             <div className="flex items-center gap-1.5">
               
-              <span className="hidden sm:inline text-[12.5px] text-sub mr-1" aria-live="polite">{curJob ? (curJob.done ? `เสร็จแล้ว · ${ago(curJob.doneAt || curJob.savedAt)}` : `กำลังทำ · บันทึกอัตโนมัติ ${ago(curJob.savedAt)}`) : ''}</span>
-              <button onClick={() => setTab('brief')} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-brand-navy font-medium hover:bg-paper">งานของฉัน{jobs.length ? ` (${jobs.length})` : ''}</button>
+              <span className="hidden sm:inline text-[12.5px] text-sub mr-1 max-w-[22rem] truncate" aria-live="polite" data-current-job={curJob?.name || ''}>{curJob ? <>{curJob.done ? 'เสร็จแล้ว' : 'กำลังแก้'} <b className="text-brand-ink font-semibold">{curJob.name}</b> · {curJob.done ? ago(curJob.doneAt || curJob.savedAt) : `บันทึกอัตโนมัติ ${ago(curJob.savedAt)}`}</> : ''}</span>
+              <button onClick={() => setJobsOpen(true)} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-brand-navy font-medium hover:bg-paper">งานทั้งหมด{jobs.length ? ` (${jobs.length}${jobs.filter(j => !j.done).length ? ` · ค้าง ${jobs.filter(j => !j.done).length}` : ''})` : ''}</button>
               <button onClick={exportDB} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-brand-ink hover:bg-paper">ส่งออกงาน</button>
               <button onClick={() => fileInput.current?.click()} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-brand-ink hover:bg-paper">นำเข้างาน</button>
               <button onClick={resetDB} className="tap px-2.5 py-1 rounded-lg text-[13.5px] text-sub hover:text-rose-700 hover:bg-paper">เริ่มใหม่</button>
@@ -1044,7 +1113,7 @@ export default function App() {
             <div className="bg-white rounded-2xl border border-brand-mist shadow-card p-4 sm:p-5">
               {tab === 'brief' && (
                 <div className="space-y-4">
-                  <JobsPanel jobs={jobs} team={teamJobs} current={jobId} onOpen={openJob} onOpenTeam={openTeamJob} onCopy={copyJob} onDelete={deleteJob} />
+                  <JobsPanel jobs={jobs} team={teamJobs} current={jobId} onOpen={j => openJob(j)} onOpenTeam={openTeamJob} onCopy={copyJob} onCopyTeam={copyTeamJob} onDelete={deleteJob} onAll={() => setJobsOpen(true)} />
                   <SectionTitle title="บรีฟจากลูกค้า" sub="วางข้อความบรีฟ ระบบเติมรหัส PL โรงเรียน จำนวนคน วิชา ระยะเวลา วันที่ สถานที่ และราคาให้" />
                   <label className="block"><span className="sr-only">ข้อความบรีฟ</span><textarea rows={5} value={brief} onChange={e => setBrief(e.target.value)} className="w-full p-3 rounded-xl border border-brand-mist text-[15px] leading-relaxed focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15" /></label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1225,13 +1294,8 @@ export default function App() {
                     <Field label="ชั่วโมงเดินทาง (ชม.)"><input type="number" step="0.5" value={camp.travelHours} onChange={e => set({ travelHours: +e.target.value || 0 })} className={inp} /></Field>
                   </div>
                   <Field label="วันที่จัดค่าย"><input value={camp.dates} onChange={e => set({ dates: e.target.value })} className={inp} /></Field>
-                  <Field label="สถานที่ / โรงแรม (เลือกจากคลังเพื่อเติมทัศนศึกษา+ผู้ติดต่อ)">
-                    <input value={camp.venue} onChange={e => set({ venue: e.target.value })} className={inp} />
-                    <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      {allVenues.map(v => (
-                        <button key={v.name} onClick={() => set({ venue: v.name, province: v.province, venueVisit: v.visit, supplierNote: v.note })} className={`px-2 py-1 rounded-lg text-[12px] font-semibold border ${camp.venue === v.name ? 'bg-white border-brand-mist text-brand-ink' : 'bg-slate-50 border-slate-200 text-sub'}`}>{v.name.replace('โรงแรม', '')} · {v.province}</button>
-                      ))}
-                    </div>
+                  <Field label="สถานที่ / โรงแรม — พิมพ์ชื่อแล้วเลือก ระบบเติมจังหวัด ทัศนศึกษา ผู้ติดต่อ และภาพที่พักให้">
+                    <VenuePicker value={camp.venue} custom={customVenues} photoBase={PHOTO_BASE} onType={v => set({ venue: v })} onPick={pickVenue} />
                   </Field>
                   <div className="grid grid-cols-2 gap-2.5">
                     <Field label="จังหวัด"><input value={camp.province} onChange={e => set({ province: e.target.value })} className={inp} /></Field>
@@ -1413,10 +1477,14 @@ export default function App() {
                     </span>
                   </div>
                   <PhotoSetPicker camp={camp} onPick={id => { setCamp(c => ({ ...c, photoSet: id, actImgs: [] })); setPhotoNonce(n => n + 1); flash('เปลี่ยนชุดภาพกิจกรรมทั้งชุดแล้ว'); }} />
+                  <div className="border border-brand-mist rounded-xl p-3 bg-white">
+                    <div className="text-[13.5px] font-semibold mb-1.5">ที่พัก — พิมพ์ชื่อเพื่อดึงภาพที่พักแยกหมวด</div>
+                    <VenuePicker value={camp.venue} custom={customVenues} photoBase={PHOTO_BASE} onType={v => set({ venue: v })} onPick={pickVenue} />
+                  </div>
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <div className="text-[13.5px] font-semibold text-slate-700">{group === 'actImgs' ? 'ภาพกิจกรรม' : `ภาพที่พัก (${camp.venue.replace('โรงแรม', '')})`}</div>
+                        <div className="text-[13.5px] font-semibold text-slate-700">{group === 'actImgs' ? 'ภาพกิจกรรม' : `ภาพที่พัก (${camp.venue.replace('โรงแรม', '') || 'ยังไม่เลือกที่พัก'}) · ป้าย/มุมสูง → ห้องพัก → สระ → ห้องประชุม`}</div>
                         <button onClick={() => addImage(group)} className="text-[13px] font-semibold text-brand flex items-center gap-1"><Plus className="w-3.5 h-3.5" />เพิ่มช่อง</button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
@@ -1428,7 +1496,7 @@ export default function App() {
                             </label>
                             <input value={im.caption} onChange={e => captionImage(group, i, e.target.value)} className="w-full px-2 py-1 rounded border border-slate-200 text-[12px]" placeholder="คำบรรยาย (ไม่ใส่ก็ได้)" />
                             <div className="flex items-center justify-between">
-                              <span className="text-[11.5px] text-sub">{im.src ? 'จากไฟล์ของค่าย' : im.data ? 'อัปโหลดเอง' : ''}</span>
+                              <span className="text-[11.5px] text-sub">{group === 'venueImgs' && venuePhotoCat(im.src) ? VENUE_PHOTO_LABEL[venuePhotoCat(im.src)!] : im.src ? 'จากไฟล์ของค่าย' : im.data ? 'อัปโหลดเอง' : ''}</span>
                               <button onClick={() => removeImage(group, i)} className="text-[12px] text-rose-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" />ลบ</button>
                             </div>
                           </div>
@@ -2066,13 +2134,15 @@ function PartyPanel({ camp, plan, set }: { camp: Camp; plan: ReturnType<typeof b
 }
 /* แก้ไขแถวกำหนดการ (เวลา/ชื่อ/ลบ/คืนค่าเดิม) → camp.rowEdits อ้างวัน + ชื่อแถวเดิม */
 /* งานของฉัน: ทุกงานบันทึกอัตโนมัติในเครื่องนี้ — เปิดทำต่อ / ทำสำเนา (ใช้เป็นแม่แบบงานใหม่) / ลบ */
-function JobsPanel({ jobs, team, current, onOpen, onOpenTeam, onCopy, onDelete }: { jobs: Job[]; team: TeamJob[]; current: string; onOpen: (j: Job) => void; onOpenTeam: (t: TeamJob) => void; onCopy: (j: Job) => void; onDelete: (j: Job) => void }) {
-  const [q, setQ] = useState(''); const [all, setAll] = useState(false); const [st, setSt] = useState<'all' | 'doing' | 'done'>('all');
+function JobsPanel({ jobs, team, current, onOpen, onOpenTeam, onCopy, onCopyTeam, onDelete, onAll, full }: { jobs: Job[]; team: TeamJob[]; current: string; onOpen: (j: Job) => void; onOpenTeam: (t: TeamJob) => void; onCopy: (j: Job) => void; onCopyTeam?: (t: TeamJob) => void; onDelete: (j: Job) => void; onAll?: () => void; full?: boolean }) {
+  // full = หน้าต่าง "งานทั้งหมด": แสดงครบทุกงาน เริ่มที่ "กำลังทำ" (งานที่ค้างไว้) · ในขั้นบรีฟแสดง 5 งานล่าสุด + ปุ่มดูทั้งหมด
+  const [q, setQ] = useState(''); const [all, setAll] = useState(!!full);
+  const [st, setSt] = useState<'all' | 'doing' | 'done'>(() => full && jobs.some(j => !j.done) ? 'doing' : 'all');
   const connected = hubReady();
   // รวมงานในเครื่อง + งานของทีม (งานเดียวกันแสดงครั้งเดียว — ฉบับที่ใหม่กว่า)
   type Row = { id: string; name: string; sub: string; savedAt: string; files: number; local?: Job; team?: TeamJob; done?: boolean; doneAt?: string; doneBy?: string };
   const map = new Map<string, Row>();
-  for (const j of jobs) map.set(j.id, { id: j.id, name: j.name, sub: [j.course, j.duration, j.dates].filter(Boolean).join(' · '), savedAt: j.savedAt, files: j.files, local: j });
+  for (const j of jobs) { const cp = copyOf(j); map.set(j.id, { id: j.id, name: j.name, sub: [cp && !j.name.includes(`(สำเนา ${cp.no})`) ? `สำเนาจาก ${cp.name} (สำเนา ${cp.no})` : '', j.course, j.duration, j.dates].filter(Boolean).join(' · '), savedAt: j.savedAt, files: j.files, local: j }); }
   for (const t of team) { if (t.deleted) { if (!map.get(t.id)?.local) map.delete(t.id); continue; } const r = map.get(t.id); if (r) { r.team = t; if (t.savedAt > r.savedAt) r.savedAt = t.savedAt; } else map.set(t.id, { id: t.id, name: t.name, sub: [t.course, t.duration, t.dates].filter(Boolean).join(' · '), savedAt: t.savedAt, files: t.files || 0, team: t }); }
   // สถานะ = ฉบับที่ใหม่กว่า (เครื่องนี้ / ทีม)
   for (const r of map.values()) { const src = r.team && (!r.local || r.team.savedAt > r.local.savedAt) ? r.team : r.local; r.done = !!src?.done; r.doneAt = src?.doneAt; r.doneBy = src?.doneBy; }
@@ -2087,7 +2157,7 @@ function JobsPanel({ jobs, team, current, onOpen, onOpenTeam, onCopy, onDelete }
     <div className="rounded-xl border border-brand-mist bg-white overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5 border-b border-brand-mist">
         <div><div className="text-[15px] font-semibold">{connected ? 'งานของทีม' : 'งานของฉัน'}</div><div className="text-[12.5px] text-sub">{connected ? 'บันทึกอัตโนมัติ · ทุกเครื่องในทีมเห็นและเปิดทำต่อได้ทันที' : 'บันทึกอัตโนมัติในเครื่องนี้ · เชื่อมต่อทีมเพื่อเปิดจากเครื่องอื่นได้'}</div></div>
-        {rows.length > 5 && <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน/หลักสูตร/ผู้ทำ" aria-label="ค้นหางาน" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-[13.5px] w-52" />}
+        {(rows.length > 5 || full) && <input value={q} onChange={e => setQ(e.target.value)} placeholder="ค้นหาโรงเรียน/หลักสูตร/ผู้ทำ" aria-label="ค้นหางาน" className="px-2.5 py-1.5 rounded-lg border border-brand-mist text-[13.5px] w-full sm:w-52" />}
       </div>
       <div className="flex gap-1.5 px-3.5 py-2 border-b border-brand-mist text-[13px]" role="group" aria-label="กรองตามสถานะงาน">
         {([['all', `ทั้งหมด ${rows.length}`], ['doing', `กำลังทำ ${rows.length - nDone}`], ['done', `เสร็จแล้ว ${nDone}`]] as const).map(([k, t]) => (
@@ -2095,19 +2165,20 @@ function JobsPanel({ jobs, team, current, onOpen, onOpenTeam, onCopy, onDelete }
       </div>
       <ul className="divide-y divide-brand-mist">
         {shown.map(r => (
-          <li key={r.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${r.id === current ? 'bg-paper' : ''}`}>
+          <li key={r.id} data-job={r.name} className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5 ${r.id === current ? 'bg-paper' : ''}`}>
             <div className="min-w-0 flex-1">
               <div className="text-[14.5px] font-semibold truncate">{r.done ? <span className="mr-2 align-[1px] inline-block px-1.5 rounded bg-emerald-100 text-emerald-800 text-[11.5px] font-semibold">เสร็จแล้ว</span> : <span className="mr-2 align-[1px] inline-block px-1.5 rounded bg-amber-50 text-amber-800 text-[11.5px] font-semibold">กำลังทำ</span>}{r.name}{r.id === current && <span className="ml-2 text-[12px] font-medium text-brand-navy">เปิดอยู่</span>}{!r.local && <span className="ml-2 text-[12px] font-medium text-emerald-700">จากทีม</span>}</div>
               <div className="text-[12.5px] text-sub truncate">{r.sub} · {r.done ? `เสร็จ ${ago(r.doneAt || r.savedAt)}${r.doneBy ? ` โดย ${r.doneBy}` : ''} · ` : ''}แก้ล่าสุด {ago(r.savedAt)}{r.team?.by ? ` โดย ${r.team.by}` : ''}{r.files ? ` · สร้างไฟล์แล้ว ${r.files} ครั้ง` : ''}</div>
             </div>
             <div className="flex gap-1.5 text-[13px]">
               {r.id !== current && <button onClick={() => (r.local && (!r.team || r.team.savedAt <= r.local.savedAt) ? onOpen(r.local) : onOpenTeam(r.team!))} className="tap px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium">{r.done ? 'เปิดดู / แก้' : 'เปิดทำต่อ'}</button>}
-              {r.local && <button onClick={() => onCopy(r.local!)} className="tap px-3 py-1.5 rounded-lg border border-brand-mist">ทำสำเนา</button>}
+              {(r.local || (r.team && onCopyTeam)) && <button onClick={() => (r.local && (!r.team || r.team.savedAt <= r.local.savedAt) ? onCopy(r.local) : onCopyTeam!(r.team!))} aria-label={`ทำสำเนา ${r.name}`} className="tap px-3 py-1.5 rounded-lg border border-brand-mist">ทำสำเนา</button>}
               {r.local && <button onClick={() => onDelete(r.local!)} aria-label={`ลบงาน ${r.name}`} className="tap px-2.5 py-1.5 rounded-lg text-rose-600">ลบ</button>}
             </div>
           </li>))}
       </ul>
-      {!q && list.length > 5 && <button onClick={() => setAll(!all)} className="tap w-full py-2 text-[13px] text-brand-navy border-t border-brand-mist">{all ? 'ย่อรายการ' : `ดูทั้งหมด ${list.length} งาน`}</button>}
+      {!full && !q && list.length > 5 && <button onClick={() => (onAll ? onAll() : setAll(!all))} className="tap w-full py-2 text-[13px] text-brand-navy border-t border-brand-mist">{all ? 'ย่อรายการ' : `ดูทั้งหมด ${list.length} งาน${rows.length - nDone ? ` (ค้าง ${rows.length - nDone})` : ''}`}</button>}
+      {full && !list.length && <div className="px-3.5 py-4 text-[13.5px] text-sub">ไม่มีงานในตัวกรองนี้</div>}
     </div>);
 }
 /* ตัวเลือกชื่อรายการ: กิจกรรมจริงของหลักสูตรวันนั้น + รายการทั่วไป (datalist ช่วยพิมพ์ — พิมพ์เองได้) */
