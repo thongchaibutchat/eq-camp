@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import { Packer } from 'docx';
 import * as fs from 'fs';
-import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, dayEndOf, parseHM, moveRow, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
+import { packDocx, buildDoc, blankCamp, defaultActs, defaultCourseActs, parseBrief, buildSchedule, compose, check, photoIdsFor, photoCaption, subjectPool, actInSchedule, joinedCodes, TITLE_TH, TITLE_EN, dayEndOf, parseHM, moveRow, CAT_ACTS, catActsOf, pickTargets, pickTitle, Camp, DocKind, COURSES, TEMPLATES, Img } from '../src/eqcamp-core';
 // คำผิดที่รู้จัก — รายการกลาง data/typo-fixes.json
 const TYPO_JSON = JSON.parse(fs.readFileSync('data/typo-fixes.json', 'utf8'));
 const TYPO_BAD: string[] = TYPO_JSON.fixes.map((f: string[]) => f[0]).filter((w: string) => w.trim().length > 1);
@@ -103,6 +103,17 @@ TEMPLATES.forEach(t => {
   configs.push({ name:`MOVE_${t.id.replace(/\s+/g, '_')}`, camp: { ...base, dayOrders, ...(end ? { dayExtends: [{ day: days, end }] } : {}) } as any, base, short: end ? { day: days, end, was: e } : undefined } as any);
 });
 
+// 10. เลือกกิจกรรมจากคลังแยกหมวด (25 พ.ย. 2569): ทุกแม่แบบ + engine — ติ๊ก 3 จากหลักสูตรเดียวกัน + 1 จากหลักสูตรอื่น + พิมพ์เอง 1 + แทนช่วงที่ 2 + ตำแหน่งที่หาไม่เจอ
+TEMPLATES.forEach((t, k) => {
+  const dm = t.dur.startsWith('o') ? 'overnight' : t.dur === 'half' ? 'half' : 'day';
+  const days = dm === 'overnight' ? +t.dur.charAt(1) : dm === 'day' ? (+t.dur.slice(3) || 1) : 1, nights = dm === 'overnight' ? +t.dur.slice(2) : 0;
+  const own = catActsOf(t.code).filter(a => a.g === 'learn'), other = CAT_ACTS.filter(a => a.c !== t.code && a.g === 'learn');
+  const base = mk({ courseCode:t.code, templateId: k % 5 === 4 ? 'engine' : t.id, school:'โรงเรียนทดสอบคลัง', students:60, teachers:4, durationMode:dm as any, days, nights, dates:'x', province:'', venue:'ว', normalPrice:4000, specialPrice:3000, costPerPerson:1800 } as any);
+  const tg = pickTargets(buildSchedule(base))[1];
+  const picks = [...own.slice(k % 3, k % 3 + 3).map(a => ({ id: a.i })), { id: other[(k * 7) % other.length].i }, { name: 'กิจกรรมพิมพ์เอง <ทดสอบ> & "ทีม"' }, ...(tg ? [{ id: other[(k * 11 + 3) % other.length].i, at: `${tg.day}|${tg.key}` }] : []), { name: 'ตำแหน่งหาย', at: '1|ไม่มีแถวนี้' }];
+  configs.push({ name:`PICK_${t.id.replace(/\s+/g, '_')}`, camp: { ...base, picks } as any, picks: true } as any);
+});
+
 let fail = 0, ok = 0;
 (async () => {
   const manifest: string[] = [];
@@ -158,6 +169,18 @@ let fail = 0, ok = 0;
           for (const d of plan.days) { if (mono(b0.days[d.day - 1]?.items || [])) continue;   // ต้นฉบับเวลาย้อนเอง = ไม่ใช่ผลของการลาก/ย่อ
             const bad = mono(d.items); if (bad) throw new Error(`move/short day ${d.day}: time goes back at ${bad.time} ${bad.title}`); }
           if (sh) { const got = dayEndOf(plan.days[sh.day - 1]); if (got !== sh.end && !(plan.extWarn || []).some(w => /เร็วเกินไป/.test(w))) throw new Error(`short day ${sh.day}: ${sh.was} → want ${sh.end} got ${got}`); }
+        }
+        // เลือกจากคลัง: ทุกรายการต้องมีผล · ที่ไม่ใช่ missing/exists ต้องมีแถวในกำหนดการ (ชื่อตรง) · ตำแหน่งที่หาไม่เจอ = แจ้ง ไม่เดา · เวลาเริ่มไม่ย้อนเพราะแถวที่แทรก
+        if ((cfg as any).picks) {
+          const ps = plan.picks || []; const want = ((cfg.camp as any).picks || []).length;
+          if (ps.length !== want) throw new Error(`picks: ${ps.length}/${want} placed`);
+          for (const p of ps) {
+            if (p.how === 'missing' || p.how === 'exists') continue;
+            if (!plan.days.some(d => d.items.some(r => r.picked === p.idx && r.title === p.title))) throw new Error('pick row missing: ' + p.title);
+          }
+          if (!ps.some(p => p.how === 'missing') || !(plan.pickWarn || []).some(w => /ไม่พบช่วงที่เลือก/.test(w))) throw new Error('missing target not warned');
+          if (ps.some(p => p.how === 'replace') === false && ((cfg.camp as any).picks || []).some((x: any) => x.at && x.at !== '1|ไม่มีแถวนี้')) throw new Error('replace target not applied');
+          for (const d of plan.days) { let prev = -1; for (const r of d.items) { const m = r.time.match(/(\d{1,2})[.:](\d{2})/); if (!m) continue; const v = +m[1] * 60 + +m[2]; if (r.picked !== undefined && v + 1 < prev) throw new Error(`pick time goes back day ${d.day}: ${r.time} ${r.title}`); prev = Math.max(prev, v); } }
         }
         for (const a of ((cfg.camp as any).rowAdds || []) as { day: number; title: string }[]) if (a.title && a.day <= plan.days.length && !plan.days[a.day - 1].items.some(r => r.title === a.title.trim())) throw new Error('rowAdd missing: ' + a.title);
         if (/ตัวอย่างกิจกรรม/.test(JSON.stringify(k.budget))) throw new Error('budget has stray heading');
