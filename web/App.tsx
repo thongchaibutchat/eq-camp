@@ -7,6 +7,7 @@ import Past from './Past';
 import { readPastCache, pastJobs } from './past-data';
 import { pastForSchool } from '../src/past-import';
 import SmeMovePanel from './SmeMove';
+import ActivityPicker from './ActivityPicker';
 import type { NsrPrefill } from './Nsr';
 import { IN_APP, IS_IOS, IS_MOBILE, externalBrowserUrl, copyText, canShareFiles } from './platform';
 import { makeEvent, record as recordEvent, programIdOf, loadLocal, saveLocal, dedupe, readTeam, summarize, programsCsv } from './registry';
@@ -445,7 +446,7 @@ export default function App() {
   const changeDuration = (mode: DurationMode, days = 1, nights = 0) => {
     const hadBudget = !!(camp.budgetItems && camp.budgetItems.length);
     // ระยะเวลาเปลี่ยน → ค่าที่พัก/มื้ออาหารในงบเปลี่ยน: คืนรายการงบเป็นอัตโนมัติ กันตัวเลขค้างผิด
-    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined, dayOrders: undefined }));
+    setCamp(c => normalizeDuration({ ...c, durationMode: mode, days, nights, budgetItems: undefined, templateId: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined, dayOrders: undefined, picks: c.picks?.map(({ at, ...p }) => p) }));
     const label = mode === 'half' ? 'ครึ่งวัน' : mode === 'day' ? `${days} วัน (ไป-กลับ)` : `${days} วัน ${nights} คืน`;
     flash(`ปรับระยะเวลาเป็น ${label} — จัดกำหนดการใหม่แล้ว${hadBudget ? ' · รายการงบกลับเป็นอัตโนมัติ (แก้ได้อีกครั้งในขั้นราคา & งบ)' : ''}`);
   };
@@ -453,7 +454,7 @@ export default function App() {
   const changeCourse = (code: string) => {
     if (!code) { set({ courseCode: undefined, activityIds: defaultActs(camp.subject), coreSlotIds: [] }); flash('กลับไปใช้คลังกิจกรรมตามวิชา (ไม่ผูกหลักสูตร)'); return; }
     const co = COURSES.find(c => c.code === code)!;
-    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined, dayOrders: undefined });
+    set({ courseCode: code, subject: co.family as Subject, docCode: docCodeFor(code), activityIds: defaultCourseActs(code), coreSlotIds: [], templateId: undefined, budgetItems: undefined, rowEdits: undefined, actsOverride: undefined, dayExtends: undefined, rowAdds: undefined, dayOrders: undefined, picks: camp.picks?.map(({ at, ...p }) => p) });
     const nT = templatesOf(code).length;
     flash(nT ? `เลือก "${co.name}" (${code}) — ใช้แม่แบบโปรแกรมจริงของทีม + ภาพจากไฟล์ของค่ายนี้` : `เลือก "${co.name}" (${code}) — ยังไม่มีแม่แบบจริง ระบบจัดจากคลังกิจกรรม (รอตรวจ)`);
   };
@@ -840,10 +841,10 @@ export default function App() {
             <img src={`data:image/png;base64,${BRAND.logoB64}`} alt="" className="h-9 w-auto" />
             <span className="leading-tight text-left"><span className="block text-[16px] font-semibold">EQ Camp</span><span className="hidden sm:block text-[12.5px] text-sub">เอกสารขายค่ายวิชาการ</span></span>
           </button>
-          <nav aria-label="เมนูหลัก" className="hidden lg:flex items-center gap-1 ml-6">
+          <nav aria-label="เมนูหลัก" className="hidden 2xl:flex items-center gap-0.5 xl:gap-1 ml-2 xl:ml-6">
             {NAV.map(n => (
               <button key={n.id} onClick={() => goNav(n.id)} aria-current={navOn(n.id) ? 'page' : undefined}
-                className={`tap px-3 py-2 rounded-lg text-[15px] ${navOn(n.id) ? 'text-brand-navy font-semibold bg-paper' : 'text-sub hover:text-brand-ink hover:bg-paper font-medium'}`}>{n.label}</button>
+                className={`tap whitespace-nowrap px-2.5 xl:px-3 py-2 rounded-lg text-[15px] ${navOn(n.id) ? 'text-brand-navy font-semibold bg-paper' : 'text-sub hover:text-brand-ink hover:bg-paper font-medium'}`}>{n.label}</button>
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -854,11 +855,11 @@ export default function App() {
             {view === 'build' ? (<>
               <button onClick={() => download(kind)} disabled={busy}
                 className="tap px-3 sm:px-4 py-2.5 rounded-xl bg-accent enabled:hover:bg-accent-deep disabled:opacity-40 text-white text-[14px] font-semibold flex items-center gap-1.5">
-                <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : <>ดาวน์โหลด<span className="hidden lg:inline"> {DOC_TYPES.find(d => d.id === kind)!.label}</span></>}
+                <Download className="w-4 h-4" />{busy ? 'กำลังสร้าง…' : <>ดาวน์โหลด<span className="hidden min-[1800px]:inline"> {DOC_TYPES.find(d => d.id === kind)!.label}</span></>}
               </button>
               <button onClick={downloadAll} disabled={busy} title="สร้างทั้ง 4 ไฟล์ด้วยข้อมูลชุดเดียวกัน"
                 className="tap hidden sm:flex px-3 py-2.5 rounded-xl border border-brand-mist enabled:hover:bg-paper disabled:opacity-40 text-[14px] font-medium items-center gap-1.5">
-                <Layers className="w-4 h-4" />ครบชุด<span className="hidden lg:inline"> 4 ไฟล์</span>
+                <Layers className="w-4 h-4" />ครบชุด<span className="hidden min-[1800px]:inline"> 4 ไฟล์</span>
               </button>
               <button onClick={printPDF} disabled={busy} title="บันทึกเอกสารโปรแกรมค่ายเป็น PDF"
                 className="tap px-2.5 sm:px-3 py-2.5 rounded-xl border border-brand-mist enabled:hover:bg-paper disabled:opacity-40 text-[14px] font-medium flex items-center gap-1.5" aria-label="บันทึกเป็น PDF">
@@ -869,7 +870,7 @@ export default function App() {
             )}
           </div>
         </div>
-        <nav aria-label="เมนูหลัก (มือถือ)" className="lg:hidden border-t border-brand-mist">
+        <nav aria-label="เมนูหลัก (มือถือ)" className="2xl:hidden border-t border-brand-mist">
           <div className="flex px-2 overflow-x-auto noscrollbar">
             {NAV.map(n => (
               <button key={n.id} onClick={() => goNav(n.id)} aria-current={navOn(n.id) ? 'page' : undefined}
@@ -1252,10 +1253,13 @@ export default function App() {
 
               {tab === 'activities' && (
                 <div className="space-y-3">
-                  <ActsEditor camp={camp} plan={plan} acts={k.acts} set={set} />
+                  <ActivityPicker camp={camp} plan={plan} set={set} />
                   <AddonPanel camp={camp} plan={plan} set={set} />
+                  <ActsEditor camp={camp} plan={plan} acts={k.acts} set={set} />
+                  {!(plan.tpl && plan.tpl.exact) && (
+                  <details className="bg-white border border-slate-200 rounded-xl p-3 space-y-3">
+                    <summary className="cursor-pointer text-[14px] font-semibold text-sub">ตั้งค่าการจัดอัตโนมัติ (คลังสำหรับเติมช่องว่างเมื่อไม่ใช้แม่แบบ)</summary>
                   <SectionTitle title={`เลือกกิจกรรมจากคลัง ${camp.courseCode ? '· หลักสูตร ' + (courseById(camp.courseCode)?.name || camp.courseCode) : '(วิชา' + SUBJECTS[camp.subject].label + ')'}`} sub={camp.courseCode ? 'แสดงเฉพาะกิจกรรมของหลักสูตรนี้ + สันทนาการ/เปิด-ปิดกลางที่จำเป็น — ระบบเรียงลงทุกช่วงจนเต็ม ไม่เว้นว่าง' : "ระบบนำกิจกรรมที่เลือกไปเรียงลงทุกช่วงเวลาในกำหนดการจนเต็ม ไม่เว้นช่องว่าง และร้อยเป็นประโยค 'กิจกรรมเชิงบูรณาการ' อัตโนมัติ"} />
-                  {plan.tpl && plan.tpl.exact && <div className="text-[13px] text-brand-ink bg-paper border border-brand-mist rounded-lg px-3 py-2">ค่ายนี้ใช้กิจกรรมและกำหนดการจากแม่แบบจริงของทีม ({plan.tpl.source.replace('__', ' · ')}) — รายการด้านล่างใช้เมื่อเลือก “จัดอัตโนมัติ” ในขั้นกำหนดการ</div>}
                   <div className="flex items-center justify-between text-[13px]">
                     <span className="text-sub">ตารางต้องการ <b className="text-brand">{plan.coreSlots}</b> ช่องกิจกรรมหลัก · เลือกไว้ <b className="text-brand">{selectedCore}</b></span>
                     <div className="flex gap-2">
@@ -1293,6 +1297,7 @@ export default function App() {
                     );
                   })}
                   <CustomAdd onAdd={addCustom} />
+                  </details>)}
                 </div>
               )}
 
@@ -1300,11 +1305,13 @@ export default function App() {
                 <div className="space-y-3">
                   <DayMixPanel camp={camp} plan={plan} set={set} />
                   <PartyPanel camp={camp} plan={plan} set={set} />
+                  {(plan.picks || []).length > 0 && <div className="text-[13px] text-brand-ink bg-paper border border-brand-mist rounded-lg px-3 py-2">ดึงกิจกรรมที่เลือกลงกำหนดการแล้ว {(plan.picks || []).filter(x => x.how !== 'missing').length}/{(plan.picks || []).length} รายการ (ป้าย “เลือกจากคลัง”) — เปลี่ยนตำแหน่งได้ที่ขั้น “กิจกรรม”</div>}
+                  {(plan.pickWarn || []).map(w => <div key={w} className="text-[13px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{w}</div>)}
                   <SectionTitle title="กำหนดการ" sub={plan.tpl && plan.tpl.exact ? 'ตามแม่แบบโปรแกรมจริงของทีม — ชื่อโรงเรียน/ที่พัก/ปี/จำนวนคน/งบ แทนด้วยข้อมูลจากบรีฟแล้ว' : "สร้างอัตโนมัติจากกิจกรรม + ระยะเวลา · ช่อง 'กิจกรรมหลัก' เลือกจากคลังได้รายช่วง"} />
                   {camp.courseCode && (templatesOf(camp.courseCode).length > 0) && (
                     <div className="border border-brand-mist rounded-xl p-3 space-y-2 bg-white">
                       <div className="text-[13px] text-sub">แม่แบบที่ใช้</div>
-                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, rowEdits: undefined, actsOverride: undefined, budgetItems: undefined, dayOrders: undefined })} className={inp}>
+                      <select value={camp.templateId === 'engine' ? 'engine' : (plan.tpl && plan.tpl.exact ? plan.tpl.id : '')} onChange={e => set({ templateId: e.target.value || undefined, rowEdits: undefined, actsOverride: undefined, budgetItems: undefined, dayOrders: undefined, picks: camp.picks?.map(({ at, ...p }) => p) })} className={inp}>
                         {plan.tpl && plan.tpl.exact
                           ? plan.tpl.options.map(o => <option key={o.id} value={o.id}>แม่แบบจริง · {o.label}</option>)
                           : <option value="">ไม่มีแม่แบบ {durKeyLabel(durKeyOf(camp))} — หน้าปกจาก {plan.tpl ? plan.tpl.source.replace('__', ' · ') : '-'}</option>}
@@ -1339,6 +1346,7 @@ export default function App() {
                               {r.moved && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">ย้ายแล้ว</span>}
                               {r.ext && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">ช่วงที่ขยาย</span>}
                               {r.added !== undefined && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">เพิ่มเอง</span>}
+                              {r.picked !== undefined && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold">เลือกจากคลัง</span>}
                               {r.orig && <span className="inline-block mb-0.5 mr-1 px-1 rounded bg-amber-50 text-amber-800 text-[11px] font-semibold">{r.party && camp.partyTheme && !(camp.rowEdits || []).some(e => e.day === d.day && e.from === r.orig) ? 'ธีมปาร์ตี้' : 'แก้แล้ว'}</span>}
                               {r.slot !== undefined && <span className="inline-block mb-0.5 px-1 rounded bg-brand-mist text-brand text-[11px] font-semibold">กิจกรรมหลัก #{r.slot + 1}</span>}
                               <span className="block">{r.title}{r.sub?.map((s, j) => <span key={j} className="block text-slate-400">{s}</span>)}</span>
