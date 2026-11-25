@@ -1,16 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search as SearchIcon, X, CornerDownLeft, BookOpen, Puzzle, Building2, FileText, Calculator, ClipboardList, Star, FolderOpen } from 'lucide-react';
 import { readPastCache, pastJobs } from './past-data';
-import { COURSES, LIB, VENUES, NOTION_ACTIVITIES, courseLabel, actStandard } from '../src/eqcamp-core';
+import { COURSES, LIB, NOTION_ACTIVITIES, courseLabel, actStandard, CAT_ACTS, GROUP_LABEL, venueDirectory } from '../src/eqcamp-core';
 import { indexRow, pctText, NsrJob } from '../src/nsr-core';
 import type { Job, TeamJob } from './jobs';
 import { loadLocal, loadTeamEvents, summarize, dedupe, readTeam } from './registry';
 import { hubReady } from './hub';
 import { ago } from './jobs';
 
-/* ค้นหาทั้งระบบ (กด / หรือ Ctrl+K): หลักสูตร · กิจกรรม 267 · มาตรฐานกิจกรรม · ที่พัก · งานของทีม · ทะเบียนโปรแกรม · งาน NSR ทุกแท็บ
+/* ค้นหาทั้งระบบ (กด / หรือ Ctrl+K): หลักสูตร · กิจกรรม 392 (Enter = ใส่ในงานนี้) · มาตรฐานกิจกรรม · ที่พัก · งานของทีม · ทะเบียนโปรแกรม · งาน NSR ทุกแท็บ
  * พิมพ์หลายคำได้ (ต้องพบครบทุกคำ) · เลขไทย/อารบิกเท่ากัน · ไม่สนเว้นวรรค · ↑↓ เลือก · Enter เปิด · กรองตามชนิด */
-export type Go = { t: 'course' | 'useCourse' | 'job' | 'nsr' | 'stats' | 'past'; id: string } | { t: 'hub'; sec: string; q?: string };
+export type Go = { t: 'course' | 'useCourse' | 'job' | 'nsr' | 'stats' | 'past' | 'pick' | 'venue'; id: string } | { t: 'hub'; sec: string; q?: string };
 type Kind = 'job' | 'past' | 'nsr' | 'program' | 'course' | 'activity' | 'standard' | 'venue';
 interface Item { k: Kind; id: string; title: string; sub: string; badge?: string; tone?: string; when?: string; hay: string; tn: string; go: Go; alt?: { label: string; go: Go } }
 const KIND: Record<Kind, { label: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -25,7 +25,7 @@ const lsGet = (k: string) => { try { return JSON.parse(localStorage.getItem(k) |
 
 function buildIndex(jobs: Job[], team: TeamJob[]): Item[] {
   const out: Item[] = [];
-  const add = (it: Omit<Item, 'hay' | 'tn'> & { extra?: string }) => { const { extra, ...rest } = it; out.push({ ...rest, tn: normQ(it.title), hay: normQ([it.title, it.sub, it.badge, extra].join(' ')) }); };
+  const add = (it: Omit<Item, 'hay' | 'tn'> & { extra?: string }) => { const { extra, ...rest } = it; out.push({ ...rest, tn: normQ(it.title), hay: normQ([it.title, it.sub, /งานนี้$/.test(it.badge || '') ? '' : it.badge, extra].join(' ')) }); };
   // งาน (เครื่องนี้ + ทีม)
   const seen = new Set<string>();
   for (const j of jobs) { seen.add(j.id); const c = j.snap?.camp || {}; add({ k: 'job', id: j.id, title: j.name, sub: [j.course, j.duration, j.dates, c.docCode].filter(Boolean).join(' · '), when: j.savedAt, go: { t: 'job', id: j.id }, extra: [c.venue, c.province, c.level, j.school].join(' ') }); }
@@ -40,9 +40,13 @@ function buildIndex(jobs: Job[], team: TeamJob[]): Item[] {
   for (const p of S.programs.slice(0, 2000)) add({ k: 'program', id: p.programId, title: p.school || 'ไม่ระบุโรงเรียน', sub: [p.docCode, p.course, p.dur, p.dates, p.venue, p.by.join(', ')].filter(Boolean).join(' · '), when: p.last, go: p.jobId ? { t: 'job', id: p.jobId } : { t: 'stats', id: '' }, extra: p.province });
   // หลักสูตร / กิจกรรม / มาตรฐาน / ที่พัก
   for (const c of COURSES) add({ k: 'course', id: c.code, title: c.name, sub: `${c.code} · ${courseLabel(c.code)}`, go: { t: 'course', id: c.code }, alt: { label: 'สร้างเอกสาร', go: { t: 'useCourse', id: c.code } }, extra: c.obj1 + ' ' + c.obj2 });
-  for (const a of LIB) if (a.courseCode) add({ k: 'activity', id: a.id, title: a.title, sub: [courseLabel(a.courseCode), a.id].join(' · '), go: { t: 'hub', sec: 'activities', q: a.title }, extra: a.desc });
+  // กิจกรรม: คลังจากโปรแกรมจริง (392, แยกหมวด) — Enter = ใส่ในงานที่เปิดอยู่ทันที · คลัง MASTER ที่ชื่อไม่ซ้ำแสดงต่อท้าย
+  const catNames = new Set<string>();
+  for (const a of CAT_ACTS) { catNames.add(normQ(a.n)); add({ k: 'activity', id: a.i, title: a.n, sub: [courseLabel(a.c), GROUP_LABEL[a.g].split(' / ')[0], a.m ? `${a.m} นาที` : '', a.r === 'S' ? `ใช้จริง ${a.p} โปรแกรม` : ''].filter(Boolean).join(' · '), badge: 'ใส่ในงานนี้', go: { t: 'pick', id: a.i }, alt: { label: 'ดูในคลัง', go: { t: 'hub', sec: 'activities', q: a.n } }, extra: [...(a.a || []), a.d || '', a.c].join(' ') }); }
+  for (const a of LIB) if (a.courseCode && !catNames.has(normQ(a.title))) add({ k: 'activity', id: a.id, title: a.title, sub: [courseLabel(a.courseCode), a.id].join(' · '), go: { t: 'hub', sec: 'activities', q: a.title }, extra: a.desc });
   for (const n of NOTION_ACTIVITIES) { const st = actStandard(n); add({ k: 'standard', id: n.id, title: n.name, sub: [n.cats.join(', '), n.status].filter(Boolean).join(' · '), badge: st.level, go: { t: 'hub', sec: 'standard' } }); }
-  for (const v of VENUES) add({ k: 'venue', id: v.name, title: v.name, sub: [v.province, v.visit].filter(Boolean).join(' · '), go: { t: 'hub', sec: 'venues' }, extra: v.note });
+  // ที่พัก: ทำเนียบทั้งหมด — Enter = ใช้กับงานที่เปิดอยู่ (เติมจังหวัด/ทัศนศึกษา/ผู้ติดต่อ + ภาพแยกหมวด)
+  for (const v of venueDirectory()) add({ k: 'venue', id: v.name, title: v.name, sub: [v.province, v.area && v.area !== v.province ? v.area : '', v.photos.length ? `ภาพ ${v.photos.length}` : 'ยังไม่มีภาพ', v.visit].filter(Boolean).join(' · '), badge: 'ใช้กับงานนี้', go: { t: 'venue', id: v.name }, alt: { label: 'ดูในคลัง', go: { t: 'hub', sec: 'venues' } }, extra: [v.aliases.join(' '), v.note].join(' ') });
   return out;
 }
 

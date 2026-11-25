@@ -20,6 +20,9 @@ export type { CourseTemplate } from './course-templates-data';
 import { STEAM_GALLERY } from './steam-gallery-data';
 import { FRESH_PHOTOS } from './fresh-photos-data';
 import { CAT_ACTS, CAT_COURSES, CatAct, CatGroup } from './activity-catalog-data';
+import { VENUE_CAT, VenueCat, VenuePhotoCat } from './venue-catalog-data';
+export { VENUE_CAT } from './venue-catalog-data';
+export type { VenueCat, VenuePhotoCat } from './venue-catalog-data';
 export { CAT_ACTS, CAT_COURSES } from './activity-catalog-data';
 export type { CatAct, CatGroup } from './activity-catalog-data';
 export { STEAM_GALLERY } from './steam-gallery-data';
@@ -835,12 +838,52 @@ const VENUE_ALIAS: [RegExp, string][] = [
   [/ฟาว(?:น์)?เท(?:่)?น\s*ทรี|fountain\s*tree/i, 'Fountain Tree Resort'], [/บีซีพี|bcp/i, 'BCP Hotel Rayong'], [/เบลล่า\s*วิลล่า|bella\s*villa/i, 'Bella Villa Cabana Pattaya'],
   [/จันทรา\s*รีสอร์ท/, 'โรงแรมจันทรา รีสอร์ท']
 ];
-export const venuePhotoSetFor = (venue?: string) => {
+const venuePhotoSetRaw = (venue?: string) => {
   const v = String(venue || '');
   for (const [re, name] of VENUE_ALIAS) if (re.test(v)) { const hit = VENUE_PHOTOS.find(x => x.name === name); if (hit) return hit; }
   const k = placeKey(v); if (k.length < 5) return undefined;
   return VENUE_PHOTOS.find(x => { const n = placeKey(x.name); return k.includes(n) || n.includes(k); });
 };
+/** ภาพที่พักเรียงตามมาตรฐานทีม: ป้าย/มุมสูง → ห้องพัก → สระ/สิ่งอำนวยความสะดวก → ห้องประชุม (หมวดจาก VENUE_CAT) */
+export const venuePhotoSetFor = (venue?: string) => {
+  const hit = venuePhotoSetRaw(venue); if (!hit) return undefined;
+  const cat = VENUE_CAT.find(x => x.name === hit.name);
+  if (!cat || !cat.photos.length) return hit;
+  const order = cat.photos.map(p => p.id).filter(id => hit.photos.includes(id));
+  return { ...hit, photos: [...order, ...hit.photos.filter(id => !order.includes(id))] };
+};
+/* ===================== ทำเนียบที่พัก/สถานที่จัดงาน (พิมพ์ชื่อแล้วดึงข้อมูลได้เลย) ===================== */
+export const VENUE_PHOTO_LABEL: Record<VenuePhotoCat, string> = { ext: 'ป้าย / มุมสูง', room: 'ห้องพัก', fac: 'สระ / สิ่งอำนวยความสะดวก', meet: 'ห้องประชุม' };
+export const VENUE_PHOTO_ORDER: VenuePhotoCat[] = ['ext', 'room', 'fac', 'meet'];
+/** มาตรฐานทีม: ภาพละ 2 ต่อหมวด (8 รูป) */
+export const VENUE_PHOTO_TARGET = 2;
+export interface VenueEntry { name: string; province: string; area: string; visit: string; note: string; courses: string[]; progs: number; photos: VenueCat['photos']; aliases: string[]; source: 'team' | 'catalog' | 'custom' }
+const VENUE_ALIAS_TEXT: Record<string, string[]> = { 'Kasalong Resort and Spa': ['กาสะลอง', 'กาสะรอง'], 'Fortune Hotel Korat': ['ฟอร์จูน โคราช'], 'Loei Palace Hotel': ['เลยพาเลซ'], 'Fountain Tree Resort': ['ฟาวน์เทนทรี'], 'BCP Hotel Rayong': ['บีซีพี ระยอง'], 'Bella Villa Cabana Pattaya': ['เบลล่าวิลล่า คาบาน่า'] };
+/** รวมที่พักทุกแหล่ง (แค็ตตาล็อกจากโปรแกรมจริง + ที่พักที่มีผู้ติดต่อในระบบ + ที่ทีมเพิ่มเอง) ไม่ซ้ำ */
+export function venueDirectory(custom: { name: string; province: string; visit?: string; note?: string }[] = []): VenueEntry[] {
+  const out: VenueEntry[] = [];
+  const find = (name: string) => { const k = placeKey(name); return out.find(e => { const n = placeKey(e.name); return n === k || (k.length >= 6 && (n.includes(k) || k.includes(n))); }); };
+  for (const v of VENUE_CAT) out.push({ name: v.name, province: v.province, area: v.area, visit: '', note: '', courses: v.courses, progs: v.progs, photos: v.photos, aliases: VENUE_ALIAS_TEXT[v.name] || [], source: 'catalog' });
+  for (const v of VENUES) { const e = find(v.name); if (e) { e.visit = e.visit || v.visit; e.note = e.note || v.note; e.province = e.province || v.province; e.source = 'team'; } else out.push({ name: v.name, province: v.province, area: '', visit: v.visit, note: v.note, courses: [], progs: 0, photos: [], aliases: [], source: 'team' }); }
+  for (const v of custom) { if (!v || !v.name) continue; const e = find(v.name); if (e) { e.visit = e.visit || v.visit || ''; e.note = e.note || v.note || ''; } else out.push({ name: v.name, province: v.province || '', area: '', visit: v.visit || '', note: v.note || '', courses: [], progs: 0, photos: [], aliases: [], source: 'custom' }); }
+  // ภาพจาก venuePhotoSetFor (ชื่อสะกดต่างในไฟล์ทีม) ให้ทุกรายการที่ชี้ไปโรงแรมเดียวกัน
+  for (const e of out) if (!e.photos.length) { const ps = venuePhotoSetFor(e.name); const cat = ps && VENUE_CAT.find(x => x.name === ps.name); if (cat) e.photos = cat.photos; }
+  return out;
+}
+/** ค้นที่พักจากคำที่พิมพ์ (ไทย/อังกฤษ/ชื่อเล่น/จังหวัด/พื้นที่) — ตรงต้นชื่อขึ้นก่อน มีภาพขึ้นก่อน */
+export function findVenues(q: string, dir: VenueEntry[]): VenueEntry[] {
+  const k = placeKey(q); if (!k) return dir;
+  const score = (e: VenueEntry) => {
+    const names = [e.name, ...e.aliases].map(placeKey), where = placeKey(`${e.province} ${e.area}`);
+    const prov = (PLACE_PROVINCE.find(([re]) => re.test(q)) || [])[1];
+    let sc = names.some(n => n.startsWith(k)) ? 3 : names.some(n => n.includes(k)) ? 2 : (where.includes(k) || (prov && e.province === prov)) ? 1 : 0;
+    if (!sc) for (const [re, name] of VENUE_ALIAS) if (re.test(q) && name === e.name) sc = 2;
+    return sc ? sc * 100 + Math.min(e.photos.length, 8) : 0;
+  };
+  return dir.map(e => ({ e, s: score(e) })).filter(x => x.s).sort((a, b) => b.s - a.s).map(x => x.e);
+}
+/** หมวดของภาพที่พัก (id) — ใช้ติดป้ายในหน้าภาพ */
+export const venuePhotoCat = (id?: string): VenuePhotoCat | undefined => { if (!id) return undefined; for (const v of VENUE_CAT) { const p = v.photos.find(x => x.id === id); if (p) return p.c; } return undefined; };
 export const photoCaption = (_c: Camp, _i: number): string => '';
 export const venueCaption = (_name: string, _i: number): string => '';
 export function buildSchedule(c: Camp): Plan {
