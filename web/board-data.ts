@@ -16,7 +16,7 @@ export const monthOf = (iso: string) => { const t = Date.parse(iso); if (!Number
 const TH_M = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 export const monthLabel = (ym: string) => { const [y, m] = ym.split('-').map(Number); return y && m ? `${TH_M[m - 1]} ${y + 543}` : ym; };
 
-export interface TeamMember { id: string; nick: string; role?: string; active?: boolean; email?: string; lastSeen?: string; device?: string }
+export interface TeamMember { id: string; nick: string; role?: string; active?: boolean; email?: string; lastSeen?: string; device?: string; devices?: { dev: string; label?: string }[] }
 export interface PersonRow { name: string; programs: number; files: number; pdf: number; schools: string[]; value: number; last: string; id?: string; email?: string; device?: string; lastSeen?: string; role?: string; member?: boolean }
 export interface CourseRow { course: string; programs: number; students: number }
 export interface FeedRow { ts: string; who: string; what: string; school: string; course: string; jobId: string; programId: string; device: string; email: string }
@@ -47,7 +47,13 @@ export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?:
 
   // สมาชิกทีม (จากศูนย์กลาง): ทุกคนขึ้นบอร์ดแม้ยังไม่มีงานเดือนนี้ · จับคู่เหตุการณ์ด้วยรหัสสมาชิก > อีเมล > ชื่อเล่น
   const team = (input.team || []).filter(m => m && m.id && m.id !== 'shared' && m.active !== false);
-  const memberOf = (e: LogEv) => team.find(m => (e.mid && e.mid === m.id) || (e.email && m.email && e.email.toLowerCase() === m.email.toLowerCase()) || whoOf(e) === m.nick);
+  // งานที่ทำก่อนมีลิงก์ส่วนตัว / ผ่านลิงก์รวม (ไม่มีรหัสสมาชิก) → นับให้เจ้าของเครื่อง ถ้าเครื่องนั้นเป็นของสมาชิกคนเดียว
+  // (รายการเครื่องได้จากศูนย์กลาง — เฉพาะแอดมิน; สมาชิกทั่วไปไม่มีรายการเครื่อง จึงแสดงตามเดิม)
+  const devOwner = new Map<string, TeamMember | null>();
+  for (const m of team) for (const d of m.devices || []) if (d && d.dev) devOwner.set(d.dev, devOwner.has(d.dev) && devOwner.get(d.dev) !== m ? null : m);
+  const byDev = (dev?: string) => (dev && devOwner.get(dev)) || undefined;
+  const memberOf = (e: LogEv) => team.find(m => (e.mid && e.mid === m.id) || (e.email && m.email && e.email.toLowerCase() === m.email.toLowerCase()) || whoOf(e) === m.nick)
+    || (!e.mid || e.mid === 'shared' ? byDev(e.by) : undefined);
   const people = new Map<string, PersonRow & { _p: Set<string>; _s: Set<string> }>();
   const mk = (name: string, m?: TeamMember) => ({ name, programs: 0, files: 0, pdf: 0, schools: [], value: 0, last: '', id: m?.id, email: m?.email, device: m?.device, lastSeen: m?.lastSeen, role: m?.role, member: !!m, _p: new Set<string>(), _s: new Set<string>() });
   for (const m of team) people.set('m:' + m.id, mk(m.nick, m));
@@ -89,7 +95,7 @@ export function teamBoard(input: { events: LogEv[]; jobs?: TeamJob[]; statuses?:
 
   const weekAgo = new Date(now.getTime() - 7 * 864e5).toISOString();
   const activeJobs = (input.jobs || []).filter(j => j && !j.deleted && String(j.savedAt || '') >= weekAgo)
-    .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1)).slice(0, 12).map(j => ({ ...j, who: String(j.by || '').trim() || NO_NAME }));
+    .sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1)).slice(0, 12).map(j => { const nm = String(j.by || '').trim(); const real = nm && nm !== 'ลิงก์รวม' && team.some(m => m.nick === nm); return { ...j, who: real ? nm : (byDev(j.dev)?.nick || nm || NO_NAME) }; });
 
   return {
     month, months,

@@ -34,7 +34,7 @@ const seed = () => {
     ok(tag + ' top courses', /หลักสูตรที่ทำเยอะที่สุด/.test(t) && /สะเต็มศึกษา/.test(t));
     ok(tag + ' feed + who', /ความเคลื่อนไหวล่าสุด/.test(t) && /สร้าง ใบเสนอราคา|สร้าง โปรแกรมค่าย/.test(t));
     ok(tag + ' sales + follow-up', /ปิดการขาย/.test(t) && /งานเสนอค้าง/.test(t), (t.match(/ต้องติดตาม[^\n]*/) || [''])[0]);
-    ok(tag + ' active job', /งานที่กำลังทำ/.test(t) && /โรงเรียนทดสอบ1/.test(t));
+    ok(tag + ' active job', /งาน 7 วันล่าสุด/.test(t) && /โรงเรียนทดสอบ1/.test(t));
     const n0 = Number((await pg.locator('section[aria-label^="สรุป"] .tabular-nums').first().innerText()).trim());
     ok(tag + ' KPI programs = 9', n0 === 9, String(n0));
     await pg.screenshot({ path: `/tmp/board-${tag}.png`, fullPage: true });
@@ -52,9 +52,9 @@ const seed = () => {
     const ov = await pg.evaluate(() => Math.max(document.documentElement.scrollWidth - window.innerWidth, ...[...document.querySelectorAll('section button')].map(e => Math.round(e.getBoundingClientRect().right - window.innerWidth))));
     ok(tag + ' no horizontal overflow', ov <= 1, String(ov));
     // เปิดงานจากบอร์ด → ไปหน้าสร้างเอกสาร
-    { const jb = pg.locator('section[aria-label^="งานที่กำลังทำ"] button', { hasText: 'โรงเรียนทดสอบ1' }); await jb.scrollIntoViewIfNeeded(); await pg.waitForTimeout(800);
+    { const jb = pg.locator('section[aria-label^="งาน 7 วันล่าสุด"] button', { hasText: 'โรงเรียนทดสอบ1' }); await jb.scrollIntoViewIfNeeded(); await pg.waitForTimeout(800);
       if (process.env.DBG) { const bb = await jb.boundingBox(); console.log(tag, JSON.stringify(bb), await pg.evaluate(([x, y]) => { const e = document.elementFromPoint(x, y); return (e ? e.outerHTML.slice(0, 160) : 'null') + ' scrollY=' + scrollY + ' ih=' + innerHeight; }, [bb.x + bb.width / 2, bb.y + bb.height / 2])); } }
-    await pg.locator('section[aria-label^="งานที่กำลังทำ"] button', { hasText: 'โรงเรียนทดสอบ1' }).click({ timeout: 8000 }).catch(e => out.push('FAIL click ' + String(e.message).split('\n').slice(-3).join(' '))); await pg.waitForTimeout(1500);
+    await pg.locator('section[aria-label^="งาน 7 วันล่าสุด"] button', { hasText: 'โรงเรียนทดสอบ1' }).click({ timeout: 8000 }).catch(e => out.push('FAIL click ' + String(e.message).split('\n').slice(-3).join(' '))); await pg.waitForTimeout(1500);
     ok(tag + ' open job from board → builder', /#\/build/.test(pg.url()), pg.url());
     await ctx.close();
   };
