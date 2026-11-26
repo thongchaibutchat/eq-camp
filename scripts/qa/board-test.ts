@@ -55,5 +55,13 @@ ok('team: event matched by email (case-insensitive) to member', tb.byPerson.find
 ok('team: device carried', tb.byPerson.find(p => p.name === 'ตาต้า')!.device!.includes('iPhone') && tb.feed.some(f => f.device.includes('iPhone')));
 ok('team: people count = members who worked', tb.people === 2, tb.people);
 ok('feed uses member nick', tb.feed.some(f => f.who === 'แพนด้า'));
+// งานเก่า/ลิงก์รวม (ไม่มีรหัสสมาชิก) → นับให้เจ้าของเครื่อง (รายการเครื่องจากศูนย์กลาง เฉพาะแอดมิน)
+const team2 = [{ id: 'king', nick: 'พี่กิ่ง', devices: [{ dev: 'dK' }] }, { id: 'tata', nick: 'ตาต้า', devices: [{ dev: 'dT' }, { dev: 'dBoth' }] }, { id: 'nok', nick: 'พี่นก', devices: [{ dev: 'dBoth' }] }];
+const dv = teamBoard({ now, team: team2, events: [E({ ts: '2026-11-05T03:00:00Z', programId: 'K1', by: 'dK' }), E({ ts: '2026-11-05T04:00:00Z', programId: 'K2', by: 'dK', mid: 'shared', byName: 'ลิงก์รวม' }), E({ ts: '2026-11-05T05:00:00Z', programId: 'T9', by: 'dK', mid: 'tata', byName: 'ตาต้า' }), E({ ts: '2026-11-05T06:00:00Z', programId: 'B1', by: 'dBoth' })],
+  jobs: [{ id: 'jk', savedAt: '2026-11-20T00:00:00Z', name: 'x', by: 'ลิงก์รวม', dev: 'dK' }, { id: 'jt', savedAt: '2026-11-20T00:00:00Z', name: 'y', by: 'ตาต้า', dev: 'dK' }] });
+ok('device: unnamed + shared-link work counted to device owner', dv.byPerson.find(p => p.name === 'พี่กิ่ง')!.programs === 2, dv.byPerson.map(p => [p.name, p.programs]));
+ok('device: real member id wins over device', dv.byPerson.find(p => p.name === 'ตาต้า')!.programs === 1);
+ok('device: device of two members stays unnamed', dv.byPerson.some(p => p.name === 'ไม่ระบุชื่อ' && p.programs === 1));
+ok('device: jobs by shared link → device owner, real name kept', dv.activeJobs.find(j => j.id === 'jk')!.who === 'พี่กิ่ง' && dv.activeJobs.find(j => j.id === 'jt')!.who === 'ตาต้า');
 console.log(fail ? `${fail} FAIL` : 'board: all pass');
 process.exit(fail ? 1 : 0);
