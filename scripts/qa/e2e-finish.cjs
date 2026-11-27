@@ -94,7 +94,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     // 7) แก้ต่อ → กลับเป็นกำลังทำเอง
     await pg.getByRole('button', { name: /^ย้อนกลับ$/ }).click(); await sleep(300);
     const price = pg.getByLabel(/ราคาพิเศษ|ลดเหลือ/).first();
-    if (await price.count()) await price.fill('2,990'); else await pg.locator('input[type=number]').first().fill('2990');
+    if (await price.count()) await price.fill('2990'); else await pg.locator('input[type=number]').first().fill('2990');
     await sleep(1500);
     ok('edit after finish → notice back to กำลังทำ', /กลับเป็น "กำลังทำ"/.test(await body()));
     await sleep(3500);

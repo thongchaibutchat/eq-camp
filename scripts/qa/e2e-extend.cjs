@@ -33,8 +33,8 @@ const { chromium, devices } = require('playwright');
     // งานของฉัน: โหลดหน้าใหม่ → งานยังอยู่ · เริ่มงานใหม่ → เปิดงานเดิมทำต่อ
     await pg.waitForTimeout(1200); await pg.reload(); await pg.waitForTimeout(1500);
     ok('after reload still extended', /16\.00 น\. เป็นต้นไป/.test(await prev()));
-    await pg.getByRole('button', { name: /^งานของฉัน/ }).click(); await pg.waitForTimeout(400);
-    body = await pg.locator('body').innerText(); ok('jobs list has job', /งานของฉัน[\s\S]*โรงเรียนสตรีวิทยา[\s\S]*เปิดอยู่/.test(body));
+    await pg.getByRole('button', { name: /^งานทั้งหมด/ }).first().click(); await pg.waitForTimeout(400);
+    body = await pg.locator('body').innerText(); ok('jobs list has job', /งานทั้งหมด[\s\S]*โรงเรียนสตรีวิทยา[\s\S]*เปิดอยู่/.test(body)); await pg.keyboard.press('Escape'); await pg.waitForTimeout(300);
     await pg.locator('textarea').first().fill('โรงเรียนบ้านใหม่ จำนวน 40 คน ค่ายภาษาอังกฤษ 1 วัน วันที่ 5 ก.พ. 2570 ราคา 990 บาท');
     await pg.getByRole('button', { name: /เริ่มงานใหม่/ }).first().click(); await pg.waitForTimeout(2000);
     body = await pg.locator('body').innerText(); ok('two jobs listed', /โรงเรียนบ้านใหม่/.test(body) && /โรงเรียนสตรีวิทยา/.test(body));

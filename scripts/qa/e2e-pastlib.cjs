@@ -111,6 +111,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await A.pg.getByRole('button', { name: 'ใส่ในงานนี้' }).first().click(); await sleep(1500);
   const after2 = await A.pg.getByText('ฝังภาพของที', { exact: false }).count();
   ok('use photo → embedded in venue images', after2 === before2 + 1 && await A.pg.getByRole('button', { name: 'ใส่แล้ว' }).count() === 1, [before2, after2]);
+  // ── แม่แบบ: แท็บความครอบคลุม + เสนอโปรแกรมจริงเมื่อไม่มีแม่แบบระยะนั้น ──
+  await A.pg.goto(`${BASE}/#/past`); await sleep(1200);
+  await A.pg.getByRole('tab', { name: /แม่แบบที่ควรเพิ่ม/ }).click(); await sleep(300);
+  t = await body(A.pg);
+  ok('coverage tab: real o32 has team template', /ภาษาอังกฤษ\s*3 วัน 2 คืน\s*1\s*4 ธ\.ค\. 69\s*มี \d+ แบบ/.test(t), t.slice(t.indexOf('แม่แบบทีม') - 50, t.indexOf('แม่แบบทีม') + 200));
+  await A.pg.evaluate(() => { const l = JSON.parse(localStorage.getItem('eqcamp.pastlib.v1')); for (const d of Object.values(l.items)) d.dk = 'half'; l.at = new Date().toISOString(); localStorage.setItem('eqcamp.pastlib.v1', JSON.stringify(l)); });
+  await A.pg.reload(); await sleep(1500);
+  await A.pg.getByRole('tab', { name: /แม่แบบที่ควรเพิ่ม \(1\)/ }).click(); await sleep(300);
+  ok('coverage tab: gap counted', /ยังไม่มีแม่แบบ/.test(await body(A.pg)));
+  await A.pg.goto(`${BASE}/#/build`); await sleep(1000);
+  await A.pg.locator('textarea').first().fill('โรงเรียนทดสอบแม่แบบ จำนวน 50 คน ค่ายภาษาอังกฤษ English Camp ครึ่งวัน');
+  await A.pg.getByRole('button', { name: /เริ่มงานใหม่/ }).first().click(); await sleep(2500);
+  for (let i = 0; i < 3; i++) { await A.pg.getByRole('button', { name: /^ถัดไป:/ }).click(); await sleep(400); }
+  t = await body(A.pg);
+  ok('schedule: suggests real program as template', /ทีมเคยจัดหลักสูตรนี้ระยะเวลานี้จริง 1 งาน/.test(t), t.slice(0, 500));
+  await A.pg.evaluate(() => { window.__toasts = []; new MutationObserver(() => { const el = document.querySelector('.shadow-lift'); if (el) window.__toasts.push(el.innerText); }).observe(document.body, { childList: true, subtree: true, characterData: true }); });
+  await A.pg.getByRole('button', { name: 'ใช้เป็นแม่แบบ' }).first().click();
+  t = await until(A.pg, /ระยะเวลาไม่ตรงกับงานนี้|ใช้โปรแกรมจริงเป็นแม่แบบแล้ว|เปิดโปรแกรมนี้ไม่ได้|ไม่พบงานนี้/, 40000);
+  ok('use as template: mismatch guarded (no false success)', /ระยะเวลาไม่ตรงกับงานนี้/.test(t), JSON.stringify({ btn: await A.pg.getByRole('button', { name: /ใช้เป็นแม่แบบ|กำลังเปิด/ }).allInnerTexts(), log: H.log.slice(-4), toasts: await A.pg.evaluate(() => [...new Set(window.__toasts)]) }));
   // ── สมาชิก iPhone เห็นคลังของตัวเอง (ต้องอ่านเองในเครื่อง) ──
   const T = await mk(devices['iPhone 13'], 'T');
   await T.pg.goto(`${BASE}/#/t/${tata.key}`); await sleep(1500); await T.pg.keyboard.press('Escape').catch(() => {});

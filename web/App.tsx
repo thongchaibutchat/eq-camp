@@ -7,7 +7,9 @@ import Past from './Past';
 import PastPhotos from './PastPhotos';
 import { photoBytes } from './past-photos';
 import type { PhotoRef } from './past-photos';
-import { readPastCache, pastJobs } from './past-data';
+import { readPastCache, pastJobs, openPast } from './past-data';
+import { realProgramsFor, shortDate as pastDate } from './past-library';
+import type { PastDigest } from './past-library';
 import { pastForSchool } from '../src/past-import';
 import SmeMovePanel from './SmeMove';
 import ActivityPicker from './ActivityPicker';
@@ -268,6 +270,7 @@ export default function App() {
     window.addEventListener('storage', on); return () => window.removeEventListener('storage', on);
   }, []);
   const [jobsOpen, setJobsOpen] = useState(false);
+  useEffect(() => { if (!jobsOpen) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') setJobsOpen(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [jobsOpen]);
   const deleteJob = (j: Job) => { if (!confirm(`ลบงาน "${j.name}" ออกจากรายการ${hubReady() ? 'ของทีม' : ''}? (ไฟล์ที่ดาวน์โหลดไปแล้วไม่หาย)`)) return; setJobs(removeJob(j.id)); pushDelete(j.id); setTeamJobs(t => t.map(x => x.id === j.id ? { ...x, deleted: true } : x)); if (j.id === jobId) { curCopy.current = undefined; setJobId(newJobId()); } };
   useEffect(() => { const id = hashArg('#/job/'); if (!id) return; const loc = loadJobs().find(j => j.id === id); if (loc) openJob(loc); else if (hubReady()) openTeamJob({ id } as TeamJob); try { history.replaceState(null, '', '#/build'); } catch { /* */ } }, []);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -530,6 +533,16 @@ export default function App() {
       setUsedPhotos(s => new Set(s).add(r.fileId + '|' + r.name));
       flash(group === 'actImgs' ? 'ใส่ภาพในภาพกิจกรรมแล้ว' : 'ใส่ภาพในภาพที่พักแล้ว');
     } catch (e: any) { flash(e?.message || 'โหลดภาพไม่ได้', false); }
+  };
+  // โปรแกรมจริงระยะเวลาเดียวกัน → ใช้เป็นแม่แบบของงานนี้ (ข้อมูลบรีฟ/ราคา/โรงเรียนของงานนี้คงเดิม)
+  const useRealAsTemplate = async (d: PastDigest) => {
+    const job = pastJobs(readPastCache()).find(j => j.id === d.id); if (!job) { flash('ไม่พบงานนี้ในคลังงานเก่า — โหลดหน้างานเก่าใหม่', false); return; }
+    try {
+      const p = await openPast(job); const tpl = p.camp.pastTpl || p.tpl;
+      if (tpl.dur !== durKeyOf(camp) || (p.camp.courseCode && p.camp.courseCode !== camp.courseCode)) { flash(`โปรแกรมนี้อ่านได้เป็น ${durKeyLabel(tpl.dur)} — ระยะเวลาไม่ตรงกับงานนี้ จึงยังไม่ได้ใช้เป็นแม่แบบ`, false); return; }
+      set({ pastTpl: tpl, pastRef: p.camp.pastRef, templateId: undefined, rowEdits: undefined, actsOverride: undefined, budgetItems: undefined, dayOrders: undefined, dayExtends: undefined, rowAdds: undefined, picks: camp.picks?.map(({ at, ...x }) => x) });
+      flash('ใช้โปรแกรมจริงเป็นแม่แบบแล้ว — ชื่อโรงเรียน/ที่พัก/ราคาเป็นของงานนี้');
+    } catch (e: any) { flash(e?.message || 'เปิดโปรแกรมนี้ไม่ได้', false); }
   };
   const addImage = (group: 'actImgs' | 'venueImgs') => setCamp(c => ({ ...c, [group]: [...c[group], { caption: '' } as Img] }));
   const removeImage = (group: 'actImgs' | 'venueImgs', idx: number) => setCamp(c => ({ ...c, [group]: c[group].filter((_, i) => i !== idx) }));
@@ -1395,6 +1408,7 @@ export default function App() {
                           : <option value="">ไม่มีแม่แบบ {durKeyLabel(durKeyOf(camp))} — หน้าปกจาก {plan.tpl ? plan.tpl.source.replace('__', ' · ') : '-'}</option>}
                         <option value="engine">จัดอัตโนมัติจากคลังกิจกรรม (ไม่ใช้แม่แบบ)</option>
                       </select>
+                      {!(plan.tpl && plan.tpl.exact) && camp.templateId !== 'engine' && <RealTplSuggest camp={camp} onUse={useRealAsTemplate} />}
                       {plan.tpl && plan.tpl.exact && plan.tpl.locRows.length > 0 && plan.tpl.areaOK !== true && (
                         <div className="text-[12.5px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
                           แม่แบบนี้มีกิจกรรมนอกสถานที่ของพื้นที่ <b>{plan.tpl.area.join('/') || 'เดิม'}</b> — ตรวจว่าเหมาะกับพื้นที่ค่าย{camp.province ? ` จ.${camp.province}` : ''} ก่อนส่ง:
@@ -1500,7 +1514,7 @@ export default function App() {
                     <div key={group}>
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="text-[13.5px] font-semibold text-slate-700">{group === 'actImgs' ? 'ภาพกิจกรรม' : `ภาพที่พัก (${camp.venue.replace('โรงแรม', '') || 'ยังไม่เลือกที่พัก'}) · ป้าย/มุมสูง → ห้องพัก → สระ → ห้องประชุม`}</div>
-                        <button onClick={() => addImage(group)} className="text-[13px] font-semibold text-brand flex items-center gap-1"><Plus className="w-3.5 h-3.5" />เพิ่มช่อง</button>
+                        <button onClick={() => addImage(group)} className="tap text-[13px] font-semibold text-brand flex items-center gap-1"><Plus className="w-3.5 h-3.5" />เพิ่มช่อง</button>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {camp[group].map((im, i) => (
@@ -1512,7 +1526,7 @@ export default function App() {
                             <input value={im.caption} onChange={e => captionImage(group, i, e.target.value)} className="w-full px-2 py-1 rounded border border-slate-200 text-[12px]" placeholder="คำบรรยาย (ไม่ใส่ก็ได้)" />
                             <div className="flex items-center justify-between">
                               <span className="text-[11.5px] text-sub">{group === 'venueImgs' && venuePhotoCat(im.src) ? VENUE_PHOTO_LABEL[venuePhotoCat(im.src)!] : im.src ? 'จากไฟล์ของค่าย' : im.data ? 'อัปโหลดเอง' : ''}</span>
-                              <button onClick={() => removeImage(group, i)} className="text-[12px] text-rose-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" />ลบ</button>
+                              <button onClick={() => removeImage(group, i)} aria-label={`ลบภาพที่ ${i + 1}`} className="tap text-[12px] text-rose-500 flex items-center gap-0.5"><Trash2 className="w-3 h-3" />ลบ</button>
                             </div>
                           </div>
                         ))}
@@ -1608,8 +1622,17 @@ function VenueAdd({ onAdd }: { onAdd: (v: VenueRec) => void }) {
 
 
 const inp = 'w-full px-3 py-2.5 rounded-xl border border-brand-mist bg-white text-[15px] focus:outline-none focus:border-brand-navy focus:ring-2 focus:ring-brand-navy/15';
+// ป้ายช่องกรอก: ผูกกับช่องจริง (htmlFor/id) ให้โปรแกรมอ่านหน้าจอ/แตะป้ายแล้วโฟกัสช่อง · หลายช่อง = กลุ่มที่มีชื่อ
+let fieldSeq = 0;
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div><label className="block text-[13.5px] font-medium text-brand-ink mb-1.5">{label}</label>{children}</div>;
+  const id = useMemo(() => 'f' + (++fieldSeq).toString(36), []);
+  const one = React.Children.count(children) === 1 && React.isValidElement(children) && typeof children.type === 'string' && /^(input|select|textarea)$/.test(children.type);
+  if (one) {
+    const el = children as React.ReactElement<any>;
+    const cid = el.props.id || id;
+    return <div><label htmlFor={cid} className="block text-[13.5px] font-medium text-brand-ink mb-1.5">{label}</label>{React.cloneElement(el, { id: cid })}</div>;
+  }
+  return <div role="group" aria-labelledby={id + 'l'}><label id={id + 'l'} className="block text-[13.5px] font-medium text-brand-ink mb-1.5">{label}</label>{children}</div>;
 }
 // รายการงบประมาณ: แก้/เพิ่ม/ลบได้ทีละบรรทัด — เอกสารจะแสดงแบบ "-  รายการ" ไม่มีตาราง (ตามแบบทีม)
 function BudgetEditor({ items, auto, normal, special, note, onChange }: { items: string[] | null; auto: string[]; normal: number; special: number; note?: string; onChange: (v: string[] | undefined) => void }) {
@@ -2346,5 +2369,21 @@ function FinishDialog({ mode, camp, checks, job, busy, team, onConfirm, onClose,
           </div>
         )}
       </div>
+    </div>);
+}
+
+// ไม่มีแม่แบบทีมระยะเวลานี้ แต่ทีมเคยขายจริง → เสนอโปรแกรมจริงล่าสุด 3 งานให้ใช้เป็นแม่แบบ
+function RealTplSuggest({ camp, onUse }: { camp: Camp; onUse: (d: PastDigest) => Promise<void> }) {
+  const [busy, setBusy] = useState('');
+  const list = camp.courseCode ? realProgramsFor(camp.courseCode, durKeyOf(camp)).slice(0, 3) : [];
+  if (!list.length) return null;
+  return (
+    <div className="rounded-lg border border-brand-mist bg-paper p-2.5" aria-label="โปรแกรมจริงที่ใช้เป็นแม่แบบได้">
+      <div className="text-[13px] font-medium text-brand-ink">ทีมเคยจัดหลักสูตรนี้ระยะเวลานี้จริง {list.length} งานล่าสุด — ใช้เป็นแม่แบบแทนการจัดอัตโนมัติได้</div>
+      <ul className="mt-1.5 space-y-1.5">{list.map(d => (
+        <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+          <span className="min-w-0"><span className="text-brand-ink">{d.name.replace(/^\d{6}\s*/, '').slice(0, 70)}</span> <span className="text-sub">· {pastDate(d.date)} · {d.acts.length} กิจกรรม</span></span>
+          <button disabled={!!busy} onClick={async () => { setBusy(d.id); try { await onUse(d); } finally { setBusy(''); } }} className="tap shrink-0 px-2.5 py-1 rounded-lg bg-brand-navy text-white text-[12.5px] font-medium disabled:opacity-50">{busy === d.id ? 'กำลังเปิด…' : 'ใช้เป็นแม่แบบ'}</button>
+        </li>))}</ul>
     </div>);
 }
