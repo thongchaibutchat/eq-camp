@@ -4,6 +4,9 @@ import Home from './Home';
 import Nsr from './Nsr';
 import Board from './Board';
 import Past from './Past';
+import PastPhotos from './PastPhotos';
+import { photoBytes } from './past-photos';
+import type { PhotoRef } from './past-photos';
 import { readPastCache, pastJobs } from './past-data';
 import { pastForSchool } from '../src/past-import';
 import SmeMovePanel from './SmeMove';
@@ -516,6 +519,17 @@ export default function App() {
       flash('ฝังรูปลงไฟล์เรียบร้อย — รูปจะปรากฏในไฟล์ Word ที่ดาวน์โหลด');
     };
     r.readAsArrayBuffer(file);
+  };
+  // ภาพจากงานจริง (คลังภาพ) → ใส่ในงานนี้: ที่พัก/รถบัส → ภาพที่พัก · กิจกรรม → ภาพกิจกรรม
+  const [usedPhotos, setUsedPhotos] = useState<Set<string>>(() => new Set());
+  const usePastPhoto = async (r: PhotoRef) => {
+    const group = r.kind === 'activity' ? 'actImgs' : 'venueImgs';
+    try {
+      const data = await photoBytes(r);
+      setCamp(c => { const arr = [...c[group]]; const empty = arr.findIndex(im => !im.data); const im = { caption: '', data } as Img; if (empty >= 0) arr[empty] = im; else arr.push(im); return { ...c, [group]: arr.slice(0, 8) }; });
+      setUsedPhotos(s => new Set(s).add(r.fileId + '|' + r.name));
+      flash(group === 'actImgs' ? 'ใส่ภาพในภาพกิจกรรมแล้ว' : 'ใส่ภาพในภาพที่พักแล้ว');
+    } catch (e: any) { flash(e?.message || 'โหลดภาพไม่ได้', false); }
   };
   const addImage = (group: 'actImgs' | 'venueImgs') => setCamp(c => ({ ...c, [group]: [...c[group], { caption: '' } as Img] }));
   const removeImage = (group: 'actImgs' | 'venueImgs', idx: number) => setCamp(c => ({ ...c, [group]: c[group].filter((_, i) => i !== idx) }));
@@ -1481,6 +1495,7 @@ export default function App() {
                     <div className="text-[13.5px] font-semibold mb-1.5">ที่พัก — พิมพ์ชื่อเพื่อดึงภาพที่พักแยกหมวด</div>
                     <VenuePicker value={camp.venue} custom={customVenues} photoBase={PHOTO_BASE} onType={v => set({ venue: v })} onPick={pickVenue} />
                   </div>
+                  {hubReady() && <PastPhotos connected venue={camp.venue} course={camp.courseCode} flash={(t, w) => flash(t, !w)} usedKeys={usedPhotos} onUse={usePastPhoto} />}
                   {(['actImgs', 'venueImgs'] as const).map(group => (
                     <div key={group}>
                       <div className="flex items-center justify-between mb-1.5">

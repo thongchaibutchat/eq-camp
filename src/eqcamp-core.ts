@@ -666,7 +666,7 @@ export const templatesOf = (code?: string): CourseTemplate[] => code ? TEMPLATES
 export const templateById = (id?: string): CourseTemplate | undefined => id ? TEMPLATES.find(t => t.id === id) : undefined;
 const NEAR: Record<string, string[]> = { half: ['day1', 'day2', 'o21', 'o32'], day1: ['day1', 'day2', 'o21', 'o32'], day2: ['day2', 'day1', 'o21', 'o32'], o21: ['o21', 'o32', 'day2', 'day1'], o32: ['o32', 'o21', 'day2', 'day1'] };
 const nearOrder = (k: string) => NEAR[k] || (k.startsWith('day') ? ['day2', 'day1', 'o32', 'o21'] : ['o32', 'o21', 'day2', 'day1']);
-const placeKey = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
+export const placeKey = (s?: string) => (s || '').toLowerCase().replace(/[^a-z0-9ก-๙]/g, '');
 // พื้นที่ค่าย (จังหวัด/สถานที่ในบรีฟ) ตรงกับพื้นที่ของแม่แบบไหม — null = แม่แบบไม่ผูกพื้นที่ / ระบุพื้นที่ไม่ได้
 export const areaMatch = (t: CourseTemplate, c: Pick<Camp, 'province' | 'venue' | 'venueVisit'>): boolean | null => {
   if (!t.area.length) return null;
@@ -1236,8 +1236,8 @@ function applyAddons(c: Camp, plan: Plan): Plan {
  *  1) มีในกำหนดการแล้ว (ชื่อตรง) → ไม่ทำซ้ำ บอกว่าอยู่ช่วงไหน
  *  2) ทีมเลือก "แทนช่วง…" → ใส่ชื่อแทนในเวลาเดิม (หาช่วงไม่เจอ = แจ้ง ไม่เดา)
  *  3) อัตโนมัติ: แทนช่วง "(ต่อยอด)" → แทนช่องกิจกรรมหลักที่ระบบเติมเอง (จัดอัตโนมัติ ไม่ใช่แม่แบบ) → แบ่งช่วงยาว → แทรกก่อนสรุป/กลับแล้วเลื่อนเวลา (แจ้งเลิกช้า) */
-export const GROUP_LABEL: Record<CatGroup, string> = { learn: 'กิจกรรมเรียนรู้ / ฐาน / เวิร์กชอป', field: 'ภาคสนาม / ทัศนศึกษา', night: 'ภาคค่ำ / ปาร์ตี้', rec: 'สันทนาการ / ละลายพฤติกรรม', open: 'พิธีเปิด / ปิด', sum: 'สรุป / ถอดบทเรียน / AAR', sub: 'กิจกรรมย่อย' };
-export const GROUP_ORDER: CatGroup[] = ['learn', 'field', 'night', 'rec', 'open', 'sum', 'sub'];
+export const GROUP_LABEL: Record<CatGroup, string> = { learn: 'กิจกรรมเรียนรู้ / เวิร์กชอป', station: 'ฐานกิจกรรม Station (หมุนเวียน)', field: 'ภาคสนาม / ทัศนศึกษา', night: 'ภาคค่ำ / ปาร์ตี้', rec: 'สันทนาการ / ละลายพฤติกรรม', open: 'พิธีเปิด / ปิด', sum: 'สรุป / ถอดบทเรียน / AAR', sub: 'กิจกรรมย่อย' };
+export const GROUP_ORDER: CatGroup[] = ['learn', 'station', 'field', 'night', 'rec', 'open', 'sum', 'sub'];
 const CAT_BY_ID = new Map(CAT_ACTS.map(a => [a.i, a]));
 export const catAct = (id?: string): CatAct | undefined => id ? CAT_BY_ID.get(id) : undefined;
 export const catActsOf = (code: string): CatAct[] => CAT_ACTS.filter(a => a.c === code);

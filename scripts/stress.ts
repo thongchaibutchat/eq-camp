@@ -179,7 +179,7 @@ let fail = 0, ok = 0;
             if (!plan.days.some(d => d.items.some(r => r.picked === p.idx && r.title === p.title))) throw new Error('pick row missing: ' + p.title);
           }
           if (!ps.some(p => p.how === 'missing') || !(plan.pickWarn || []).some(w => /ไม่พบช่วงที่เลือก/.test(w))) throw new Error('missing target not warned');
-          if (ps.some(p => p.how === 'replace') === false && ((cfg.camp as any).picks || []).some((x: any) => x.at && x.at !== '1|ไม่มีแถวนี้')) throw new Error('replace target not applied');
+          if (ps.some(p => p.how === 'replace' || (p.how === 'exists' && !!(p as any).day)) === false && ((cfg.camp as any).picks || []).some((x: any) => x.at && x.at !== '1|ไม่มีแถวนี้')) throw new Error('replace target not applied');
           for (const d of plan.days) { let prev = -1; for (const r of d.items) { const m = r.time.match(/(\d{1,2})[.:](\d{2})/); if (!m) continue; const v = +m[1] * 60 + +m[2]; if (r.picked !== undefined && v + 1 < prev) throw new Error(`pick time goes back day ${d.day}: ${r.time} ${r.title}`); prev = Math.max(prev, v); } }
         }
         for (const a of ((cfg.camp as any).rowAdds || []) as { day: number; title: string }[]) if (a.title && a.day <= plan.days.length && !plan.days[a.day - 1].items.some(r => r.title === a.title.trim())) throw new Error('rowAdd missing: ' + a.title);

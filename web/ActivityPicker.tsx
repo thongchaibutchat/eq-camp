@@ -5,6 +5,10 @@ import {
   CAT_ACTS, CAT_COURSES, GROUP_LABEL, GROUP_ORDER, pickName, pickMinutes, pickTargets, findInPlan, buildSchedule,
 } from '../src/eqcamp-core';
 import type { Camp, ActPick, CatAct, CatGroup, PickPlace } from '../src/eqcamp-core';
+import { usePastIndex } from './PastLibrary';
+import { realUseOf, shortDate, courseName } from './past-library';
+import type { RealAct } from './past-library';
+import { hubReady } from './hub';
 
 type Plan = ReturnType<typeof buildSchedule>;
 const norm = (s: string) => String(s || '').toLowerCase().replace(/[๐-๙]/g, d => String('๐๑๒๓๔๕๖๗๘๙'.indexOf(d))).replace(/[\s\-–.,:;“”"'()/&]+/g, '');
@@ -35,6 +39,7 @@ export default function ActivityPicker({ camp, plan, set }: { camp: Camp; plan: 
   const [typed, setTyped] = useState('');
   const [shut, setShut] = useState<Partial<Record<CatGroup, boolean>>>({ sub: true });
 
+  const idx = usePastIndex();
   const counts = useMemo(() => { const m: Record<string, number> = {}; for (const a of CAT_ACTS) m[a.c] = (m[a.c] || 0) + 1; return m; }, []);
   const order = useMemo(() => { const own = camp.courseCode; return [...CAT_COURSES].sort((a, b) => (a.c === own ? -1 : b.c === own ? 1 : 0)); }, [camp.courseCode]);
   const words = norm(q) ? q.trim().split(/\s+/).map(norm).filter(Boolean) : [];
@@ -42,6 +47,13 @@ export default function ActivityPicker({ camp, plan, set }: { camp: Camp; plan: 
     ? CAT_ACTS.filter(a => { const hay = norm(`${a.n} ${(a.a || []).join(' ')} ${courseLabel(a.c)} ${a.c}`); return words.every(w => hay.includes(w)); })
     : CAT_ACTS.filter(a => a.c === course);
   const groups = GROUP_ORDER.map(g => ({ g, items: list.filter(a => a.g === g) })).filter(x => x.items.length);
+  // กิจกรรมจากงานจริงที่ยังไม่อยู่ในคลังเว็บ (อ่านจากโปรแกรม Word ที่ทีมส่งแล้ว — หน้างานเก่า)
+  const realNew: RealAct[] = words.length
+    ? Object.values(idx.newByCourse).flat().filter(a => { const hay = norm(`${a.n} ${courseName(a.c)} ${a.c}`); return words.every(w => hay.includes(w)); })
+    : (idx.newByCourse[course] || []);
+  const nameIdx = (n: string) => picks.findIndex(p => !p.id && p.name === n);
+  const toggleReal = (a: RealAct) => { const i = nameIdx(a.n); set({ picks: i >= 0 ? picks.filter((_, j) => j !== i) : [...picks, { name: a.n, ...(a.min ? { min: a.min } : {}) }] }); };
+  const [realOpen, setRealOpen] = useState(true);
 
   const idxOf = (id: string) => picks.findIndex(p => p.id === id);
   const toggle = (a: CatAct) => { const i = idxOf(a.i); set({ picks: i >= 0 ? picks.filter((_, j) => j !== i) : [...picks, { id: a.i }] }); };
@@ -71,7 +83,7 @@ export default function ActivityPicker({ camp, plan, set }: { camp: Camp; plan: 
           </div>
           <ol className="divide-y divide-slate-100">
             {picks.map((p, i) => {
-              const pl = placeOf(i); const name = pickName(p); const a = p.id ? CAT_ACTS.find(x => x.i === p.id) : undefined;
+              const pl = placeOf(i); const name = pickName(p); const a = p.id ? CAT_ACTS.find(x => x.i === p.id) : undefined; const real = !a && p.name ? Object.values(idx.newByCourse).flat().find(x => x.n === p.name) : undefined;
               const own = p.at && !targets.some(t => `${t.day}|${t.key}` === p.at);
               const warn = pl && (pl.how === 'insert' || pl.how === 'missing');
               return (
@@ -82,7 +94,7 @@ export default function ActivityPicker({ camp, plan, set }: { camp: Camp; plan: 
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[14px] font-semibold leading-snug">{name}
-                      <span className="ml-1.5 text-[12px] font-normal text-sub">{a ? courseLabel(a.c) : 'พิมพ์เอง'}</span></div>
+                      <span className="ml-1.5 text-[12px] font-normal text-sub">{a ? courseLabel(a.c) : real ? `${courseName(real.c)} · จากงานจริง` : 'พิมพ์เอง'}</span></div>
                     <div className={`text-[12.5px] mt-0.5 ${warn ? 'text-amber-700' : 'text-sub'}`}>{placeText(pl) || 'กำลังจัด…'}</div>
                     <div className="flex flex-wrap gap-2 mt-1.5">
                       <select value={p.at || ''} onChange={e => upd(i, { at: e.target.value })} aria-label={`ตำแหน่งของ ${name}`}
@@ -151,7 +163,7 @@ export default function ActivityPicker({ camp, plan, set }: { camp: Camp; plan: 
                               {words.length > 0 && <span className="ml-1.5 text-[12px] text-sub">{courseLabel(a.c)}</span>}
                               {inPlan && <span className="ml-1.5 inline-block px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold align-middle">มีในกำหนดการ</span>}
                             </span>
-                            <span className="block text-[12px] text-sub">{[minText(a.m), realText(a), a.a && a.a.length ? `เรียกอีกอย่าง ${a.a.slice(0, 2).join(', ')}` : '', a.d || ''].filter(Boolean).join(' · ')}</span>
+                            <span className="block text-[12px] text-sub">{(() => { const u = realUseOf(a, idx); return [minText(a.m), u ? `งานจริงปีนี้ ${u.progs} งาน · ล่าสุด ${shortDate(u.last)}` : realText(a), a.a && a.a.length ? `เรียกอีกอย่าง ${a.a.slice(0, 2).join(', ')}` : '', a.d || ''].filter(Boolean).join(' · '); })()}</span>
                           </span>
                         </label>
                       </li>);
@@ -159,7 +171,31 @@ export default function ActivityPicker({ camp, plan, set }: { camp: Camp; plan: 
                 </ul>)}
             </section>);
         })}
-        {!groups.length && <div className="text-[13.5px] text-sub px-1 py-3">ไม่พบกิจกรรมที่ตรงคำค้น — พิมพ์ชื่อเองด้านล่างได้</div>}
+        {realNew.length > 0 && (
+          <section className="border border-slate-200 rounded-xl" aria-label="กิจกรรมจากงานจริงที่ยังไม่อยู่ในคลัง">
+            <button onClick={() => setRealOpen(v => !v)} aria-expanded={realOpen} className="tap w-full flex items-center justify-between px-3 py-2 text-[14px] font-semibold">
+              <span>จากงานจริงที่ทีมส่งแล้ว (ยังไม่อยู่ในคลัง) <span className="text-sub font-normal">{realNew.length}</span></span>
+              {realOpen ? <ChevronUp size={16} className="text-sub" /> : <ChevronDown size={16} className="text-sub" />}
+            </button>
+            {realOpen && (
+              <ul className="border-t border-slate-100 divide-y divide-slate-100">
+                {realNew.slice(0, 60).map(a => { const on = nameIdx(a.n) >= 0; const inPlan = !on && findInPlan(a.n, plan); return (
+                  <li key={a.c + a.k}>
+                    <label className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer ${on ? 'bg-paper' : 'hover:bg-slate-50'}`}>
+                      <input type="checkbox" checked={on} onChange={() => toggleReal(a)} className="mt-1 w-4 h-4 accent-[#0C2A41] shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] leading-snug">{a.n}
+                          {words.length > 0 && <span className="ml-1.5 text-[12px] text-sub">{courseName(a.c)}</span>}
+                          {inPlan && <span className="ml-1.5 inline-block px-1 rounded bg-brand-mist text-brand-navy text-[11px] font-semibold align-middle">มีในกำหนดการ</span>}</span>
+                        <span className="block text-[12px] text-sub">{[a.min ? `${a.min} นาที` : '', `ใช้ในงานจริง ${a.progs} งาน · ล่าสุด ${shortDate(a.last)}`].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </label>
+                  </li>); })}
+              </ul>)}
+          </section>
+        )}
+        {!groups.length && !realNew.length && <div className="text-[13.5px] text-sub px-1 py-3">ไม่พบกิจกรรมที่ตรงคำค้น — พิมพ์ชื่อเองด้านล่างได้</div>}
+        {!idx.programs && hubReady() && !words.length && <div className="text-[12.5px] text-sub px-1">ยังไม่ได้ดึงกิจกรรมจากโปรแกรมจริงของทีม — <a href="#/past" className="text-brand-navy underline underline-offset-2">ไปหน้างานเก่า แล้วกด “อ่านทุกงาน”</a></div>}
       </div>
 
       <div className="mt-3 flex gap-2">

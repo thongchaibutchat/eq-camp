@@ -8,6 +8,8 @@ import type { PastJob, PastParse } from '../src/past-import';
 import type { Camp } from '../src/eqcamp-core';
 import { courseLabel } from '../src/eqcamp-core';
 import { normQ } from './Search';
+import PastLibrary from './PastLibrary';
+import PastPhotos from './PastPhotos';
 
 type F = 'all' | 'camp' | 'corp' | 'confirmed' | 'open';
 const FILTERS: { id: F; label: string }[] = [{ id: 'all', label: 'ทั้งหมด' }, { id: 'camp', label: 'ค่ายโรงเรียน' }, { id: 'corp', label: 'องค์กร / Team Building' }, { id: 'confirmed', label: 'ยืนยันแล้ว' }, { id: 'open', label: 'เปิดมาแก้ได้' }];
@@ -93,6 +95,8 @@ export default function Past({ onOpen, onConnect, flash, initialQ = '' }: { onOp
       )}
 
       {jobs.length > 0 && (<>
+        <PastLibrary total={counts.open} connected={connected} flash={flash} />
+        <PastPhotos connected={connected} flash={flash} />
         <div className="flex flex-col sm:flex-row gap-2">
           <label className="relative flex-1"><span className="sr-only">ค้นหางานเก่า</span>
             <SearchIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-sub" />

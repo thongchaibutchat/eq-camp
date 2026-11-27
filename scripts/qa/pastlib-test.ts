@@ -1,0 +1,38 @@
+// คลังกิจกรรมจากงานจริง: ย่อโปรแกรม → ดัชนี (นับงาน/จับคู่คลังเว็บ/กิจกรรมใหม่/ที่พัก) — ใช้ชุดสมมติ fixtures
+import { readFileSync } from 'fs';
+(globalThis as any).localStorage = { _m: {} as Record<string, string>, getItem(k: string) { return this._m[k] ?? null; }, setItem(k: string, v: string) { this._m[k] = v; }, removeItem(k: string) { delete this._m[k]; } };
+const { parsePastProgram, classifyPast } = await import('../../src/past-import');
+const { digestOf, pastIndex, pastActsCsv, realUseOf, PASTLIB_V } = await import('../../web/past-library');
+const { CAT_ACTS } = await import('../../src/eqcamp-core');
+let pass = 0, fail = 0;
+const ok = (n: string, c: boolean, info: unknown = '') => { if (c) { pass++; console.log('PASS', n); } else { fail++; console.log('FAIL', n, JSON.stringify(info).slice(0, 300)); } };
+const txt = (f: string) => readFileSync('scripts/qa/fixtures/' + f, 'utf8');
+const jobE = classifyPast({ id: 'FE', name: '691204 English Camp โรงเรียนอนุบาลตัวอย่างวิทยา 3 วัน 2 คืน', files: [{ id: 'F1', n: 'English Camp.docx', m: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', s: 90000 }] });
+const jobT = classifyPast({ id: 'FT', name: '691110 ค่ายวิทยาศาสตร์ทางทะเล โรงเรียนสมมติพิทยา', files: [{ id: 'F2', n: 'หลักสูตร STEM.docx', m: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', s: 90000 }] });
+const pe = parsePastProgram(txt('past-eng.txt'), { fileId: 'F1', folderId: 'FE' });
+const pt = parsePastProgram(txt('past-sea.txt'), { fileId: 'F2', folderId: 'FT' });
+const de = digestOf(jobE, pe, 'u1'), dt = digestOf(jobT, pt, 'u2');
+ok('digest: กิจกรรมจากกำหนดการ (ไม่มีมื้อ/เดินทาง)', de.acts.length >= 5 && !de.acts.some(a => /อาหาร|เดินทาง|Breakfast|Lunch|Dinner|พักผ่อน|Check/i.test(a.n)), de.acts.map(a => a.n));
+ok('digest: วัน/เวลา/นาที', de.acts.every(a => a.d >= 1 && a.d <= 3) && de.acts.some(a => a.m >= 30), de.acts.slice(0, 4));
+ok('digest: ข้อมูลงาน', de.course === 'PL ENG 0104' && de.students === 90 && de.price === 990 && de.v === PASTLIB_V && de.date === '2026-12-04', [de.course, de.students, de.price, de.date]);
+ok('digest: หลักสูตรไทย', !!dt.course && dt.acts.length >= 3, [dt.course, dt.acts.map(a => a.n)]);
+// งานที่สอง = โปรแกรมอังกฤษเดียวกันอีกโรงเรียน → นับ 2 งาน
+const de2 = { ...de, id: 'FE2', school: 'โรงเรียนที่สอง', date: '2026-12-20' };
+const lib = { at: 'x', items: { FE: de, FE2: de2, FT: dt, BAD: { ...dt, id: 'BAD', acts: [], err: 'read' } } };
+const idx = pastIndex(lib as any);
+ok('index: นับโปรแกรมที่อ่านได้ + ล้มเหลว', idx.programs === 3 && idx.failed === 1, [idx.programs, idx.failed]);
+const eng = idx.byCourse['PL ENG 0104'] || [];
+ok('index: กิจกรรมเดียวกัน 2 งาน + ล่าสุด', eng.length > 0 && eng.every(a => a.progs === 2) && eng[0].last === '2026-12-20', eng.slice(0, 3).map(a => [a.n, a.progs, a.last]));
+ok('index: จับคู่คลังเว็บได้บางตัว', eng.some(a => a.cat), eng.map(a => [a.n, a.cat?.n]));
+const fresh = idx.newByCourse['PL ENG 0104'] || [];
+ok('index: กิจกรรมใหม่ = ไม่อยู่ในคลัง และไม่ใช่สรุป', fresh.every(a => !a.cat && !a.summary), fresh.map(a => a.n));
+ok('index: ตัวอย่างโรงเรียน', eng[0].schools.length === 2, eng[0].schools);
+const hit = eng.find(a => a.cat)!;
+ok('realUseOf: คลังเว็บรู้ว่าใช้จริงกี่งาน', !!hit && realUseOf(hit.cat!, idx)?.progs === 2, hit && realUseOf(hit.cat!, idx));
+ok('index: ที่พัก', idx.venues.length >= 1 && idx.venues[0].progs >= 1, idx.venues);
+const csv = pastActsCsv(idx);
+ok('csv: BOM + หัว + แถว', csv.startsWith('﻿') && csv.split('\r\n').length === idx.acts.filter(a => !a.summary).length + 1 && /ยังไม่มี|มีแล้ว/.test(csv));
+ok('csv: ไม่มีราคา/ต้นทุน', !/ราคา|ต้นทุน|กำไร/.test(csv.split('\r\n')[0]));
+ok('cat: มีหมวด Station', CAT_ACTS.some(a => a.g === 'station' && a.c === 'PL MAT 0107' && /Number Run/.test(a.n)));
+ok('cat: Mathematics Station บอกฐานที่หมุนเวียน', CAT_ACTS.some(a => /Mathematics Station/.test(a.n) && /ฐานที่หมุนเวียน 12 ฐาน/.test(a.d || '')));
+console.log(fail ? `${fail} FAIL` : `pastlib: all pass (${pass})`); process.exit(fail ? 1 : 0);

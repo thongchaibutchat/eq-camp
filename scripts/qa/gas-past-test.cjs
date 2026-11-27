@@ -12,7 +12,7 @@ const drive = () => ({
     J1: { name: '691204 English Camp โรงเรียนตัวอย่าง 3 วัน 2 คืน', files: ['F1', 'F2', 'F3'], folders: ['S1'] },
     S1: { name: 'ภาพ', files: ['F9'] },
     J2: { name: '691114 บริษัท ตัวอย่าง จำกัด Team Building', files: ['F4'] },
-    J3: { name: '691120 STEM Camp ตัวอย่างวิทยาคาร', files: ['F5'] },
+    J3: { name: '691120 STEM Camp ตัวอย่างวิทยาคาร', files: ['F5', 'F7'] },
     J4: { name: '691201 Math Camp ตัวอย่าง', files: [] }
   },
   files: {
@@ -21,6 +21,12 @@ const drive = () => ({
     F3: { name: 'ยืนยัน ใบเสนอราคา English.pdf', mime: 'application/pdf' },
     F4: { name: 'Team Building.pdf', mime: 'application/pdf' },
     F5: { name: 'STEM ตาราง.docx', mime: DOCX, entries: [{ name: 'word/document.xml', data: TBL }] },
+    F7: { name: 'STEM ภาพ.docx', mime: DOCX, entries: [
+      { name: 'word/document.xml', data: '<w:document><w:body><w:p><w:r><w:t>กำหนดการ</w:t></w:r></w:p><w:p><w:r><w:t>ตัวอย่างภาพบรรยากาศที่พัก Kasalong Resort</w:t></w:r></w:p><w:p><w:r><w:drawing><a:blip r:embed="rId7"/></w:drawing></w:r><w:r><w:drawing><a:blip r:embed="rId8"/></w:drawing></w:r></w:p><w:p><w:r><w:t>รถบัสปรับอากาศ 2 ชั้น</w:t></w:r></w:p><w:p><w:r><w:drawing><a:blip r:embed="rId9"/></w:drawing></w:r></w:p><w:p><w:r><w:drawing><a:blip r:embed="rId7"/></w:drawing></w:r></w:p><w:sectPr/></w:body></w:document>' },
+      { name: 'word/_rels/document.xml.rels', data: '<Relationships><Relationship Id="rId7" Type="image" Target="media/image1.jpeg"/><Relationship Id="rId8" Type="image" Target="media/image2.png"/><Relationship Id="rId9" Type="image" Target="/word/media/image3.jpg"/><Relationship Id="rId2" Type="styles" Target="styles.xml"/></Relationships>' },
+      { name: 'word/media/image1.jpeg', data: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]) },
+      { name: 'word/media/image2.png', data: Buffer.from([0x89, 0x50, 0x4e, 0x47]) },
+      { name: 'word/media/image3.jpg', data: Buffer.from([0xff, 0xd8, 9, 9]) }] },
     F9: { name: 'ภาพ 1.jpg', mime: 'image/jpeg' },
     OUT: { name: 'ไฟล์นอกคลัง.docx', mime: DOCX, entries: [{ name: 'word/document.xml', data: XML }] }
   }
@@ -84,4 +90,20 @@ const setup = (opt = {}) => {
 { const H = makeHub(fs.readFileSync(process.argv[2], 'utf8').replace(/const PAST_FOLDER = '[^']*';/, "const PAST_FOLDER = '';")); const T = (code0.match(/const TEAM_KEY = '([^']+)'/) || [])[1], O = (code0.match(/const OWNER_CODE = '([^']*)'/) || [])[1];
   const cl = H.handle({ op: 'admin.claim', owner: O, key: T, dev: 'a' }); const r = H.handle({ op: 'past.scan', key: cl.key, dev: 'a' });
   ok('no PAST_FOLDER → nopast', r.error === 'nopast', JSON.stringify(r)); }
+// รุ่น 15: ภาพในไฟล์ Word ของงานเก่า (รายการ + หัวข้อก่อนหน้า + อ่านทีละภาพ)
+{ const { ADM, TATA, H } = setup();
+  ADM('past.scan');
+  const m = TATA('past.media', { fileId: 'F7' });
+  ok('media: 3 unique images in order', m.ok && m.media.length === 3 && m.media.map(x => x.name).join(',') === 'media/image1.jpeg,media/image2.png,media/image3.jpg', JSON.stringify(m));
+  ok('media: ctx = heading before image', /ที่พัก Kasalong/.test(m.media[0].ctx) && /รถบัส/.test(m.media[2].ctx) && !/รถบัส/.test(m.media[0].ctx), JSON.stringify(m.media));
+  ok('media: sizes', m.media[0].size === 7 && m.media[1].size === 4, JSON.stringify(m.media));
+  ok('media: cached second time', TATA('past.media', { fileId: 'F7' }).cached === true);
+  const im = TATA('past.img', { fileId: 'F7', name: 'media/image2.png' });
+  ok('img: png base64', im.ok && im.mime === 'image/png' && Buffer.from(im.data, 'base64').equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])), JSON.stringify(im));
+  ok('img: path traversal refused', TATA('past.img', { fileId: 'F7', name: '../word/document.xml' }).error === 'bad' && TATA('past.img', { fileId: 'F7', name: 'media/../document.xml' }).error === 'bad');
+  ok('img: file outside catalog refused', TATA('past.img', { fileId: 'OUT', name: 'media/image1.jpeg' }).error === 'missing' && TATA('past.media', { fileId: 'OUT' }).error === 'missing');
+  ok('media: non-docx refused', TATA('past.media', { fileId: 'F9' }).error === 'type');
+  ok('media: needs key', H.handle({ op: 'past.media', fileId: 'F7', key: 'eq-wrong', dev: 'x' }).ok === false);
+}
+
 console.log(fail ? `past-hub: ${fail} FAIL` : 'past-hub: all pass'); process.exit(fail ? 1 : 0);
