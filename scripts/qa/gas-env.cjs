@@ -57,7 +57,8 @@ const env = {
     getBlob: () => ({ setContentType() { return this; }, _entries: f.entries || [] }) }; };
   env.DriveApp = { getFolderById: folderObj, getFileById: id => { driveReads++; return fileObj(id); },
     continueFolderIterator: tok => { const [k, parent, pos] = JSON.parse(tok); return iter(k, parent, D.folders[parent].folders || [], pos); } };
-  env.Utilities.unzip = blob => (blob._entries || []).map(e => ({ getName: () => e.name, getDataAsString: () => e.data }));
+  env.Utilities.unzip = blob => (blob._entries || []).map(e => ({ getName: () => e.name, getDataAsString: () => typeof e.data === 'string' ? e.data : Buffer.from(e.data).toString('utf8'), getBytes: () => Array.from(typeof e.data === 'string' ? Buffer.from(e.data, 'utf8') : Buffer.from(e.data)) }));
+  if (!env.Utilities.base64Encode) env.Utilities.base64Encode = b => Buffer.from(b).toString('base64');
   // นาฬิกาเร่ง (ทดสอบสแกนต่อจากจุดเดิม): opt.fastClock = มิลลิวินาทีที่เดินต่อการเรียก Date.now หนึ่งครั้ง
   if (opt.fastClock) { let t = Date.parse('2026-11-23T00:00:00Z'); env.Date = class extends Date { static now() { return (t += opt.fastClock); } }; }
   const fn = new Function(...Object.keys(env), code + '\nreturn { doPost, doGet, onEdit, setup, warmCache, pastDaily: typeof pastDaily === "function" ? pastDaily : null };')(...Object.values(env));

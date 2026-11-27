@@ -21,7 +21,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok('picker shown', /เลือกกิจกรรมเข้าโปรแกรม/.test(t));
     const stemTab = pg.getByRole('tab', { name: /STEM/ }).first();
     ok('STEM tab selected with count', (await stemTab.getAttribute('aria-selected')) === 'true' && /STEM\s*49/.test(await stemTab.innerText()), await stemTab.innerText());
-    ok('groups with counts', /กิจกรรมเรียนรู้ \/ ฐาน \/ เวิร์กชอป\s*\d+/.test(t) && /สรุป \/ ถอดบทเรียน \/ AAR/.test(t), t.slice(0, 200));
+    ok('groups with counts', /กิจกรรมเรียนรู้ \/ เวิร์กชอป\s*\d+/.test(t) && /สรุป \/ ถอดบทเรียน \/ AAR/.test(t), t.slice(0, 200));
     ok('existing activities flagged', /มีในกำหนดการ/.test(t));
     // ติ๊ก 2 กิจกรรมจาก STEM + 1 จากหลักสูตรอื่นด้วยการค้นหา + พิมพ์เอง 1
     await pg.getByRole('checkbox', { name: /^Smart City/ }).check(); await sleep(300);

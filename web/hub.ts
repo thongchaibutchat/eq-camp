@@ -246,7 +246,7 @@ const OWNER_CODE = '${opt.owner || ''}';   // รหัสเจ้าของ:
 const MEMBERS_SEED = ${JSON.stringify(opt.seed || [])};
 const CONFIG_SEED = ${JSON.stringify(opt.config || {})};   // ค่าตั้งต้นของทีม (แอดมินแก้ได้บนเว็บ)
 const PAST_FOLDER = '${opt.pastFolder || ''}';   // โฟลเดอร์งานที่เคยส่งจริง (เช่น "2569") — อ่านอย่างเดียว ไม่แก้ไฟล์ต้นฉบับ
-const VERSION = 14;
+const VERSION = 15;
 function nsr_() { return NSR_ID ? SpreadsheetApp.openById(NSR_ID) : SpreadsheetApp.getActiveSpreadsheet(); }
 // สคริปต์เดี่ยว: ติดตั้งตัวจับ "มีคนแก้ชีต" ให้เองครั้งแรก (สคริปต์ผูกชีตใช้ onEdit ธรรมดา)
 function ensureTrigger_() { if (!NSR_ID) return; var p = props_(); if (p.getProperty('trig') === NSR_ID) return;
@@ -299,6 +299,8 @@ function route_(q) {
     // คลังงานเก่า (อ่านอย่างเดียว): รายการโฟลเดอร์งาน + ไฟล์ · ข้อความของไฟล์ Word เฉพาะไฟล์ที่อยู่ในคลังเท่านั้น
     case 'past.list': return { ok: true, folders: pastRows_(), scannedAt: props_().getProperty('pastAt') || '', root: PAST_FOLDER ? 1 : 0 };
     case 'past.text': return pastText_(String(q.fileId || ''));
+    case 'past.media': return pastMedia_(String(q.fileId || ''));
+    case 'past.img': return pastImg_(String(q.fileId || ''), String(q.name || ''));
     case 'past.scan': { if (!pastLock_()) return { ok: false, error: 'busy' }; try { ensurePast_(); var rs = pastScan_(!!q.full); if (rs.ok) audit_(q, 'สแกนคลังงานเก่า', String(rs.n), 'เปลี่ยน ' + rs.changed + (rs.left ? ' (ยังไม่ครบ)' : '')); return rs; } finally { pastUnlock_(); } }
     case 'config.get': return { ok: true, config: cfg_() };
     case 'config.set': { var nc = q.config || {}, cur = cfg_(), sm = nc.sme || {}; var clean = function (x) { x = x || {}; return { email: String(x.email || '').trim().toLowerCase().slice(0, 80), label: String(x.label || '').slice(0, 60) }; };
@@ -743,6 +745,36 @@ function pastText_(fileId) {
   if (!xml) return { ok: false, error: 'read' };
   var text = docxText_(xml); if (text.length < 90000) { try { c.put(k, text, 21600); } catch (x) {} }
   return { ok: true, text: text, name: hit.n };
+}
+// ภาพในไฟล์ Word ของงานเก่า (รุ่น 15): รายการภาพตามลำดับในเอกสาร + ข้อความก่อนหน้า (หัวข้อของภาพ เช่น "ตัวอย่างภาพบรรยากาศที่พัก …" / "รถบัส")
+function pastHit_(fileId) { var hit = null; pastRows_().some(function (r) { return r.files.some(function (f) { if (f.id === fileId) { hit = f; return true; } return false; }); }); return hit; }
+function pastZip_(fileId) { var blob = DriveApp.getFileById(fileId).getBlob(); try { blob.setContentType('application/zip'); } catch (x) {} return Utilities.unzip(blob); }
+function pastMedia_(fileId) {
+  var hit = pastHit_(fileId); if (!fileId || !hit) return { ok: false, error: 'missing' };
+  if (!(/\\.docx$/i.test(hit.n) || /wordprocessingml/.test(hit.m))) return { ok: false, error: 'type' };
+  var c = CacheService.getScriptCache(), k = 'pm:' + fileId; try { var got = c.get(k); if (got) return { ok: true, media: JSON.parse(got), name: hit.n, cached: true }; } catch (x) {}
+  var xml = '', rels = '', sizes = {};
+  pastZip_(fileId).forEach(function (b) { var n = b.getName(); if (n === 'word/document.xml') xml = b.getDataAsString('UTF-8'); else if (n === 'word/_rels/document.xml.rels') rels = b.getDataAsString('UTF-8'); else if (/^word\\/media\\//.test(n)) sizes[n.slice(5)] = b.getBytes().length; });
+  if (!xml) return { ok: false, error: 'read' };
+  var map = {}; rels.replace(/<Relationship\\b[^>]*>/g, function (r) { var id = (r.match(/Id="([^"]+)"/) || [])[1], t = (r.match(/Target="([^"]+)"/) || [])[1]; if (id && t) map[id] = t.replace(/^\\/?word\\//, ''); return r; });
+  var body = xml.replace(/^[\\s\\S]*?<w:body>/, ''), out = [], ctx = [], seen = {};
+  body.replace(/<w:p\\b[^>]*\\/>|<w:p\\b[^>]*>[\\s\\S]*?<\\/w:p>/g, function (p) {
+    var t = ptext_(p).replace(/\\s+/g, ' ').trim(), ids = [];
+    p.replace(/r:embed="([^"]+)"/g, function (m, id) { ids.push(id); return m; });
+    ids.forEach(function (id) { var tg = map[id]; if (!tg || !/^media\\//.test(tg) || seen[tg]) return; seen[tg] = 1; out.push({ i: out.length, name: tg, size: sizes[tg] || 0, ctx: ctx.slice(-2).concat(t ? [t] : []).join(' | ').slice(0, 300) }); });
+    if (t && t.length <= 160) { ctx.push(t); if (ctx.length > 4) ctx.shift(); }
+    return p; });
+  var js = JSON.stringify(out); if (js.length < 90000) { try { c.put(k, js, 21600); } catch (x) {} }
+  return { ok: true, media: out, name: hit.n };
+}
+function pastImg_(fileId, name) {
+  var hit = pastHit_(fileId); if (!fileId || !hit) return { ok: false, error: 'missing' };
+  if (!/^media\\/[\\w.\\-]+$/.test(name)) return { ok: false, error: 'bad' };
+  var b = null; pastZip_(fileId).some(function (x) { if (x.getName() === 'word/' + name) { b = x; return true; } return false; });
+  if (!b) return { ok: false, error: 'missing' };
+  var bytes = b.getBytes(); if (bytes.length > 9000000) return { ok: false, error: 'big' };
+  var ext = (name.match(/\\.(\\w+)$/) || [])[1] || '', mime = /png/i.test(ext) ? 'image/png' : /jpe?g/i.test(ext) ? 'image/jpeg' : /gif/i.test(ext) ? 'image/gif' : /webp/i.test(ext) ? 'image/webp' : /emf|wmf/i.test(ext) ? 'image/x-' + ext.toLowerCase() : 'application/octet-stream';
+  return { ok: true, mime: mime, size: bytes.length, data: Utilities.base64Encode(bytes) };
 }
 function ent_(s) { return s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&#(\\d+);/g, function (m, d) { return String.fromCharCode(+d); }).replace(/&amp;/g, '&'); }
 function ptext_(p) { var out = ''; p.replace(/<w:tab\\/>|<w:br\\b[^>]*\\/>|<w:t(?:\\s[^>]*)?>([\\s\\S]*?)<\\/w:t>/g, function (m, t) { out += m.indexOf('<w:tab') === 0 ? '\\t' : m.indexOf('<w:br') === 0 ? '\\n' : t; return m; }); return ent_(out); }
