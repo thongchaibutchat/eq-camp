@@ -17,3 +17,6 @@ img[src^="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEA
 :focus-visible { outline: 2px solid #C4641B; outline-offset: 2px; }
 .clamp2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .safe-b { padding-bottom: env(safe-area-inset-bottom); }
+
+/* จอสัมผัส: ปุ่มเล็กอย่างน้อย 28 px ให้แตะได้แม่น (WCAG 2.5.8 ≥ 24 px) */
+@media (pointer: coarse) { button.tap, a.tap { min-height: 28px; } }

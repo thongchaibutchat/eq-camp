@@ -2,17 +2,17 @@
 // อ่านโปรแกรม Word ทุกงาน (past.text) → สรุปเป็น "ย่อ" ต่องาน (กิจกรรมในกำหนดการ/ที่พัก/จังหวัด/หลักสูตร) เก็บในเครื่องสมาชิก
 // แล้วรวมเป็นดัชนี: กิจกรรมแต่ละตัวใช้กี่งาน ล่าสุดเมื่อไร · ตัวไหนยังไม่อยู่ในคลังกิจกรรมของเว็บ · ที่พักไหนใช้บ่อย
 // กติกา: ไม่เดา — ใช้ชื่อแถวตามต้นฉบับ (ตัดเลขมื้อ/Part/EP ตอนจับคู่เท่านั้น) · ข้อมูลลูกค้าอยู่ในเครื่องสมาชิกเท่านั้น (ไม่ฝังในเว็บสาธารณะ)
-import { scheduleActs, actKey, CAT_ACTS, CAT_COURSES, venueDirectory, placeKey } from '../src/eqcamp-core';
+import { scheduleActs, actKey, CAT_ACTS, CAT_COURSES, venueDirectory, placeKey, durKeyOf, TEMPLATES } from '../src/eqcamp-core';
 import type { CatAct } from '../src/eqcamp-core';
 import type { PastJob, PastParse } from '../src/past-import';
 import { hubReady } from './hub';
 import { openPast, pastJobs, readPastCache } from './past-data';
 
-export const PASTLIB_V = 2;              // เปลี่ยนเมื่อวิธีย่อเปลี่ยน → อ่านใหม่ทั้งหมด
+export const PASTLIB_V = 3;              // เปลี่ยนเมื่อวิธีย่อเปลี่ยน → อ่านใหม่ทั้งหมด
 const LS = 'eqcamp.pastlib.v1';
 export interface PastAct { n: string; k: string; d: number; t: string; m: number; s?: 1 }
 export interface PastDigest {
-  id: string; fileId: string; name: string; date: string; course: string; dur: string;
+  id: string; fileId: string; name: string; date: string; course: string; dur: string; /** half/day1/day2/o21/o32/… */ dk?: string;
   school: string; venue: string; province: string; students: number; price: number;
   acts: PastAct[]; upd: string; v: number; err?: string;
 }
@@ -37,7 +37,7 @@ export function digestOf(job: PastJob, p: PastParse, upd = ''): PastDigest {
   return {
     id: job.id, fileId: c.pastRef?.fileId || '', name: job.name, date: job.date, course: c.courseCode || job.courseCode || '',
     dur: c.durationMode === 'overnight' ? `${c.days || 0}ว${c.nights || 0}ค` : c.durationMode === 'half' ? 'ครึ่งวัน' : `${c.days || 1} วัน`,
-    school: c.school || job.school || '', venue: String(c.venue || '').trim(), province: String(c.province || '').trim(),
+    dk: durKeyOf(c), school: c.school || job.school || '', venue: String(c.venue || '').trim(), province: String(c.province || '').trim(),
     students: firstNum(c.students), price: firstNum(c.specialPrice), acts, upd, v: PASTLIB_V,
   };
 }
@@ -144,4 +144,20 @@ export function pastActsCsv(idx: PastIndex): string {
   const head = ['หลักสูตร', 'รหัส', 'กิจกรรม (ชื่อในโปรแกรมจริง)', 'จำนวนงานที่ใช้', 'ใช้ล่าสุด', 'นาที (มัธยฐาน)', 'วันที่ในค่าย', 'อยู่ในคลังเว็บ', 'ชื่อในคลังเว็บ', 'ตัวอย่างโรงเรียน'];
   const rows = idx.acts.filter(a => !a.summary).map(a => [courseName(a.c), a.c, a.n, a.progs, shortDate(a.last), a.min || '', a.days.join(','), a.cat ? 'มีแล้ว' : 'ยังไม่มี', a.cat?.n || '', a.schools.join(' / ')]);
   return '﻿' + [head, ...rows].map(r => r.map(q).join(',')).join('\r\n');
+}
+
+/* ===================== แม่แบบ: ขายจริงระยะไหน × มีแม่แบบทีมไหม ===================== */
+export const DUR_LABEL: Record<string, string> = { half: 'ครึ่งวัน', day1: 'ไป-กลับ 1 วัน', day2: 'ไป-กลับ 2 วัน', day3: 'ไป-กลับ 3 วัน', o21: '2 วัน 1 คืน', o32: '3 วัน 2 คืน', o43: '4 วัน 3 คืน' };
+export interface Coverage { course: string; dk: string; real: number; last: string; tpl: number; ids: string[] }
+/** ทุกคู่ หลักสูตร × ระยะเวลา ที่ขายจริง (จากโปรแกรมที่อ่านแล้ว) หรือมีแม่แบบทีม — ช่องที่ขายจริงแต่ไม่มีแม่แบบ = ควรเพิ่มแม่แบบ */
+export function templateCoverage(lib: PastLib = readPastLib()): Coverage[] {
+  const m = new Map<string, Coverage>();
+  const get = (course: string, dk: string) => { const k = course + '|' + dk; let r = m.get(k); if (!r) { r = { course, dk, real: 0, last: '', tpl: 0, ids: [] }; m.set(k, r); } return r; };
+  for (const t of TEMPLATES) get(t.code, t.dur).tpl++;
+  for (const d of Object.values(lib.items)) { if (d.err || !d.course || !d.dk) continue; const r = get(d.course, d.dk); r.real++; r.ids.push(d.id); if (d.date > r.last) r.last = d.date; }
+  return [...m.values()].sort((a, b) => b.real - a.real || a.course.localeCompare(b.course));
+}
+/** โปรแกรมจริงหลักสูตร+ระยะเวลาเดียวกัน (ใหม่สุดก่อน) — ใช้แทนแม่แบบเมื่อทีมยังไม่มีแม่แบบระยะนั้น */
+export function realProgramsFor(course: string, dk: string, lib: PastLib = readPastLib()): PastDigest[] {
+  return Object.values(lib.items).filter(d => !d.err && d.course === course && d.dk === dk && d.acts.length).sort((a, b) => b.date.localeCompare(a.date));
 }

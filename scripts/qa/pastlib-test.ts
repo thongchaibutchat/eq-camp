@@ -2,7 +2,7 @@
 import { readFileSync } from 'fs';
 (globalThis as any).localStorage = { _m: {} as Record<string, string>, getItem(k: string) { return this._m[k] ?? null; }, setItem(k: string, v: string) { this._m[k] = v; }, removeItem(k: string) { delete this._m[k]; } };
 const { parsePastProgram, classifyPast } = await import('../../src/past-import');
-const { digestOf, pastIndex, pastActsCsv, realUseOf, PASTLIB_V } = await import('../../web/past-library');
+const { digestOf, pastIndex, pastActsCsv, realUseOf, PASTLIB_V, templateCoverage, realProgramsFor } = await import('../../web/past-library');
 const { CAT_ACTS } = await import('../../src/eqcamp-core');
 let pass = 0, fail = 0;
 const ok = (n: string, c: boolean, info: unknown = '') => { if (c) { pass++; console.log('PASS', n); } else { fail++; console.log('FAIL', n, JSON.stringify(info).slice(0, 300)); } };
@@ -35,4 +35,14 @@ ok('csv: BOM + หัว + แถว', csv.startsWith('﻿') && csv.split('\r\n'
 ok('csv: ไม่มีราคา/ต้นทุน', !/ราคา|ต้นทุน|กำไร/.test(csv.split('\r\n')[0]));
 ok('cat: มีหมวด Station', CAT_ACTS.some(a => a.g === 'station' && a.c === 'PL MAT 0107' && /Number Run/.test(a.n)));
 ok('cat: Mathematics Station บอกฐานที่หมุนเวียน', CAT_ACTS.some(a => /Mathematics Station/.test(a.n) && /ฐานที่หมุนเวียน 12 ฐาน/.test(a.d || '')));
+ok('digest: durKey', de.dk === 'o32' && dt.dk === 'o21', [de.dk, dt.dk]);
+const cov = templateCoverage(lib as any);
+const ce = cov.find(r => r.course === 'PL ENG 0104' && r.dk === 'o32')!;
+ok('coverage: real count + team template', ce.real === 2 && ce.tpl >= 1 && ce.last === '2026-12-20', ce);
+ok('coverage: template-only rows have real 0', cov.some(r => r.real === 0 && r.tpl > 0));
+const half = { ...de, id: 'H1', dk: 'half', date: '2026-12-25' };
+const cov2 = templateCoverage({ at: 'y', items: { H1: half } } as any);
+ok('coverage: real without template = gap', cov2.some(r => r.dk === 'half' && r.real === 1 && r.tpl === 0));
+ok('realProgramsFor: same course+duration, newest first', realProgramsFor('PL ENG 0104', 'o32', lib as any).map(d => d.id).join() === 'FE2,FE');
+ok('realProgramsFor: skips failed', realProgramsFor(dt.course, 'o21', lib as any).length === 1);
 console.log(fail ? `${fail} FAIL` : `pastlib: all pass (${pass})`); process.exit(fail ? 1 : 0);

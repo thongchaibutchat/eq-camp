@@ -1,7 +1,7 @@
 // คลังกิจกรรม/ที่พักจากงานจริง — อ่านโปรแกรมทุกงานในโฟลเดอร์ปี → สรุปกิจกรรมที่ใช้จริง (นับงาน) + ที่ยังไม่อยู่ในคลังเว็บ + ที่พักที่ใช้บ่อย
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Database, Download, ChevronDown, ChevronUp, MapPin } from 'lucide-react';
-import { buildPastLibrary, libRunning, onPastLib, pastIndex, readPastLib, pastActsCsv, courseName, shortDate } from './past-library';
+import { buildPastLibrary, libRunning, onPastLib, pastIndex, readPastLib, pastActsCsv, courseName, shortDate, templateCoverage, DUR_LABEL } from './past-library';
 import type { PastIndex } from './past-library';
 
 export function usePastIndex(): PastIndex {
@@ -15,7 +15,7 @@ export default function PastLibrary({ total, connected, flash }: { total: number
   const idx = usePastIndex();
   const [prog, setProg] = useState<{ done: number; total: number; last?: string } | null>(libRunning() ? { done: 0, total } : null);
   const [open, setOpen] = useState<string>('');
-  const [tab, setTab] = useState<'new' | 'all' | 'venue'>('new');
+  const [tab, setTab] = useState<'new' | 'all' | 'venue' | 'tpl'>('new');
   const stop = useRef<AbortController | null>(null);
   const read = Object.keys(readPastLib().items).length;
 
@@ -32,6 +32,8 @@ export default function PastLibrary({ total, connected, flash }: { total: number
   const newTotal = Object.values(idx.newByCourse).reduce((s, a) => s + a.length, 0);
   const actTotal = idx.acts.filter(a => !a.summary).length;
   const pct = prog && prog.total ? Math.round(prog.done / prog.total * 100) : 0;
+  const cov = useMemo(() => templateCoverage(), [idx]);
+  const gaps = cov.filter(r => r.real > 0 && !r.tpl);
 
   return (
     <section aria-label="คลังกิจกรรมจากงานจริง" className="rounded-2xl border border-brand-mist bg-white">
@@ -59,8 +61,8 @@ export default function PastLibrary({ total, connected, flash }: { total: number
       )}
       {idx.programs > 0 && (
         <div className="border-t border-brand-mist">
-          <div role="tablist" aria-label="มุมมอง" className="flex gap-4 px-4 border-b border-brand-mist text-[13.5px]">
-            {([['new', `ยังไม่อยู่ในคลังเว็บ (${newTotal})`], ['all', `ใช้บ่อยที่สุด`], ['venue', `ที่พักที่ใช้จริง (${idx.venues.length})`]] as const).map(([id, label]) => (
+          <div role="tablist" aria-label="มุมมอง" className="flex gap-4 px-4 overflow-x-auto whitespace-nowrap border-b border-brand-mist text-[13.5px]">
+            {([['new', `ยังไม่อยู่ในคลังเว็บ (${newTotal})`], ['all', `ใช้บ่อยที่สุด`], ['venue', `ที่พักที่ใช้จริง (${idx.venues.length})`], ['tpl', `แม่แบบที่ควรเพิ่ม (${gaps.length})`]] as const).map(([id, label]) => (
               <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)} className={`tap py-2.5 -mb-px border-b-2 ${tab === id ? 'border-brand-navy text-brand-ink font-semibold' : 'border-transparent text-sub'}`}>{label}</button>
             ))}
           </div>
@@ -95,6 +97,20 @@ export default function PastLibrary({ total, connected, flash }: { total: number
                   <span className="text-sub text-[12.5px] tabular-nums">{a.progs} งาน · ล่าสุด {shortDate(a.last)}{a.cat ? '' : ' · ยังไม่อยู่ในคลังเว็บ'}</span>
                 </li>))}
             </ol>
+          )}
+          {tab === 'tpl' && (
+            <div className="p-4">
+              <p className="text-[13px] text-sub mb-2">หลักสูตร × ระยะเวลาที่ขายจริง เทียบกับแม่แบบของทีม — แถวที่ "ยังไม่มีแม่แบบ" ตอนนี้ระบบจัดกำหนดการให้อัตโนมัติ ถ้าขายบ่อย ควรตั้งโปรแกรมจริงที่ดีที่สุดเป็นแม่แบบ (ในขั้นกำหนดการกด "ใช้เป็นแม่แบบ" ได้ทันที)</p>
+              <div className="overflow-x-auto"><table className="w-full text-[13px]">
+                <thead><tr className="text-left text-sub border-b border-brand-mist"><th className="py-1.5 pr-2 font-medium">หลักสูตร</th><th className="py-1.5 pr-2 font-medium">ระยะเวลา</th><th className="py-1.5 pr-2 font-medium text-right">ขายจริง</th><th className="py-1.5 pr-2 font-medium">ล่าสุด</th><th className="py-1.5 font-medium">แม่แบบทีม</th></tr></thead>
+                <tbody>{cov.filter(r => r.real > 0).map(r => (
+                  <tr key={r.course + r.dk} className="border-b border-brand-mist/60">
+                    <td className="py-1.5 pr-2">{courseName(r.course)}</td><td className="py-1.5 pr-2">{DUR_LABEL[r.dk] || r.dk}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums">{r.real}</td><td className="py-1.5 pr-2 whitespace-nowrap">{shortDate(r.last)}</td>
+                    <td className="py-1.5">{r.tpl ? `มี ${r.tpl} แบบ` : <span className="text-amber-800">ยังไม่มีแม่แบบ</span>}</td>
+                  </tr>))}</tbody>
+              </table></div>
+            </div>
           )}
           {tab === 'venue' && (
             <ul className="divide-y divide-brand-mist">
